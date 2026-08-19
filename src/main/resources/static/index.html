@@ -1,0 +1,58 @@
+<<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Acceso al Sistema</title>
+</head>
+<body>
+    <div class="card">
+        <h2>Iniciar Sesión</h2>
+        <form id="loginForm" onsubmit="iniciarSesion(event)">
+            <div class="input-group">
+                <input type="text" id="usuario" placeholder="Usuario" required>
+            </div>
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Contraseña" required>
+            </div>
+            <button type="submit">Ingresar</button>
+        </form>
+        <p id="mensaje" class="mensaje"></p>
+    </div>
+
+    <script>
+        function iniciarSesion(event) {
+            event.preventDefault();
+
+            const usuario = document.getElementById('usuario').value;
+            const password = document.getElementById('password').value;
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario, password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const mensajeElem = document.getElementById('mensaje');
+                if (data.success) {
+                    mensajeElem.style.color = 'green';
+                    mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 1000);
+                } else {
+                    mensajeElem.style.color = 'red';
+                    mensajeElem.innerText = data.message;
+                }
+            })
+            .catch(() => {
+                const mensajeElem = document.getElementById('mensaje');
+                mensajeElem.style.color = 'red';
+                mensajeElem.innerText = 'Error al conectar con el servidor.';
+            });
+        }
+    </script>
+</body>
+</html>
