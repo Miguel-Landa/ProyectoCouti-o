@@ -3,108 +3,395 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
     <title>Punto de Venta - Sistema MRX</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: #0d0d0d;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Contenedor Principal */
+        .app-container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* Barra Superior */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #141414;
+            border: 1px solid #262626;
+            padding: 16px 24px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .topbar h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .btn-logout {
+            background: transparent;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        /* Layout Principal: 2 Columnas (Sidebar Izquierdo + Panel Derecho) */
+        .workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        /* Sidebar Izquierda: Solo los 3 botones */
+        .sidebar-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #141414;
+            border: 1px solid #262626;
+            padding: 20px;
+            border-radius: 4px;
+        }
+
+        .sidebar-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #737373;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .nav-btn {
+            width: 100%;
+            padding: 14px 16px;
+            background: #1a1a1a;
+            color: #a3a3a3;
+            border: 1px solid #262626;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: #262626;
+            color: #ffffff;
+            border-color: #404040;
+        }
+
+        .nav-btn.active {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+            font-weight: 600;
+        }
+
+        /* Panel Derecho: Área de Despliegue de Detalles y Formularios */
+        .main-panel {
+            background: #141414;
+            border: 1px solid #262626;
+            border-radius: 4px;
+            padding: 30px;
+            min-height: 520px;
+        }
+
+        .panel-header {
+            border-bottom: 1px solid #262626;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .panel-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .panel-header p {
+            font-size: 0.85rem;
+            color: #a3a3a3;
+            margin-top: 4px;
+        }
+
+        /* Formulario y Tablas de Venta */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            color: #a3a3a3;
+            font-weight: 500;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            background: #1f1f1f;
+            border: 1px solid #333333;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #ffffff;
+            background: #262626;
+        }
+
+        /* Tabla de Productos / Detalle de Costos */
+        .summary-box {
+            background: #1f1f1f;
+            border: 1px solid #262626;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 0.9rem;
+            color: #a3a3a3;
+            border-bottom: 1px solid #262626;
+        }
+
+        .summary-row.total {
+            border-bottom: none;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-top: 10px;
+            padding-top: 12px;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 14px;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.2s ease;
+        }
+
+        .btn-action:hover {
+            background: #e5e5e5;
+        }
+    </style>
 </head>
 <body>
 
-    <div class="dashboard-container">
-        <!-- Encabezado superior -->
+    <div class="app-container">
+        <!-- Barra Superior -->
         <div class="topbar">
-            <h1>🛍️ Punto de Venta y Cotizaciones</h1>
+            <h1>Punto de Venta y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Área de Trabajo Dividida (Split-Screen) -->
-        <div class="main-workspace">
-            <!-- Menú Lateral Izquierdo -->
-            <div class="sidebar-menu">
-                <div class="menu-card active" onclick="mostrarModuloVentas('venta', this)">
-                    <h3>Nueva Venta</h3>
-                    <p>Cobro en caja y tickets.</p>
-                </div>
-
-                <div class="menu-card" onclick="mostrarModuloVentas('catalogo', this)">
-                    <h3>Catálogo y Cotizaciones</h3>
-                    <p>Consulta de refacciones y artículos.</p>
-                </div>
-
-                <div class="menu-card" onclick="mostrarModuloVentas('clientes', this)">
-                    <h3>Historial de Clientes</h3>
-                    <p>Garantías y transacciones.</p>
-                </div>
+        <!-- Workspace Dividido -->
+        <div class="workspace">
+            
+            <!-- Izquierda: Solo los 3 botones de Navegación -->
+            <div class="sidebar-buttons">
+                <div class="sidebar-title">Módulos de Venta</div>
+                <button class="nav-btn active" onclick="cambiarVista('nueva-venta', this)">
+                    🛒 Nueva Venta
+                </button>
+                <button class="nav-btn" onclick="cambiarVista('cotizaciones', this)">
+                    📄 Cotizaciones
+                </button>
+                <button class="nav-btn" onclick="cambiarVista('historial', this)">
+                    📜 Historial de Ventas
+                </button>
             </div>
 
-            <!-- Panel de Despliegue / Contenido Derecho -->
-            <div class="content-panel" id="display-panel-ventas">
-                <h2>Nueva Venta</h2>
-                <p style="margin-bottom: 20px;">Generar factura, cobro en caja e impresión de tickets.</p>
-                <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
-                    <div>
-                        <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Cliente / RFC</label>
-                        <input type="text" placeholder="Ej. Carlos Mendoza">
-                    </div>
-                    <div>
-                        <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Código de Producto o Refacción</label>
-                        <input type="text" placeholder="Ej. REF-1002">
-                    </div>
-                    <button class="action-btn" style="margin-top: 10px;">Crear Factura</button>
-                </div>
+            <!-- Centro / Derecho: Despliegue de Detalles -->
+            <div class="main-panel" id="panel-contenido">
+                <!-- Se carga por defecto "Nueva Venta" -->
             </div>
+
         </div>
     </div>
 
     <script>
-        function mostrarModuloVentas(tipo, elemento) {
-            // Cambiar tarjeta activa en el menú lateral
-            const tarjetas = document.querySelectorAll('.menu-card');
-            tarjetas.forEach(t => t.classList.remove('active'));
-            elemento.classList.add('active');
+        function cambiarVista(vista, boton) {
+            // Actualizar estilo del botón activo a la izquierda
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            boton.classList.add('active');
 
-            const panel = document.getElementById('display-panel-ventas');
+            const panel = document.getElementById('panel-contenido');
 
-            if (tipo === 'venta') {
+            if (vista === 'nueva-venta') {
                 panel.innerHTML = `
-                    <h2>Nueva Venta</h2>
-                    <p style="margin-bottom: 20px;">Generar factura, cobro en caja e impresión de tickets.</p>
-                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
-                        <div>
-                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Cliente / RFC</label>
+                    <div class="panel-header">
+                        <h2>Nueva Venta</h2>
+                        <p>Selección de productos, cálculo de totales y cobro en caja.</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Cliente / Nombre</label>
                             <input type="text" placeholder="Ej. Carlos Mendoza">
                         </div>
-                        <div>
-                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Código de Producto o Refacción</label>
-                            <input type="text" placeholder="Ej. REF-1002">
+                        <div class="input-group">
+                            <label>Seleccionar Producto / Refacción</label>
+                            <select>
+                                <option>Aceite Motul 10W40 1L - $220.00</option>
+                                <option>Batería Hero 12V 7Ah - $850.00</option>
+                                <option>Balatas Delanteras Hunk 160R - $340.00</option>
+                                <option>Bujía NGK Iridium - $180.00</option>
+                            </select>
                         </div>
-                        <button class="action-btn" style="margin-top: 10px;">Crear Factura</button>
                     </div>
-                `;
-            } else if (tipo === 'catalogo') {
-                panel.innerHTML = `
-                    <h2>Catálogo y Cotizaciones</h2>
-                    <p style="margin-bottom: 20px;">Consultar disponibilidad de refacciones, vehículos o artículos.</p>
-                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
-                        <div>
-                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Buscar Producto</label>
-                            <input type="text" placeholder="Ej. Batería 12V / Aceite Motul">
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Cantidad</label>
+                            <input type="number" value="1" min="1">
                         </div>
-                        <button class="action-btn">Buscar Productos</button>
+                        <div class="input-group">
+                            <label>Método de Pago</label>
+                            <select>
+                                <option>Efectivo</option>
+                                <option>Tarjeta de Débito / Crédito</option>
+                                <option>Transferencia SPEI</option>
+                            </select>
+                        </div>
                     </div>
-                `;
-            } else if (tipo === 'clientes') {
-                panel.innerHTML = `
-                    <h2>Historial de Clientes</h2>
-                    <p style="margin-bottom: 20px;">Registro de transacciones, garantías y seguimiento a ventas.</p>
-                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
-                        <div>
-                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Buscar por Teléfono o Nombre</label>
-                            <input type="text" placeholder="2281234567">
+
+                    <!-- Detalle de Costos -->
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span>$220.00 MXN</span>
                         </div>
-                        <button class="action-btn">Ver Clientes</button>
+                        <div class="summary-row">
+                            <span>IVA (16%):</span>
+                            <span>$35.20 MXN</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total a Cobrar:</span>
+                            <span>$255.20 MXN</span>
+                        </div>
+                    </div>
+
+                    <button class="btn-action">Procesar Venta y Generar Ticket</button>
+                `;
+            } else if (vista === 'cotizaciones') {
+                panel.innerHTML = `
+                    <div class="panel-header">
+                        <h2>Cotizaciones y Disponibilidad</h2>
+                        <p>Consulta de refacciones en almacén y generación de presupuestos.</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Buscar en Catálogo</label>
+                            <input type="text" placeholder="Buscar por código o descripción...">
+                        </div>
+                        <div class="input-group">
+                            <label>Categoría</label>
+                            <select>
+                                <option>Todas las categorías</option>
+                                <option>Motor y Aceites</option>
+                                <option>Frenos y Suspensión</option>
+                                <option>Eléctrico y Baterías</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span>Batería Hero Hunk 160R (Stock: 8)</span>
+                            <span style="color:#ffffff; font-weight:600;">$850.00 MXN</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Kit Arrastre Piñón y Cadena 428H (Stock: 3)</span>
+                            <span style="color:#ffffff; font-weight:600;">$620.00 MXN</span>
+                        </div>
+                    </div>
+
+                    <button class="btn-action">Imprimir Cotización en PDF</button>
+                `;
+            } else if (vista === 'historial') {
+                panel.innerHTML = `
+                    <div class="panel-header">
+                        <h2>Historial de Ventas</h2>
+                        <p>Registro de transacciones recientes y consultas de garantía.</p>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label>Buscar Ticket o Cliente</label>
+                        <input type="text" placeholder="Ej. Ticket #1042 o cliente...">
+                    </div>
+
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span>Ticket #1042 - Carlos Mendoza (24/09/2026)</span>
+                            <span style="color:#ffffff;">$255.20 MXN</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Ticket #1041 - Roberto Silva (24/09/2026)</span>
+                            <span style="color:#ffffff;">$1,200.00 MXN</span>
+                        </div>
                     </div>
                 `;
             }
         }
+
+        // Cargar vista inicial
+        window.onload = function() {
+            cambiarVista('nueva-venta', document.querySelector('.nav-btn'));
+        };
     </script>
 </body>
 </html>
