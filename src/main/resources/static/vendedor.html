@@ -2,32 +2,109 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Módulo de Ventas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
+    <title>Punto de Venta - Sistema MRX</title>
 </head>
-<body class="dash-bg vendedor-theme">
+<body>
+
     <div class="dashboard-container">
-        <header class="topbar">
+        <!-- Encabezado superior -->
+        <div class="topbar">
             <h1>🛍️ Punto de Venta y Cotizaciones</h1>
-            <a href="/index.html" class="btn-logout">Cerrar Sesión</a>
-        </header>
-        <main class="grid-layout">
-            <div class="dash-card">
-                <h3>Nueva Ventas</h3>
-                <p>Generar factura, cobro en caja e impresión de tickets.</p>
-                <button class="action-btn">Crear Factura</button>
+            <a href="index.html" class="btn-logout">Cerrar Sesión</a>
+        </div>
+
+        <!-- Área de Trabajo Dividida (Split-Screen) -->
+        <div class="main-workspace">
+            <!-- Menú Lateral Izquierdo -->
+            <div class="sidebar-menu">
+                <div class="menu-card active" onclick="mostrarModuloVentas('venta', this)">
+                    <h3>Nueva Venta</h3>
+                    <p>Cobro en caja y tickets.</p>
+                </div>
+
+                <div class="menu-card" onclick="mostrarModuloVentas('catalogo', this)">
+                    <h3>Catálogo y Cotizaciones</h3>
+                    <p>Consulta de refacciones y artículos.</p>
+                </div>
+
+                <div class="menu-card" onclick="mostrarModuloVentas('clientes', this)">
+                    <h3>Historial de Clientes</h3>
+                    <p>Garantías y transacciones.</p>
+                </div>
             </div>
-            <div class="dash-card">
-                <h3>Catálogo y Cotizaciones</h3>
-                <p>Consultar disponibilidad de refacciones, vehículos o artículos.</p>
-                <button class="action-btn">Buscar Productos</button>
+
+            <!-- Panel de Despliegue / Contenido Derecho -->
+            <div class="content-panel" id="display-panel-ventas">
+                <h2>Nueva Venta</h2>
+                <p style="margin-bottom: 20px;">Generar factura, cobro en caja e impresión de tickets.</p>
+                <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                    <div>
+                        <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Cliente / RFC</label>
+                        <input type="text" placeholder="Ej. Carlos Mendoza">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Código de Producto o Refacción</label>
+                        <input type="text" placeholder="Ej. REF-1002">
+                    </div>
+                    <button class="action-btn" style="margin-top: 10px;">Crear Factura</button>
+                </div>
             </div>
-            <div class="dash-card">
-                <h3>Historial de Clientes</h3>
-                <p>Registro de transacciones, garantías y seguimiento a ventas.</p>
-                <button class="action-btn">Ver Clientes</button>
-            </div>
-        </main>
+        </div>
     </div>
+
+    <script>
+        function mostrarModuloVentas(tipo, elemento) {
+            // Cambiar tarjeta activa en el menú lateral
+            const tarjetas = document.querySelectorAll('.menu-card');
+            tarjetas.forEach(t => t.classList.remove('active'));
+            elemento.classList.add('active');
+
+            const panel = document.getElementById('display-panel-ventas');
+
+            if (tipo === 'venta') {
+                panel.innerHTML = `
+                    <h2>Nueva Venta</h2>
+                    <p style="margin-bottom: 20px;">Generar factura, cobro en caja e impresión de tickets.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Cliente / RFC</label>
+                            <input type="text" placeholder="Ej. Carlos Mendoza">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Código de Producto o Refacción</label>
+                            <input type="text" placeholder="Ej. REF-1002">
+                        </div>
+                        <button class="action-btn" style="margin-top: 10px;">Crear Factura</button>
+                    </div>
+                `;
+            } else if (tipo === 'catalogo') {
+                panel.innerHTML = `
+                    <h2>Catálogo y Cotizaciones</h2>
+                    <p style="margin-bottom: 20px;">Consultar disponibilidad de refacciones, vehículos o artículos.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Buscar Producto</label>
+                            <input type="text" placeholder="Ej. Batería 12V / Aceite Motul">
+                        </div>
+                        <button class="action-btn">Buscar Productos</button>
+                    </div>
+                `;
+            } else if (tipo === 'clientes') {
+                panel.innerHTML = `
+                    <h2>Historial de Clientes</h2>
+                    <p style="margin-bottom: 20px;">Registro de transacciones, garantías y seguimiento a ventas.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Buscar por Teléfono o Nombre</label>
+                            <input type="text" placeholder="2281234567">
+                        </div>
+                        <button class="action-btn">Ver Clientes</button>
+                    </div>
+                `;
+            }
+        }
+    </script>
 </body>
 </html>
