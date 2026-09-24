@@ -1,139 +1,360 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f0f2f5;
+/* ==========================================================================
+   SISTEMA MRX - HOJA DE ESTILOS GENERAL
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. IMPORTACIONES & REGLAS BASE
+   -------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    background: #0d0d0d;
+    color: #ffffff;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    padding: 20px;
 }
 
-/* Card de Login */
-.card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+
+/* --------------------------------------------------------------------------
+   2. ELEMENTOS REUTILIZABLES DE FORMULARIO & BOTONES
+   -------------------------------------------------------------------------- */
+input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #1f1f1f;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #ffffff;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+input::placeholder {
+    color: #666666;
+}
+
+input:focus {
+    border-color: #ffffff;
+    background: #262626;
+}
+
+.action-btn, 
+button[type="submit"], 
+.btn-submit {
+    display: inline-block;
+    padding: 12px 20px;
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
     text-align: center;
-    width: 320px;
+}
+
+.action-btn:hover, 
+button[type="submit"]:hover, 
+.btn-submit:hover {
+    background: #e5e5e5;
+}
+
+
+/* --------------------------------------------------------------------------
+   3. MÓDULO: LOGIN (index.html)
+   -------------------------------------------------------------------------- */
+.login-wrapper {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    background: #141414;
+    border-radius: 4px;
+    border: 1px solid #262626;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+}
+
+.login-image {
+    flex: 1.1;
+    background: #0f0f0f;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 30px;
+    border-right: 1px solid #262626;
+    text-align: center;
+}
+
+.logo-img {
+    max-width: 160px;
+    height: auto;
+    margin-bottom: 25px;
+    display: block;
+    border-radius: 6px;
+}
+
+.login-image h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.login-image p {
+    font-size: 0.85rem;
+    color: #a3a3a3;
+}
+
+.card {
+    flex: 1;
+    padding: 45px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #141414;
+}
+
+.card h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 25px;
+    text-align: center;
+    letter-spacing: 0.5px;
 }
 
 .input-group {
-    margin-bottom: 1.2rem;
+    margin-bottom: 18px;
 }
 
-input {
-    width: 100%;
-    padding: 0.8rem;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 1rem;
-}
-
-button {
-    width: 100%;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 0.8rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: bold;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
-
-.mensaje {
-    margin-top: 1.2rem;
-    font-weight: bold;
-}
-
-/* Dashboard Layout Base */
-.dash-bg {
+.input-group label {
     display: block;
-    min-height: 100vh;
+    font-size: 0.8rem;
+    color: #a3a3a3;
+    margin-bottom: 6px;
+    font-weight: 500;
 }
 
+.register-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #262626;
+    text-align: center;
+}
+
+.register-section p {
+    font-size: 0.82rem;
+    color: #888888;
+    margin-bottom: 12px;
+}
+
+.btn-register {
+    display: block;
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.btn-register:hover {
+    border-color: #ffffff;
+    background: #1f1f1f;
+}
+
+
+/* --------------------------------------------------------------------------
+   4. MÓDULO: REGISTRO DE CLIENTE (registro-cliente.html)
+   -------------------------------------------------------------------------- */
+.form-wrapper {
+    width: 100%;
+    max-width: 650px;
+    background: #141414;
+    border-radius: 4px;
+    border: 1px solid #262626;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    padding: 40px;
+}
+
+.header-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header-section h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.header-section p {
+    font-size: 0.85rem;
+    color: #a3a3a3;
+}
+
+.section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 20px 0 15px 0;
+    text-transform: uppercase;
+    border-bottom: 1px solid #262626;
+    padding-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.back-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    color: #888888;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.back-link:hover {
+    color: #ffffff;
+}
+
+
+/* --------------------------------------------------------------------------
+   5. MÓDULOS DE PANEL / DASHBOARD (Vendedor, Admin, Mecánico)
+   -------------------------------------------------------------------------- */
 .dashboard-container {
-    max-width: 1100px;
+    width: 100%;
+    max-width: 900px;
     margin: 0 auto;
-    padding: 2rem;
+    align-self: flex-start;
 }
 
+/* Encabezado del Dashboard */
 .topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.2rem 2rem;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-    margin-bottom: 2rem;
+    padding: 20px 25px;
+    background: #141414;
+    border-radius: 4px;
+    border: 1px solid #262626;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
 }
 
 .topbar h1 {
-    margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.5px;
 }
 
 .btn-logout {
     text-decoration: none;
-    background-color: #dc3545;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: bold;
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid #404040;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .btn-logout:hover {
-    background-color: #bd2130;
+    background: #ffffff;
+    color: #000000;
 }
 
-.grid-layout {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
+/* Lista de Tarjetas / Módulos en columna alineada a la izquierda */
+.grid-layout, 
+.modules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 600px;
 }
 
 .dash-card {
-    background: white;
-    padding: 1.8rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    background: #141414;
+    border: 1px solid #262626;
+    border-radius: 4px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.2s ease;
+}
+
+.dash-card:hover {
+    border-color: #404040;
 }
 
 .dash-card h3 {
-    margin-top: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 8px;
 }
 
-.action-btn {
-    margin-top: 1rem;
+.dash-card p {
+    font-size: 0.85rem;
+    color: #a3a3a3;
+    margin-bottom: 20px;
+    line-height: 1.4;
 }
 
-/* Temas por Rol */
-/* Admin: Azul Obscuro / Corporativo */
-.admin-theme { background-color: #e9ecef; }
-.admin-theme .topbar { border-left: 6px solid #343a40; }
-.admin-theme .action-btn { background-color: #343a40; }
-.admin-theme .action-btn:hover { background-color: #1d2124; }
 
-/* Vendedor: Verde / Comercial */
-.vendedor-theme { background-color: #e8f5e9; }
-.vendedor-theme .topbar { border-left: 6px solid #2e7d32; }
-.vendedor-theme .action-btn { background-color: #2e7d32; }
-.vendedor-theme .action-btn:hover { background-color: #1b5e20; }
+/* --------------------------------------------------------------------------
+   6. MENSAJES Y RESPONSIVIDAD
+   -------------------------------------------------------------------------- */
+.mensaje {
+    margin-top: 15px;
+    font-size: 0.85rem;
+    text-align: center;
+    font-weight: 500;
+}
 
-/* Mecánico: Naranja / Industrial */
-.mecanico-theme { background-color: #fff3e0; }
-.mecanico-theme .topbar { border-left: 6px solid #e65100; }
-.mecanico-theme .action-btn { background-color: #e65100; }
-.mecanico-theme .action-btn:hover { background-color: #b71c1c; }
+@media (max-width: 768px) {
+    .login-wrapper {
+        flex-direction: column;
+    }
+    .login-image {
+        padding: 30px 20px;
+        border-right: none;
+        border-bottom: 1px solid #262626;
+    }
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+    .modules-list {
+        max-width: 100%;
+    }
+}
