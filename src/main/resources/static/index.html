@@ -22,10 +22,10 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #080c14;
+            background: #000000;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.18) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.12) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 255, 255, 0.04) 0px, transparent 50%);
             font-family: 'Inter', system-ui, sans-serif;
             padding: 20px;
         }
@@ -34,25 +34,25 @@
             display: flex;
             width: 100%;
             max-width: 860px;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(16px);
+            background: #0f0f0f;
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 255, 255, 0.05);
             overflow: hidden;
         }
 
-        /* Sección de la Imagen Lateral */
+        /* Sección de la Imagen Lateral Monocromática */
         .login-image {
             flex: 1;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85)), url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(15, 15, 15, 0.88)), url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
             background-blend-mode: overlay;
+            filter: grayscale(100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 40px 30px;
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
         }
 
@@ -62,7 +62,7 @@
             margin: 0 auto 20px auto;
             display: block;
             border-radius: 12px;
-            filter: drop-shadow(0 0 15px rgba(37, 99, 235, 0.4));
+            filter: grayscale(100%) drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
             transition: transform 0.3s ease;
         }
 
@@ -76,29 +76,28 @@
             color: #ffffff;
             letter-spacing: 2px;
             margin-bottom: 8px;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
 
         .image-content p {
             font-size: 0.85rem;
-            color: #94a3b8;
+            color: #a3a3a3;
             letter-spacing: 0.5px;
         }
 
-        /* Sección del Formulario Futurista */
+        /* Formulario */
         .card {
             flex: 1;
             padding: 50px 40px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            background: rgba(15, 23, 42, 0.6);
+            background: #141414;
         }
 
         .card h2 {
             font-family: 'Orbitron', sans-serif;
             font-size: 1.5rem;
-            color: #f8fafc;
+            color: #ffffff;
             margin-bottom: 30px;
             letter-spacing: 1.5px;
             position: relative;
@@ -112,9 +111,9 @@
             bottom: -8px;
             width: 40px;
             height: 3px;
-            background: linear-gradient(90deg, #2563eb, #7c3aed);
+            background: #ffffff;
             border-radius: 2px;
-            box-shadow: 0 0 10px #2563eb;
+            box-shadow: 0 0 8px #ffffff;
         }
 
         .input-group {
@@ -124,48 +123,48 @@
         .input-group input {
             width: 100%;
             padding: 14px 18px;
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: #222222;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 10px;
             font-size: 0.95rem;
-            color: #f1f5f9;
+            color: #ffffff;
             outline: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             letter-spacing: 0.5px;
         }
 
         .input-group input::placeholder {
-            color: #64748b;
+            color: #737373;
         }
 
         .input-group input:focus {
-            background: rgba(30, 41, 59, 0.95);
-            border-color: #3b82f6;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.35), inset 0 0 8px rgba(59, 130, 246, 0.1);
+            background: #2a2a2a;
+            border-color: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
         }
 
         button[type="submit"] {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-            color: #ffffff;
+            background: #ffffff;
+            color: #000000;
             border: none;
             border-radius: 10px;
             font-family: 'Orbitron', sans-serif;
             font-size: 0.9rem;
-            font-weight: 600;
+            font-weight: 800;
             letter-spacing: 2px;
             text-transform: uppercase;
             cursor: pointer;
             transition: all 0.3s ease;
             margin-top: 10px;
-            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
         }
 
         button[type="submit"]:hover {
-            background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
-            box-shadow: 0 6px 25px rgba(37, 99, 235, 0.6);
+            background: #e5e5e5;
+            box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
             transform: translateY(-2px);
         }
 
@@ -173,17 +172,17 @@
             transform: translateY(0);
         }
 
-        /* Bloque y Botón de Registro */
+        /* Bloque y Botón de Registro Monocromático */
         .register-section {
             margin-top: 25px;
             padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
             text-align: center;
         }
 
         .register-section p {
             font-size: 0.85rem;
-            color: #94a3b8;
+            color: #a3a3a3;
             margin-bottom: 12px;
             letter-spacing: 0.5px;
         }
@@ -192,9 +191,9 @@
             display: block;
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            background: transparent;
             color: #ffffff;
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            border: 1px solid #ffffff;
             border-radius: 10px;
             font-family: 'Orbitron', sans-serif;
             font-size: 0.85rem;
@@ -204,13 +203,13 @@
             text-decoration: none;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
             box-sizing: border-box;
         }
 
         .btn-register:hover {
-            background: linear-gradient(135deg, #047857 0%, #059669 100%);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
             transform: translateY(-2px);
         }
 
@@ -262,10 +261,10 @@
 
             <p id="mensaje" class="mensaje"></p>
 
-            <!-- SECCIÓN DE REGISTRO PARA CLIENTES -->
+            <!-- SECCIÓN DE REGISTRO PARA CLIENTES CON NAVEGACIÓN DIRECTA -->
             <div class="register-section">
                 <p>¿Eres cliente y deseas agendar una cita?</p>
-                <a href="registro-cliente.html" class="btn-register">
+                <a href="registro-cliente.html" class="btn-register" onclick="window.location.href='registro-cliente.html'; return false;">
                     Registrarse como Cliente
                 </a>
             </div>
@@ -288,19 +287,19 @@
             .then(data => {
                 const mensajeElem = document.getElementById('mensaje');
                 if (data.success) {
-                    mensajeElem.style.color = '#34d399';
+                    mensajeElem.style.color = '#ffffff';
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
                     setTimeout(() => {
                         window.location.href = data.redirectUrl;
                     }, 1000);
                 } else {
-                    mensajeElem.style.color = '#f87171';
+                    mensajeElem.style.color = '#a3a3a3';
                     mensajeElem.innerText = data.message;
                 }
             })
             .catch(() => {
                 const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#f87171';
+                mensajeElem.style.color = '#a3a3a3';
                 mensajeElem.innerText = 'Error al conectar con el servidor.';
             });
         }
