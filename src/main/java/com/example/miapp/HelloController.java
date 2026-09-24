@@ -54,17 +54,17 @@ public class HelloController {
         if ("admin".equals(request.getUsuario()) && "admin123".equals(request.getPassword())) {
             response.put("success", true);
             response.put("role", "ADMIN");
-            response.put("redirectUrl", "/admin.html");
+            response.put("redirectUrl", "admin.html");
             return ResponseEntity.ok(response);
         } else if ("ventas".equals(request.getUsuario()) && "vendedor123".equals(request.getPassword())) {
             response.put("success", true);
             response.put("role", "VENDEDOR");
-            response.put("redirectUrl", "/vendedor.html");
+            response.put("redirectUrl", "vendedor.html");
             return ResponseEntity.ok(response);
         } else if ("mecanico".equals(request.getUsuario()) && "mecanico123".equals(request.getPassword())) {
             response.put("success", true);
             response.put("role", "MECANICO");
-            response.put("redirectUrl", "/mecanico.html");
+            response.put("redirectUrl", "mecanico.html");
             return ResponseEntity.ok(response);
         } else {
             response.put("success", false);
@@ -78,7 +78,6 @@ public class HelloController {
     public ResponseEntity<Map<String, Object>> registrarCliente(@RequestBody ClienteRequest request) {
         Map<String, Object> response = new HashMap<>();
         
-        // Simulación de guardado exitoso
         response.put("success", true);
         response.put("message", "Cliente y motocicleta registrados con éxito.");
         return ResponseEntity.ok(response);
