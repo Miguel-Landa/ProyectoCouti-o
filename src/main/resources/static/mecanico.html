@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -15,27 +15,92 @@
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Módulos ordenados hacia la izquierda en columna -->
-        <div class="modules-list">
-            <div class="dash-card">
-                <h3>Órdenes de Trabajo</h3>
-                <p>Consultar vehículos/módulos ingresados a revisión o afinación.</p>
-                <a href="#" class="action-btn">Ver Pendientes</a>
+        <!-- Área de Trabajo Dividida (Split-Screen) -->
+        <div class="main-workspace">
+            <!-- Menú Lateral Izquierdo -->
+            <div class="sidebar-menu">
+                <div class="menu-card active" onclick="mostrarModuloMecanico('ordenes', this)">
+                    <h3>Órdenes de Trabajo</h3>
+                    <p>Revisión y mantenimiento.</p>
+                </div>
+
+                <div class="menu-card" onclick="mostrarModuloMecanico('diagnostico', this)">
+                    <h3>Diagnóstico Técnico</h3>
+                    <p>Reemplazo de piezas y checklist.</p>
+                </div>
+
+                <div class="menu-card" onclick="mostrarModuloMecanico('inventario', this)">
+                    <h3>Inventario e Insumos</h3>
+                    <p>Refacciones y herramientas.</p>
+                </div>
             </div>
 
-            <div class="dash-card">
-                <h3>Diagnóstico Técnico</h3>
-                <p>Registrar hallazgos, reemplazo de piezas y checklist de control.</p>
-                <a href="#" class="action-btn">Crear Diagnóstico</a>
-            </div>
-
-            <div class="dash-card">
-                <h3>Inventario de Herramientas</h3>
-                <p>Control de refacciones solicitadas e insumos del taller.</p>
-                <a href="#" class="action-btn">Consultar Insumos</a>
+            <!-- Panel de Despliegue / Contenido Derecho -->
+            <div class="content-panel" id="display-panel-mecanico">
+                <h2>Órdenes de Trabajo</h2>
+                <p style="margin-bottom: 20px;">Consultar vehículos/módulos ingresados a revisión o afinación.</p>
+                <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                    <div>
+                        <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Número de Orden o Placas</label>
+                        <input type="text" placeholder="Ej. OT-104 o 12ABC3">
+                    </div>
+                    <button class="action-btn" style="margin-top: 10px;">Ver Pendientes</button>
+                </div>
             </div>
         </div>
     </div>
 
+    <script>
+        function mostrarModuloMecanico(tipo, elemento) {
+            // Cambiar tarjeta activa en el menú lateral
+            const tarjetas = document.querySelectorAll('.menu-card');
+            tarjetas.forEach(t => t.classList.remove('active'));
+            elemento.classList.add('active');
+
+            const panel = document.getElementById('display-panel-mecanico');
+
+            if (tipo === 'ordenes') {
+                panel.innerHTML = `
+                    <h2>Órdenes de Trabajo</h2>
+                    <p style="margin-bottom: 20px;">Consultar vehículos/módulos ingresados a revisión o afinación.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Número de Orden o Placas</label>
+                            <input type="text" placeholder="Ej. OT-104 o 12ABC3">
+                        </div>
+                        <button class="action-btn" style="margin-top: 10px;">Ver Pendientes</button>
+                    </div>
+                `;
+            } else if (tipo === 'diagnostico') {
+                panel.innerHTML = `
+                    <h2>Diagnóstico Técnico</h2>
+                    <p style="margin-bottom: 20px;">Registrar hallazgos, reemplazo de piezas y checklist de control.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">ID de Servicio / Motocicleta</label>
+                            <input type="text" placeholder="Ej. MOTO-882">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Observaciones Técnicas</label>
+                            <input type="text" placeholder="Ej. Cambio de balatas y afinación básica">
+                        </div>
+                        <button class="action-btn" style="margin-top: 10px;">Crear Diagnóstico</button>
+                    </div>
+                `;
+            } else if (tipo === 'inventario') {
+                panel.innerHTML = `
+                    <h2>Inventario e Insumos</h2>
+                    <p style="margin-bottom: 20px;">Control de refacciones solicitadas e insumos del taller.</p>
+                    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                        <div>
+                            <label style="display:block; font-size: 0.8rem; color:#a3a3a3; margin-bottom:5px;">Buscar Herramienta o Pieza</label>
+                            <input type="text" placeholder="Ej. Llave dinamométrica / Filtro de aire">
+                        </div>
+                        <button class="action-btn">Consultar Insumos</button>
+                    </div>
+                `;
+            }
+        }
+    </script>
 </body>
 </html>
