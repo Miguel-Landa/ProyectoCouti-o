@@ -1,20 +1,21 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <title>Registro de Cliente - Sistema MRX</title>
-    <!-- Fuentes Google: Orbitron e Inter -->
+    <!-- Fuente Inter limpia y profesional -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -22,21 +23,17 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #0a0a0a;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.05) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(255, 255, 255, 0.03) 0px, transparent 50%);
-            font-family: 'Inter', system-ui, sans-serif;
+            background: #0d0d0d;
             padding: 20px;
         }
 
         .form-wrapper {
             width: 100%;
-            max-width: 680px;
-            background: #171717;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            max-width: 650px;
+            background: #141414;
+            border-radius: 4px;
+            border: 1px solid #262626;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
             padding: 40px;
         }
 
@@ -46,28 +43,27 @@
         }
 
         .header-section h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.6rem;
+            font-size: 1.4rem;
+            font-weight: 600;
             color: #ffffff;
-            letter-spacing: 2px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
 
         .header-section p {
             font-size: 0.85rem;
             color: #a3a3a3;
-            letter-spacing: 0.5px;
         }
 
         .section-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
             color: #ffffff;
-            letter-spacing: 1px;
             margin: 20px 0 15px 0;
             text-transform: uppercase;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid #262626;
             padding-bottom: 6px;
+            letter-spacing: 0.5px;
         }
 
         .grid-2 {
@@ -83,54 +79,48 @@
         .input-group label {
             display: block;
             font-size: 0.8rem;
-            color: #d4d4d4;
+            color: #a3a3a3;
             margin-bottom: 6px;
-            letter-spacing: 0.5px;
+            font-weight: 500;
         }
 
         .input-group input {
             width: 100%;
-            padding: 12px 16px;
-            background: #262626;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
+            padding: 12px 14px;
+            background: #1f1f1f;
+            border: 1px solid #333333;
+            border-radius: 4px;
             font-size: 0.9rem;
             color: #ffffff;
             outline: none;
-            transition: all 0.3s ease;
+            transition: border-color 0.2s ease;
         }
 
         .input-group input::placeholder {
-            color: #737373;
+            color: #666666;
         }
 
         .input-group input:focus {
-            background: #303030;
             border-color: #ffffff;
-            box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+            background: #262626;
         }
 
         .btn-submit {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             background: #ffffff;
             color: #000000;
             border: none;
-            border-radius: 10px;
-            font-family: 'Orbitron', sans-serif;
+            border-radius: 4px;
             font-size: 0.9rem;
-            font-weight: 800;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.2s ease;
             margin-top: 15px;
         }
 
         .btn-submit:hover {
             background: #e5e5e5;
-            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
         }
 
         .back-link {
@@ -138,9 +128,9 @@
             text-align: center;
             margin-top: 20px;
             font-size: 0.85rem;
-            color: #a3a3a3;
+            color: #888888;
             text-decoration: none;
-            transition: color 0.3s ease;
+            transition: color 0.2s ease;
         }
 
         .back-link:hover {
@@ -168,7 +158,7 @@
 
     <div class="form-wrapper">
         <div class="header-section">
-            <h2>REGISTRO DE CLIENTE</h2>
+            <h2>Registro de Cliente</h2>
             <p>Ingresa tus datos para registrarte y agendar tu cita de servicio.</p>
         </div>
 
@@ -238,18 +228,18 @@
                 const mensajeElem = document.getElementById('mensaje');
                 if (data.success) {
                     mensajeElem.style.color = '#ffffff';
-                    mensajeElem.innerText = '¡Registro completado! Redirigiendo a la agenda de citas...';
+                    mensajeElem.innerText = '¡Registro completado! Redirigiendo...';
                     setTimeout(() => {
-                        window.location.href = 'agendar-cita.html';
+                        window.location.href = 'index.html';
                     }, 1500);
                 } else {
-                    mensajeElem.style.color = '#a3a3a3';
+                    mensajeElem.style.color = '#f87171';
                     mensajeElem.innerText = data.message || 'Error al completar el registro.';
                 }
             })
             .catch(() => {
                 const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#a3a3a3';
+                mensajeElem.style.color = '#f87171';
                 mensajeElem.innerText = 'Error al conectar con el servidor.';
             });
         }
