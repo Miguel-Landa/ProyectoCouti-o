@@ -17,19 +17,17 @@
         }
 
         body {
-            background-color: #0d0d0d;
-            color: #ffffff;
+            background-color: #0d0d0d !important;
+            color: #ffffff !important;
             min-height: 100vh;
             padding: 20px;
         }
 
-        /* Contenedor Principal */
         .app-container {
             max-width: 1300px;
             margin: 0 auto;
         }
 
-        /* Barra Superior */
         .topbar {
             display: flex;
             justify-content: space-between;
@@ -64,7 +62,6 @@
             color: #000000;
         }
 
-        /* Layout Principal: 2 Columnas (Sidebar Izquierdo + Panel Derecho) */
         .workspace {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -72,7 +69,6 @@
             align-items: start;
         }
 
-        /* Sidebar Izquierda: Botón de Navegación */
         .sidebar-buttons {
             display: flex;
             flex-direction: column;
@@ -105,7 +101,6 @@
             cursor: pointer;
         }
 
-        /* Panel Derecho */
         .main-panel {
             background: #141414;
             border: 1px solid #262626;
@@ -132,7 +127,6 @@
             margin-top: 4px;
         }
 
-        /* Formulario */
         .form-section-title {
             font-size: 0.85rem;
             text-transform: uppercase;
@@ -244,7 +238,7 @@
                 </div>
 
                 <form id="mantenimientoForm" onsubmit="guardarMantenimiento(event)">
-                    <!-- Paso 1: Validación de Cita / Vehículo -->
+                    <!-- Paso 1: Búsqueda/Validación Cita -->
                     <div class="form-section-title">1. Búsqueda y Validación de Cita</div>
                     <div class="form-grid">
                         <div class="input-group">
@@ -260,7 +254,7 @@
                         </div>
                     </div>
 
-                    <!-- Paso 2: Registro de Diagnóstico y Kilometraje -->
+                    <!-- Paso 2: Diagnóstico e Inspección -->
                     <div class="form-section-title">2. Diagnóstico Técnico e Inspección</div>
                     <div class="form-grid">
                         <div class="input-group">
@@ -269,7 +263,7 @@
                         </div>
                         <div class="input-group">
                             <label>Fallas Reportadas por el Cliente</label>
-                            <input type="text" id="fallas" placeholder="Ej. Ruidos en freno delantero y falta de potencia" required>
+                            <input type="text" id="fallas" placeholder="Ej. Ruidos en freno delantero" required>
                         </div>
                     </div>
 
@@ -278,7 +272,7 @@
                         <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
                     </div>
 
-                    <!-- Paso 3: Selección de Refacciones Requeridas -->
+                    <!-- Paso 3: Refacciones -->
                     <div class="form-section-title">3. Refacciones Requeridas (Verificación de Stock)</div>
                     <div class="form-grid">
                         <div class="input-group">
@@ -287,7 +281,6 @@
                                 <option value="balatas">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
                                 <option value="aceite">Aceite Motul 10W40 1L (Stock Disponible)</option>
                                 <option value="bujia">Bujía NGK Iridium (Stock Disponible)</option>
-                                <option value="filtro">Filtro de Aire Alto Flujo (Stock Disponible)</option>
                             </select>
                         </div>
                         <div class="input-group">
@@ -299,7 +292,6 @@
                     <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
                 </form>
 
-                <!-- Mensaje / Alerta requerida por el caso de uso -->
                 <div id="alertaExito" class="alert-box">
                     ✓ Orden de mantenimiento registrada correctamente.
                 </div>
