@@ -1,16 +1,20 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <title>Bienvenido al sistema MRX</title>
+    <!-- Fuentes Google: Orbitron e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -18,127 +22,206 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background: #080c14;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.18) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.12) 0px, transparent 50%);
+            font-family: 'Inter', system-ui, sans-serif;
             padding: 20px;
         }
 
         .login-wrapper {
             display: flex;
             width: 100%;
-            max-width: 850px;
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            max-width: 860px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(37, 99, 235, 0.15);
             overflow: hidden;
         }
 
         /* Sección de la Imagen Lateral */
         .login-image {
             flex: 1;
-            background: url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85)), url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+            background-blend-mode: overlay;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
+            justify-content: center;
+            align-items: center;
             padding: 40px 30px;
-            position: relative;
-            color: #ffffff;
-        }
-
-        .login-image::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(to top, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.2));
-        }
-
-        .image-content {
-            position: relative;
-            z-index: 1;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
             text-align: center;
         }
 
-        /* Estilo para ajustar el Logo */
         .logo-img {
             max-width: 150px;
             height: auto;
-            margin: 0 auto 15px auto;
+            margin: 0 auto 20px auto;
             display: block;
-            border-radius: 8px;
-            filter: drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.5));
+            border-radius: 12px;
+            filter: drop-shadow(0 0 15px rgba(37, 99, 235, 0.4));
+            transition: transform 0.3s ease;
+        }
+
+        .logo-img:hover {
+            transform: scale(1.04);
         }
 
         .image-content h2 {
-            font-size: 1.8rem;
-            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem;
+            color: #ffffff;
+            letter-spacing: 2px;
             margin-bottom: 8px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
 
         .image-content p {
-            font-size: 0.9rem;
-            opacity: 0.85;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
         }
 
-        /* Sección de la Tarjeta del Formulario */
+        /* Sección del Formulario Futurista */
         .card {
             flex: 1;
             padding: 50px 40px;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            background: rgba(15, 23, 42, 0.6);
         }
 
         .card h2 {
-            font-size: 1.75rem;
-            color: #0f172a;
-            margin-bottom: 25px;
-            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #f8fafc;
+            margin-bottom: 30px;
+            letter-spacing: 1.5px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .card h2::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -8px;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #2563eb, #7c3aed);
+            border-radius: 2px;
+            box-shadow: 0 0 10px #2563eb;
         }
 
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 22px;
         }
 
         .input-group input {
             width: 100%;
-            padding: 12px 16px;
-            border: 1.5px solid #cbd5e1;
-            border-radius: 8px;
+            padding: 14px 18px;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 10px;
             font-size: 0.95rem;
-            transition: all 0.3s ease;
+            color: #f1f5f9;
             outline: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input::placeholder {
+            color: #64748b;
         }
 
         .input-group input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+            background: rgba(30, 41, 59, 0.95);
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.35), inset 0 0 8px rgba(59, 130, 246, 0.1);
+            transform: translateY(-2px);
         }
 
         button[type="submit"] {
             width: 100%;
-            padding: 12px;
-            background: #2563eb;
+            padding: 14px;
+            background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
             color: #ffffff;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
             font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
             margin-top: 10px;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
         }
 
         button[type="submit"]:hover {
-            background: #1d4ed8;
+            background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+            box-shadow: 0 6px 25px rgba(37, 99, 235, 0.6);
+            transform: translateY(-2px);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+
+        /* Bloque y Botón de Registro */
+        .register-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+        }
+
+        .register-section p {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-register {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: #ffffff;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            box-sizing: border-box;
+        }
+
+        .btn-register:hover {
+            background: linear-gradient(135deg, #047857 0%, #059669 100%);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+            transform: translateY(-2px);
         }
 
         .mensaje {
-            margin-top: 15px;
-            font-size: 0.9rem;
+            margin-top: 20px;
+            font-size: 0.85rem;
             text-align: center;
             font-weight: 500;
+            letter-spacing: 0.5px;
         }
 
-        /* Adaptación para pantallas pequeñas */
         @media (max-width: 768px) {
             .login-wrapper {
                 flex-direction: column;
@@ -147,7 +230,7 @@
                 display: none;
             }
             .card {
-                padding: 35px 25px;
+                padding: 40px 25px;
             }
         }
     </style>
@@ -166,17 +249,26 @@
 
         <!-- Formulario -->
         <div class="card">
-            <h2>Iniciar Sesión</h2>
+            <h2>INICIAR SESIÓN</h2>
             <form id="loginForm" onsubmit="iniciarSesion(event)">
                 <div class="input-group">
-                    <input type="text" id="usuario" placeholder="Usuario" required>
+                    <input type="text" id="usuario" placeholder="Usuario" autocomplete="off" required>
                 </div>
                 <div class="input-group">
                     <input type="password" id="password" placeholder="Contraseña" required>
                 </div>
                 <button type="submit">Ingresar</button>
             </form>
+
             <p id="mensaje" class="mensaje"></p>
+
+            <!-- SECCIÓN DE REGISTRO PARA CLIENTES -->
+            <div class="register-section">
+                <p>¿Eres cliente y deseas agendar una cita?</p>
+                <a href="registro-cliente.html" class="btn-register">
+                    Registrarse como Cliente
+                </a>
+            </div>
         </div>
     </div>
 
@@ -196,19 +288,19 @@
             .then(data => {
                 const mensajeElem = document.getElementById('mensaje');
                 if (data.success) {
-                    mensajeElem.style.color = '#16a34a';
+                    mensajeElem.style.color = '#34d399';
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
                     setTimeout(() => {
                         window.location.href = data.redirectUrl;
                     }, 1000);
                 } else {
-                    mensajeElem.style.color = '#dc2626';
+                    mensajeElem.style.color = '#f87171';
                     mensajeElem.innerText = data.message;
                 }
             })
             .catch(() => {
                 const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#dc2626';
+                mensajeElem.style.color = '#f87171';
                 mensajeElem.innerText = 'Error al conectar con el servidor.';
             });
         }
