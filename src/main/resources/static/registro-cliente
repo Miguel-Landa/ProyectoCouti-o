@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Registro de Cliente - Sistema MRX</title>
+    <!-- Fuentes Google: Orbitron e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #0a0a0a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 255, 255, 0.03) 0px, transparent 50%);
+            font-family: 'Inter', system-ui, sans-serif;
+            padding: 20px;
+        }
+
+        .form-wrapper {
+            width: 100%;
+            max-width: 680px;
+            background: #171717;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            padding: 40px;
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header-section h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem;
+            color: #ffffff;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .header-section p {
+            font-size: 0.85rem;
+            color: #a3a3a3;
+            letter-spacing: 0.5px;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            color: #ffffff;
+            letter-spacing: 1px;
+            margin: 20px 0 15px 0;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            padding-bottom: 6px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 18px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #d4d4d4;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #262626;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #ffffff;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input::placeholder {
+            color: #737373;
+        }
+
+        .input-group input:focus {
+            background: #303030;
+            border-color: #ffffff;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .btn-submit:hover {
+            background: #e5e5e5;
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #a3a3a3;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #ffffff;
+        }
+
+        .mensaje {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @media (max-width: 600px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .form-wrapper {
+                padding: 25px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="form-wrapper">
+        <div class="header-section">
+            <h2>REGISTRO DE CLIENTE</h2>
+            <p>Ingresa tus datos para registrarte y agendar tu cita de servicio.</p>
+        </div>
+
+        <form id="registroForm" onsubmit="registrarCliente(event)">
+            <div class="section-title">Información Personal</div>
+            <div class="input-group">
+                <label for="nombre">Nombre Completo</label>
+                <input type="text" id="nombre" placeholder="Ej. Carlos Mendoza" required>
+            </div>
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label for="telefono">Teléfono / WhatsApp</label>
+                    <input type="tel" id="telefono" placeholder="2281234567" required>
+                </div>
+                <div class="input-group">
+                    <label for="correo">Correo Electrónico</label>
+                    <input type="email" id="correo" placeholder="cliente@correo.com" required>
+                </div>
+            </div>
+
+            <div class="section-title">Datos de la Motocicleta</div>
+            <div class="grid-2">
+                <div class="input-group">
+                    <label for="marca">Marca</label>
+                    <input type="text" id="marca" placeholder="Ej. Hero, Italika, Honda" required>
+                </div>
+                <div class="input-group">
+                    <label for="modelo">Modelo y Año</label>
+                    <input type="text" id="modelo" placeholder="Ej. Hunk 160R (2024)" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="placas">Placas (Opcional)</label>
+                <input type="text" id="placas" placeholder="Ej. 12ABC3">
+            </div>
+
+            <button type="submit" class="btn-submit">Completar Registro</button>
+        </form>
+
+        <p id="mensaje" class="mensaje"></p>
+
+        <a href="index.html" class="back-link">← Volver al Inicio de Sesión</a>
+    </div>
+
+    <script>
+        function registrarCliente(event) {
+            event.preventDefault();
+
+            const clienteData = {
+                nombre: document.getElementById('nombre').value,
+                telefono: document.getElementById('telefono').value,
+                correo: document.getElementById('correo').value,
+                marca: document.getElementById('marca').value,
+                modelo: document.getElementById('modelo').value,
+                placas: document.getElementById('placas').value
+            };
+
+            fetch('/api/clientes/registro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(clienteData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                const mensajeElem = document.getElementById('mensaje');
+                if (data.success) {
+                    mensajeElem.style.color = '#ffffff';
+                    mensajeElem.innerText = '¡Registro completado! Redirigiendo a la agenda de citas...';
+                    setTimeout(() => {
+                        window.location.href = 'agendar-cita.html';
+                    }, 1500);
+                } else {
+                    mensajeElem.style.color = '#a3a3a3';
+                    mensajeElem.innerText = data.message || 'Error al completar el registro.';
+                }
+            })
+            .catch(() => {
+                const mensajeElem = document.getElementById('mensaje');
+                mensajeElem.style.color = '#a3a3a3';
+                mensajeElem.innerText = 'Error al conectar con el servidor.';
+            });
+        }
+    </script>
+</body>
+</html>
