@@ -255,8 +255,18 @@
                 if (data.success) {
                     mensajeElem.style.color = '#ffffff';
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
+                    
                     setTimeout(() => {
-                        window.location.href = data.redirectUrl;
+                        const userLower = usuario.toLowerCase();
+                        if (userLower.includes('mecanico')) {
+                            window.location.href = 'mecanico.html';
+                        } else if (userLower.includes('admin')) {
+                            window.location.href = 'admin.html';
+                        } else if (userLower.includes('vendedor')) {
+                            window.location.href = 'vendedor.html';
+                        } else {
+                            window.location.href = data.redirectUrl;
+                        }
                     }, 1000);
                 } else {
                     mensajeElem.style.color = '#f87171';
