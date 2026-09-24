@@ -2,32 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel de Administración</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
+    <title>Panel de Administración - Sistema MRX</title>
 </head>
-<body class="dash-bg admin-theme">
+<body>
+
     <div class="dashboard-container">
-        <header class="topbar">
+        <!-- Encabezado superior -->
+        <div class="topbar">
             <h1>⚙️ Panel del Administrador</h1>
-            <a href="/index.html" class="btn-logout">Cerrar Sesión</a>
-        </header>
-        <main class="grid-layout">
+            <a href="index.html" class="btn-logout">Cerrar Sesión</a>
+        </div>
+
+        <!-- Módulos ordenados hacia la izquierda en columna -->
+        <div class="modules-list">
             <div class="dash-card">
                 <h3>Gestión de Usuarios</h3>
                 <p>Dar de alta, modificar permisos o suspender cuentas del personal.</p>
-                <button class="action-btn">Gestionar Personal</button>
+                <a href="#" class="action-btn">Gestionar Personal</a>
             </div>
+
             <div class="dash-card">
                 <h3>Auditoría e Informes</h3>
                 <p>Revisar registros globales de operaciones, métricas y balance general.</p>
-                <button class="action-btn">Ver Informes</button>
+                <a href="#" class="action-btn">Ver Informes</a>
             </div>
+
             <div class="dash-card">
                 <h3>Configuración del Sistema</h3>
                 <p>Parámetros del servidor, respaldos de base de datos y seguridad.</p>
-                <button class="action-btn">Configurar</button>
+                <a href="#" class="action-btn">Configurar</a>
             </div>
-        </main>
+        </div>
     </div>
+
 </body>
 </html>
