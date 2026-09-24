@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <title>Bienvenido al sistema MRX</title>
-    <!-- Fuentes Google: Orbitron e Inter -->
+    <!-- Fuente Inter limpia y profesional -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -22,203 +23,175 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #000000;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(255, 255, 255, 0.04) 0px, transparent 50%);
-            font-family: 'Inter', system-ui, sans-serif;
+            background: #0d0d0d;
             padding: 20px;
         }
 
         .login-wrapper {
             display: flex;
             width: 100%;
-            max-width: 860px;
-            background: #0f0f0f;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 255, 255, 0.05);
+            max-width: 900px;
+            background: #141414;
+            border-radius: 6px;
+            border: 1px solid #262626;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
             overflow: hidden;
         }
 
-        /* Sección de la Imagen Lateral Monocromática */
+        /* Sección de la Imagen Lateral a Color */
         .login-image {
-            flex: 1;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(15, 15, 15, 0.88)), url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
-            background-blend-mode: overlay;
-            filter: grayscale(100%);
+            flex: 1.1;
+            background: url('https://images.unsplash.com/photo-1486006920555-c77dce18193b?q=80&w=1000&auto=format&fit=crop') center/cover no-repeat;
+            position: relative;
+            min-height: 480px;
+        }
+
+        .login-image-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent 60%);
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 30px;
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        .logo-img {
-            max-width: 150px;
-            height: auto;
-            margin: 0 auto 20px auto;
-            display: block;
-            border-radius: 12px;
-            filter: grayscale(100%) drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
-            transition: transform 0.3s ease;
-        }
-
-        .logo-img:hover {
-            transform: scale(1.04);
-        }
-
-        .image-content h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.6rem;
+            justify-content: flex-end;
+            padding: 30px;
             color: #ffffff;
-            letter-spacing: 2px;
-            margin-bottom: 8px;
         }
 
-        .image-content p {
-            font-size: 0.85rem;
-            color: #a3a3a3;
+        .login-image-overlay h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 6px;
             letter-spacing: 0.5px;
         }
 
-        /* Formulario */
+        .login-image-overlay p {
+            font-size: 0.85rem;
+            color: #d4d4d4;
+        }
+
+        /* Formulario Limpio y Estructurado */
         .card {
             flex: 1;
-            padding: 50px 40px;
+            padding: 45px 40px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             background: #141414;
         }
 
-        .card h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.5rem;
-            color: #ffffff;
-            margin-bottom: 30px;
-            letter-spacing: 1.5px;
-            position: relative;
-            display: inline-block;
+        .header-logo {
+            text-align: center;
+            margin-bottom: 25px;
         }
 
-        .card h2::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: -8px;
-            width: 40px;
-            height: 3px;
-            background: #ffffff;
-            border-radius: 2px;
-            box-shadow: 0 0 8px #ffffff;
+        .logo-img {
+            max-width: 130px;
+            height: auto;
+            margin: 0 auto 15px auto;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .card h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 25px;
+            text-align: center;
+            letter-spacing: 0.5px;
         }
 
         .input-group {
-            margin-bottom: 22px;
+            margin-bottom: 18px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #a3a3a3;
+            margin-bottom: 6px;
+            font-weight: 500;
         }
 
         .input-group input {
             width: 100%;
-            padding: 14px 18px;
-            background: #222222;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            font-size: 0.95rem;
+            padding: 12px 14px;
+            background: #1f1f1f;
+            border: 1px solid #333333;
+            border-radius: 4px;
+            font-size: 0.9rem;
             color: #ffffff;
             outline: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            letter-spacing: 0.5px;
+            transition: border-color 0.2s ease;
         }
 
         .input-group input::placeholder {
-            color: #737373;
+            color: #666666;
         }
 
         .input-group input:focus {
-            background: #2a2a2a;
             border-color: #ffffff;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+            background: #262626;
         }
 
         button[type="submit"] {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             background: #ffffff;
             color: #000000;
             border: none;
-            border-radius: 10px;
-            font-family: 'Orbitron', sans-serif;
+            border-radius: 4px;
             font-size: 0.9rem;
-            font-weight: 800;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+            transition: background 0.2s ease;
+            margin-top: 8px;
         }
 
         button[type="submit"]:hover {
             background: #e5e5e5;
-            box-shadow: 0 6px 25px rgba(255, 255, 255, 0.4);
-            transform: translateY(-2px);
         }
 
-        button[type="submit"]:active {
-            transform: translateY(0);
-        }
-
-        /* Bloque y Botón de Registro Monocromático */
+        /* Sección de Registro Cuadrada */
         .register-section {
             margin-top: 25px;
             padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            border-top: 1px solid #262626;
             text-align: center;
         }
 
         .register-section p {
-            font-size: 0.85rem;
-            color: #a3a3a3;
+            font-size: 0.82rem;
+            color: #888888;
             margin-bottom: 12px;
-            letter-spacing: 0.5px;
         }
 
         .btn-register {
             display: block;
             width: 100%;
-            padding: 12px;
+            padding: 11px;
             background: transparent;
             color: #ffffff;
-            border: 1px solid #ffffff;
-            border-radius: 10px;
-            font-family: 'Orbitron', sans-serif;
+            border: 1px solid #404040;
+            border-radius: 4px;
             font-size: 0.85rem;
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
+            font-weight: 500;
             text-decoration: none;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             box-sizing: border-box;
         }
 
         .btn-register:hover {
-            background: #ffffff;
-            color: #000000;
-            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
-            transform: translateY(-2px);
+            border-color: #ffffff;
+            background: #1f1f1f;
         }
 
         .mensaje {
-            margin-top: 20px;
+            margin-top: 15px;
             font-size: 0.85rem;
             text-align: center;
             font-weight: 500;
-            letter-spacing: 0.5px;
         }
 
         @media (max-width: 768px) {
@@ -229,7 +202,7 @@
                 display: none;
             }
             .card {
-                padding: 40px 25px;
+                padding: 35px 25px;
             }
         }
     </style>
@@ -237,34 +210,39 @@
 <body>
 
     <div class="login-wrapper">
-        <!-- Panel de Imagen con el Logo -->
+        <!-- Panel de Imagen Lateral a Color -->
         <div class="login-image">
-            <div class="image-content">
-                <img src="logo.jpg" alt="Logo MRX" class="logo-img">
+            <div class="login-image-overlay">
                 <h2>Sistema MRX</h2>
                 <p>Gestión y control de taller de mantenimiento.</p>
             </div>
         </div>
 
-        <!-- Formulario -->
+        <!-- Formulario de Acceso -->
         <div class="card">
-            <h2>INICIAR SESIÓN</h2>
+            <div class="header-logo">
+                <img src="logo.jpg" alt="Logo MRX" class="logo-img">
+            </div>
+            
+            <h2>Inicio de Sesión</h2>
+
             <form id="loginForm" onsubmit="iniciarSesion(event)">
                 <div class="input-group">
-                    <input type="text" id="usuario" placeholder="Usuario" autocomplete="off" required>
+                    <label for="usuario">Usuario</label>
+                    <input type="text" id="usuario" placeholder="Ingresa tu usuario" autocomplete="off" required>
                 </div>
                 <div class="input-group">
-                    <input type="password" id="password" placeholder="Contraseña" required>
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
                 </div>
-                <button type="submit">Ingresar</button>
+                <button type="submit">Iniciar sesión</button>
             </form>
 
             <p id="mensaje" class="mensaje"></p>
 
-            <!-- SECCIÓN DE REGISTRO PARA CLIENTES CON NAVEGACIÓN DIRECTA -->
             <div class="register-section">
                 <p>¿Eres cliente y deseas agendar una cita?</p>
-                <a href="registro-cliente.html" class="btn-register" onclick="window.location.href='registro-cliente.html'; return false;">
+                <a href="registro-cliente.html" class="btn-register">
                     Registrarse como Cliente
                 </a>
             </div>
@@ -293,13 +271,13 @@
                         window.location.href = data.redirectUrl;
                     }, 1000);
                 } else {
-                    mensajeElem.style.color = '#a3a3a3';
+                    mensajeElem.style.color = '#f87171';
                     mensajeElem.innerText = data.message;
                 }
             })
             .catch(() => {
                 const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#a3a3a3';
+                mensajeElem.style.color = '#f87171';
                 mensajeElem.innerText = 'Error al conectar con el servidor.';
             });
         }
