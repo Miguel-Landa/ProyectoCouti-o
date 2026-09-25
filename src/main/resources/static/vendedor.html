@@ -188,6 +188,7 @@
         .summary-row {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 10px 0;
             font-size: 0.9rem;
             color: #a3a3a3;
@@ -223,7 +224,23 @@
             background: #e5e5e5;
         }
 
-        /* Estilos del Historial e Items Clickeables */
+        .btn-add-item {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-add-item:hover {
+            background: #ffffff;
+            color: #000000;
+        }
+
         .ticket-item {
             display: flex;
             justify-content: space-between;
@@ -265,7 +282,30 @@
             color: #22c55e;
         }
 
-        /* Modal para Ver Detalle y Eliminar */
+        .badge-cotizacion {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .badge-venta {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
         .modal-overlay {
             display: none;
             position: fixed;
@@ -281,7 +321,7 @@
             border: 1px solid #262626;
             border-radius: 6px;
             width: 100%;
-            max-width: 500px;
+            max-width: 550px;
             padding: 25px;
         }
 
@@ -322,21 +362,29 @@
             text-align: center;
             margin-top: 15px;
         }
+
+        .btn-remove-item {
+            color: #ef4444;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .btn-remove-item:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- Barra Superior -->
         <div class="topbar">
             <h1>Punto de Venta y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Workspace Dividido -->
         <div class="workspace">
-            
-            <!-- Izquierda: Menú de Vendedor -->
             <div class="sidebar-buttons">
                 <div class="sidebar-title">Módulos de Venta</div>
                 <button class="nav-btn active" onclick="cambiarVistaVendedor('venta', this)">
@@ -350,32 +398,28 @@
                 </button>
             </div>
 
-            <!-- Panel Derecho Principal -->
             <div class="main-panel" id="panel-contenido-vendedor">
             </div>
-
         </div>
     </div>
 
-    <!-- Modal Emergente de Detalle de Ticket -->
+    <!-- Modal Emergente de Detalle -->
     <div class="modal-overlay" id="modalDetalle">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
-                <h2 id="modalTicketTitulo">Detalle de Ticket</h2>
+                <h2 id="modalTicketTitulo">Detalle del Registro</h2>
                 <p id="modalTicketFecha">Fecha de emisión</p>
             </div>
             <div class="summary-box" id="modalDetalleContenido" style="margin-top:0;">
-                <!-- Rellenado por JS -->
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Ticket</button>
+                <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Registro</button>
                 <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Catálogo de Productos con código SKU, precio y stock
         const catalogoProductos = [
             { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, categoria: 'Motor y Aceites', stock: 15 },
             { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, categoria: 'Eléctrico y Baterías', stock: 8 },
@@ -383,12 +427,12 @@
             { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, categoria: 'Motor y Aceites', stock: 5 }
         ];
 
-        // Historial inicial de ventas
         let historialVentas = [
-            { id: 1042, cliente: 'Carlos Mendoza', producto: 'Aceite Motul 10W40 1L', cantidad: 1, subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' },
-            { id: 1041, cliente: 'Roberto Silva', producto: 'Batería Hero Hunk 160R (12V 7Ah)', cantidad: 1, subtotal: 850.00, iva: 136.00, total: 986.00, fecha: '24/09/2026', pago: 'Tarjeta' }
+            { id: 1042, cliente: 'Carlos Mendoza', tipo: 'VENTA', items: [{ producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' },
+            { id: 1041, cliente: 'Roberto Silva', tipo: 'COTIZACIÓN', items: [{ producto: 'Batería Hero Hunk 160R', cantidad: 1, precio: 850.00 }, { producto: 'Balatas Delanteras', cantidad: 2, precio: 180.00 }], subtotal: 1210.00, iva: 193.60, total: 1403.60, fecha: '24/09/2026', pago: 'Presupuesto' }
         ];
 
+        let itemsCotizacionActual = [];
         let ticketSeleccionadoId = null;
 
         function cambiarVistaVendedor(vista, boton) {
@@ -432,7 +476,7 @@
                                 <select id="ventaMetodoPago">
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Tarjeta">Tarjeta de Débito / Crédito</option>
-                                    <option value="Transferencia">Transferencia Spei</option>
+                                    <option value="Transferencia">Transferencia SPEI</option>
                                 </select>
                             </div>
                         </div>
@@ -460,42 +504,15 @@
                 recalcularTotalesVenta();
             } 
             else if (vista === 'cotizaciones') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Cotizaciones y Disponibilidad</h2>
-                        <p>Búsqueda en catálogo por código SKU, consulta de stock y detalles del producto.</p>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Buscar por Código SKU o Nombre</label>
-                            <input type="text" id="inputBuscarCodigo" placeholder="Ej. REF-101 o Aceite..." oninput="filtrarCotizaciones()">
-                        </div>
-                        <div class="input-group">
-                            <label>Categoría</label>
-                            <select id="selectCategoria" onchange="filtrarCotizaciones()">
-                                <option value="TODAS">Todas las categorías</option>
-                                <option value="Motor y Aceites">Motor y Aceites</option>
-                                <option value="Frenos y Suspensión">Frenos y Suspensión</option>
-                                <option value="Eléctrico y Baterías">Eléctrico y Baterías</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="summary-box" id="resultadoCatalogo">
-                        <!-- Rellenado por JS -->
-                    </div>
-
-                    <button class="btn-action" onclick="alert('Generando PDF de la cotización...')">Imprimir Cotización en PDF</button>
-                `;
-                filtrarCotizaciones();
+                itemsCotizacionActual = [];
+                renderizarModuloCotizaciones();
             } 
             else if (vista === 'historial') {
                 renderizarHistorialVentas();
             }
         }
 
-        /* --- LÓGICA DE NUEVA VENTA (CÁLCULO DINÁMICO) --- */
+        /* --- LÓGICA DE NUEVA VENTA --- */
         function recalcularTotalesVenta() {
             const prodId = document.getElementById('ventaProductoSelect').value;
             const cantidad = parseInt(document.getElementById('ventaCantidad').value) || 1;
@@ -528,8 +545,8 @@
             historialVentas.unshift({
                 id: nuevoId,
                 cliente: cliente,
-                producto: producto.nombre,
-                cantidad: cantidad,
+                tipo: 'VENTA',
+                items: [{ producto: producto.nombre, cantidad: cantidad, precio: producto.precio }],
                 subtotal: subtotal,
                 iva: iva,
                 total: total,
@@ -546,33 +563,197 @@
             }, 2000);
         }
 
+        /* --- LÓGICA DE COTIZACIONES MULTI-PRODUCTO --- */
+        function renderizarModuloCotizaciones() {
+            const panel = document.getElementById('panel-contenido-vendedor');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Cotizaciones y Presupuestos</h2>
+                    <p>Búsqueda de refacciones, agregación múltiple y registro de cotizaciones en el sistema.</p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Nombre del Cliente</label>
+                        <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
+                    </div>
+                    <div class="input-group">
+                        <label>Buscar / Seleccionar Refacción</label>
+                        <select id="selectCotizacionProducto">
+                            ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} MXN (Stock:${p.stock})</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="input-group" style="margin-bottom:0; flex:1;">
+                        <label>Cantidad</label>
+                        <input type="number" id="cotizacionCantidad" value="1" min="1">
+                    </div>
+                    <button class="btn-add-item" style="padding:12px 20px;" onclick="agregarProductoACotizacion()">+ Agregar a la Cotización</button>
+                </div>
+
+                <!-- Desglose Dinámico de Refacciones en la Cotización -->
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                        📋 Refacciones en la Cotización
+                    </h3>
+                    <div id="listaItemsCotizacion">
+                        <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>
+                    </div>
+
+                    <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                        <div class="summary-row"><span>Subtotal Refacciones:</span><span id="lblSubtotalCotiz">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>IVA (16%):</span><span id="lblIvaCotiz">$0.00 MXN</span></div>
+                        <div class="summary-row total"><span>Total Cotizado:</span><span id="lblTotalCotiz" style="color:#60a5fa;">$0.00 MXN</span></div>
+                    </div>
+                </div>
+
+                <button class="btn-action" onclick="guardarCotizaciónFinal()">💾 Guardar Cotización en Registro de Ventas</button>
+                <div id="alertaCotizacion" class="alert-box">✓ Cotización registrada correctamente en el historial.</div>
+            `;
+            actualizarTablaCotizacion();
+        }
+
+        function agregarProductoACotizacion() {
+            const prodId = document.getElementById('selectCotizacionProducto').value;
+            const cantidad = parseInt(document.getElementById('cotizacionCantidad').value) || 1;
+            const producto = catalogoProductos.find(p => p.id === prodId);
+
+            if (producto) {
+                const existe = itemsCotizacionActual.find(item => item.id === prodId);
+                if (existe) {
+                    existe.cantidad += cantidad;
+                } else {
+                    itemsCotizacionActual.push({
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: cantidad
+                    });
+                }
+                actualizarTablaCotizacion();
+            }
+        }
+
+        function removerItemCotizacion(id) {
+            itemsCotizacionActual = itemsCotizacionActual.filter(item => item.id !== id);
+            actualizarTablaCotizacion();
+        }
+
+        function actualizarTablaCotizacion() {
+            const contenedor = document.getElementById('listaItemsCotizacion');
+            if (!contenedor) return;
+
+            if (itemsCotizacionActual.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>';
+                document.getElementById('lblSubtotalCotiz').innerText = '$0.00 MXN';
+                document.getElementById('lblIvaCotiz').innerText = '$0.00 MXN';
+                document.getElementById('lblTotalCotiz').innerText = '$0.00 MXN';
+                return;
+            }
+
+            let subtotalTotal = 0;
+            let html = itemsCotizacionActual.map(item => {
+                const importe = item.precio * item.cantidad;
+                subtotalTotal += importe;
+                return `
+                    <div class="summary-row">
+                        <div>
+                            <span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
+                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <button class="btn-remove-item" onclick="removerItemCotizacion('${item.id}')">Quitar</button>
+                        </div>
+                        <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                    </div>
+                `;
+            }).join('');
+
+            const ivaTotal = subtotalTotal * 0.16;
+            const totalCotizado = subtotalTotal + ivaTotal;
+
+            contenedor.innerHTML = html;
+            document.getElementById('lblSubtotalCotiz').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIvaCotiz').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblTotalCotiz').innerText = '$' + totalCotizado.toFixed(2) + ' MXN';
+        }
+
+        function guardarCotizaciónFinal() {
+            const cliente = document.getElementById('cotizacionCliente').value || 'Cliente General';
+            if (itemsCotizacionActual.length === 0) {
+                alert('Agrega al menos una refacción para generar la cotización.');
+                return;
+            }
+
+            let subtotal = 0;
+            const itemsMapeados = itemsCotizacionActual.map(item => {
+                subtotal += (item.precio * item.cantidad);
+                return { producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
+            });
+
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
+            const nuevoId = Math.floor(2000 + Math.random() * 900);
+
+            historialVentas.unshift({
+                id: nuevoId,
+                cliente: cliente,
+                tipo: 'COTIZACIÓN',
+                items: itemsMapeados,
+                subtotal: subtotal,
+                iva: iva,
+                total: total,
+                fecha: new Date().toLocaleDateString(),
+                pago: 'Presupuesto'
+            });
+
+            const alerta = document.getElementById('alertaCotizacion');
+            alerta.style.display = 'block';
+            setTimeout(() => {
+                alerta.style.display = 'none';
+                itemsCotizacionActual = [];
+                renderizarModuloCotizaciones();
+            }, 2000);
+        }
+
         /* --- LÓGICA DE HISTORIAL DE VENTAS --- */
         function renderizarHistorialVentas() {
             const panel = document.getElementById('panel-contenido-vendedor');
 
-            let itemsHTML = historialVentas.map(t => `
-                <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
-                    <div class="ticket-info">
-                        <div class="ticket-title">Ticket #${t.id} - ${t.cliente}</div>
-                        <div class="ticket-sub">Fecha: ${t.fecha} | Producto: ${t.producto} (x${t.cantidad})</div>
+            let itemsHTML = historialVentas.map(t => {
+                const isCotiz = t.tipo === 'COTIZACIÓN';
+                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
+                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
+
+                return `
+                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                        <div class="ticket-info">
+                            <div class="ticket-title">
+                                #${t.id} - ${t.cliente}
+                                <span class="${badgeClass}">${t.tipo}</span>
+                            </div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                        </div>
+                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
                     </div>
-                    <div class="ticket-price">$${t.total.toFixed(2)} MXN</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Historial de Ventas</h2>
-                    <p>Registro de transacciones recientes. Haz clic en un ticket para ver el detalle o eliminarlo.</p>
+                    <h2>Historial de Ventas y Cotizaciones</h2>
+                    <p>Registro centralizado de transacciones y presupuestos guardados.</p>
                 </div>
 
                 <div class="input-group">
-                    <label>Buscar Ticket o Cliente</label>
-                    <input type="text" id="buscarTicketInput" placeholder="Ej. Ticket #1042 o cliente..." oninput="filtrarHistorial(this.value)">
+                    <label>Buscar Ticket, Cotización o Cliente</label>
+                    <input type="text" id="buscarTicketInput" placeholder="Ej. #1042 o Carlos Mendoza..." oninput="filtrarHistorial(this.value)">
                 </div>
 
                 <div id="listaTicketsContenedor">
-                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay ventas registradas.</p>'}
+                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay registros disponibles.</p>'}
                 </div>
             `;
         }
@@ -582,15 +763,27 @@
             if (!ticket) return;
 
             ticketSeleccionadoId = id;
-            document.getElementById('modalTicketTitulo').innerText = `Ticket #${ticket.id} - ${ticket.cliente}`;
-            document.getElementById('modalTicketFecha').innerText = `Emisión: ${ticket.fecha} | Pago: ${ticket.pago}`;
+            document.getElementById('modalTicketTitulo').innerText = `${ticket.tipo} #${ticket.id} - ${ticket.cliente}`;
+            document.getElementById('modalTicketFecha').innerText = `Emisión: ${ticket.fecha} | Estado: ${ticket.pago}`;
+
+            let itemsDesglose = ticket.items.map(it => `
+                <div class="summary-row">
+                    <span>${it.producto} (x${it.cantidad})</span>
+                    <span>$${(it.precio * it.cantidad).toFixed(2)} MXN</span>
+                </div>
+            `).join('');
 
             document.getElementById('modalDetalleContenido').innerHTML = `
-                <div class="summary-row"><span>Producto:</span><strong>${ticket.producto}</strong></div>
-                <div class="summary-row"><span>Cantidad:</span><strong>${ticket.cantidad} pza(s)</strong></div>
-                <div class="summary-row"><span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span></div>
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose de Refacciones:</h4>
+                ${itemsDesglose}
+                <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
+                    <span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span>
+                </div>
                 <div class="summary-row"><span>IVA (16%):</span><span>$${ticket.iva.toFixed(2)} MXN</span></div>
-                <div class="summary-row total"><span>Total Pagado:</span><span style="color:#22c55e;">$${ticket.total.toFixed(2)} MXN</span></div>
+                <div class="summary-row total">
+                    <span>Total ${ticket.tipo}:</span>
+                    <span style="color:${ticket.tipo === 'COTIZACIÓN' ? '#60a5fa' : '#22c55e'};">$${ticket.total.toFixed(2)} MXN</span>
+                </div>
             `;
 
             document.getElementById('modalDetalle').style.display = 'flex';
@@ -601,7 +794,7 @@
         }
 
         function confirmarEliminarTicket() {
-            if (confirm(`¿Está seguro de eliminar el Ticket #${ticketSeleccionadoId} del historial?`)) {
+            if (confirm(`¿Está seguro de eliminar el registro #${ticketSeleccionadoId}?`)) {
                 historialVentas = historialVentas.filter(t => t.id !== ticketSeleccionadoId);
                 cerrarModal();
                 renderizarHistorialVentas();
@@ -611,57 +804,31 @@
         function filtrarHistorial(query) {
             const q = query.toLowerCase();
             const filtrados = historialVentas.filter(t => 
-                t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.producto.toLowerCase().includes(q)
+                t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.tipo.toLowerCase().includes(q)
             );
 
-            let itemsHTML = filtrados.map(t => `
-                <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
-                    <div class="ticket-info">
-                        <div class="ticket-title">Ticket #${t.id} - ${t.cliente}</div>
-                        <div class="ticket-sub">Fecha: ${t.fecha} | Producto: ${t.producto} (x${t.cantidad})</div>
+            let itemsHTML = filtrados.map(t => {
+                const isCotiz = t.tipo === 'COTIZACIÓN';
+                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
+                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
+
+                return `
+                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                        <div class="ticket-info">
+                            <div class="ticket-title">
+                                #${t.id} - ${t.cliente}
+                                <span class="${badgeClass}">${t.tipo}</span>
+                            </div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                        </div>
+                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
                     </div>
-                    <div class="ticket-price">$${t.total.toFixed(2)} MXN</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             document.getElementById('listaTicketsContenedor').innerHTML = itemsHTML.length > 0 
                 ? itemsHTML 
-                : '<p style="color:#a3a3a3; text-align:center;">No se encontraron coincidencia.</p>';
-        }
-
-        /* --- LÓGICA DE COTIZACIONES Y BÚSQUEDA POR CÓDIGO --- */
-        function filtrarCotizaciones() {
-            const inputVal = document.getElementById('inputBuscarCodigo') ? document.getElementById('inputBuscarCodigo').value.trim().toLowerCase() : '';
-            const catVal = document.getElementById('selectCategoria') ? document.getElementById('selectCategoria').value : 'TODAS';
-
-            const filtrados = catalogoProductos.filter(p => {
-                const coincideQuery = p.sku.toLowerCase().includes(inputVal) || p.nombre.toLowerCase().includes(inputVal);
-                const coincideCat = catVal === 'TODAS' || p.categoria === catVal;
-                return coincideQuery && coincideCat;
-            });
-
-            const contenedor = document.getElementById('resultadoCatalogo');
-            if (!contenedor) return;
-
-            if (filtrados.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center;">No hay productos que coincidan con la búsqueda.</p>';
-                return;
-            }
-
-            let html = filtrados.map(p => `
-                <div class="summary-row" style="align-items: center; padding: 12px 0;">
-                    <div>
-                        <span style="background:#262626; color:#4ade80; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:8px;">${p.sku}</span>
-                        <strong style="color:#ffffff;">${p.nombre}</strong>
-                        <div style="font-size:0.78rem; color:#737373; margin-top:2px;">Categoría: ${p.categoria} | Stock disponible: <span style="color:#ffffff;">${p.stock} unidades</span></div>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="font-size:1rem; font-weight:700; color:#ffffff;">$${p.precio.toFixed(2)} MXN</span>
-                    </div>
-                </div>
-            `).join('');
-
-            contenedor.innerHTML = html;
+                : '<p style="color:#a3a3a3; text-align:center;">No se encontraron coincidencias.</p>';
         }
 
         window.onload = function() {
@@ -669,4 +836,4 @@
         };
     </script>
 </body>
-</html> 
+</html>
