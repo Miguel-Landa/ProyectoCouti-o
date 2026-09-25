@@ -223,7 +223,6 @@
             margin-top: 15px;
         }
 
-        /* Estilos limpios para la Tabla HTML */
         .table-container {
             width: 100%;
             overflow-x: auto;
@@ -300,16 +299,12 @@
 <body>
 
     <div class="app-container">
-        <!-- Barra Superior -->
         <div class="topbar">
             <h1>Taller y Servicio Técnico</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Workspace Dividido -->
         <div class="workspace">
-            
-            <!-- Izquierda: Módulos del Mecánico -->
             <div class="sidebar-buttons">
                 <div class="sidebar-title">Servicios de Taller</div>
                 <button class="nav-btn active" onclick="cambiarVistaMecanico('mantenimiento', this)">
@@ -320,18 +315,25 @@
                 </button>
             </div>
 
-            <!-- Centro / Derecho: Despliegue de Paneles -->
             <div class="main-panel" id="panel-contenido-mecanico">
-                <!-- Carga dinámicamente "Registro de Mantenimiento" -->
             </div>
-
         </div>
     </div>
 
     <script>
+        // Arreglo global de citas iniciales
+        let listaCitas = [
+            { folio: 'CITA-104', cliente: 'Carlos Mendoza', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
+            { folio: 'CITA-103', cliente: 'Roberto Silva', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
+            { folio: 'S-8821', cliente: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
+            { folio: 'CITA-101', cliente: 'Ana Martínez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa' }
+        ];
+
         function cambiarVistaMecanico(vista, boton) {
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            boton.classList.add('active');
+            if (boton) {
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                boton.classList.add('active');
+            }
 
             const panel = document.getElementById('panel-contenido-mecanico');
 
@@ -352,8 +354,8 @@
                             <div class="input-group">
                                 <label>Estado de Cita</label>
                                 <select id="estadoCita">
-                                    <option value="encontrada">Cita Previa Agendada (Validada)</option>
-                                    <option value="nueva">Sin Cita (Registro Rápido de Cliente)</option>
+                                    <option value="Cita Previa">Cita Previa Agendada (Validada)</option>
+                                    <option value="Sin Cita (Directa)">Sin Cita (Registro Rápido de Cliente)</option>
                                 </select>
                             </div>
                         </div>
@@ -380,14 +382,14 @@
                             <div class="input-group">
                                 <label>Seleccionar Refacción / Insumo</label>
                                 <select id="refaccion">
-                                    <option value="balatas">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
-                                    <option value="aceite">Aceite Motul 10W40 1L (Stock Disponible)</option>
-                                    <option value="bujia">Bujía NGK Iridium (Stock Disponible)</option>
+                                    <option value="Balatas Delanteras Hunk 160R">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
+                                    <option value="Aceite Motul 10W40 1L">Aceite Motul 10W40 1L (Stock Disponible)</option>
+                                    <option value="Bujía NGK Iridium">Bujía NGK Iridium (Stock Disponible)</option>
                                 </select>
                             </div>
                             <div class="input-group">
                                 <label>Cantidad Requerida</label>
-                                <input type="number" value="1" min="1">
+                                <input type="number" id="cantidadRefacion" value="1" min="1">
                             </div>
                         </div>
 
@@ -395,10 +397,25 @@
                     </form>
 
                     <div id="alertaExito" class="alert-box">
-                        ✓ Orden de mantenimiento registrada correctamente.
+                        ✓ Orden de mantenimiento registrada y guardada en el desglose de citas.
                     </div>
                 `;
             } else if (vista === 'citas') {
+                let filasHTML = listaCitas.map(cita => {
+                    const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
+                    return `
+                        <tr>
+                            <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
+                            <td>${cita.cliente}</td>
+                            <td>${cita.moto}</td>
+                            <td>${cita.placas}</td>
+                            <td>${cita.servicio}</td>
+                            <td><span class="${badgeClass}">${cita.modalidad}</span></td>
+                            <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender</button></td>
+                        </tr>
+                    `;
+                }).join('');
+
                 panel.innerHTML = `
                     <div class="panel-header">
                         <h2>Desglose de Citas y Registros de Clientes</h2>
@@ -419,42 +436,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td style="font-weight:600; color:#ffffff;">CITA-104</td>
-                                    <td>Carlos Mendoza</td>
-                                    <td>Hero Hunk 160R 4V</td>
-                                    <td>12ABC3</td>
-                                    <td>Afinación y cambio de balatas</td>
-                                    <td><span class="badge-previa">Cita Previa</span></td>
-                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-104')">Atender</button></td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight:600; color:#ffffff;">CITA-103</td>
-                                    <td>Roberto Silva</td>
-                                    <td>Italika FT150</td>
-                                    <td>98XYZ1</td>
-                                    <td>Revisión del sistema eléctrico</td>
-                                    <td><span class="badge-previa">Cita Previa</span></td>
-                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-103')">Atender</button></td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight:600; color:#ffffff;">S-8821</td>
-                                    <td>Miguel Landa</td>
-                                    <td>Hero Hunk 160R 4V</td>
-                                    <td>45DEF6</td>
-                                    <td>Cambio de aceite expres</td>
-                                    <td><span class="badge-directa">Sin Cita (Directa)</span></td>
-                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('S-8821')">Atender</button></td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight:600; color:#ffffff;">CITA-101</td>
-                                    <td>Ana Martínez</td>
-                                    <td>Yamaha FZ25</td>
-                                    <td>77GHI8</td>
-                                    <td>Mantenimiento general (10k km)</td>
-                                    <td><span class="badge-previa">Cita Previa</span></td>
-                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-101')">Atender</button></td>
-                                </tr>
+                                ${filasHTML}
                             </tbody>
                         </table>
                     </div>
@@ -463,20 +445,41 @@
         }
 
         function cargarCitaEnFormulario(folio) {
-            cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
+            const botonesNav = document.querySelectorAll('.nav-btn');
+            cambiarVistaMecanico('mantenimiento', botonesNav[0]);
             setTimeout(() => {
-                document.getElementById('busqueda').value = folio;
+                const inputBusqueda = document.getElementById('busqueda');
+                if (inputBusqueda) inputBusqueda.value = folio;
             }, 100);
         }
 
         function guardarMantenimiento(event) {
             event.preventDefault();
+
+            const busquedaVal = document.getElementById('busqueda').value;
+            const estadoCitaVal = document.getElementById('estadoCita').value;
+            const fallasVal = document.getElementById('fallas').value;
+
+            // Generar o usar el folio asignado
+            const nuevoFolio = busquedaVal ? busquedaVal.toUpperCase() : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+
+            // Agregar la nueva orden a la lista de citas
+            listaCitas.unshift({
+                folio: nuevoFolio,
+                cliente: 'Cliente Atendido',
+                moto: 'Motocicleta Ingresada',
+                placas: busquedaVal.includes('CITA') ? 'REG-MOTO' : busquedaVal.toUpperCase(),
+                servicio: fallasVal || 'Mantenimiento General',
+                modalidad: estadoCitaVal
+            });
+
             const alerta = document.getElementById("alertaExito");
             alerta.style.display = "block";
+
             setTimeout(() => { 
                 alerta.style.display = "none"; 
                 document.getElementById("mantenimientoForm").reset(); 
-            }, 3000);
+            }, 2500);
         }
 
         window.onload = function() {
