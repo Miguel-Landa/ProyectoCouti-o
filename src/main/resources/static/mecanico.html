@@ -91,14 +91,28 @@
         .nav-btn {
             width: 100%;
             padding: 14px 16px;
-            background: #ffffff;
-            color: #000000;
-            border: 1px solid #ffffff;
+            background: #1a1a1a;
+            color: #a3a3a3;
+            border: 1px solid #262626;
             border-radius: 4px;
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 500;
             text-align: left;
             cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: #262626;
+            color: #ffffff;
+            border-color: #404040;
+        }
+
+        .nav-btn.active {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+            font-weight: 600;
         }
 
         .main-panel {
@@ -132,7 +146,7 @@
             text-transform: uppercase;
             color: #ffffff;
             font-weight: 600;
-            margin: 25px 0 12px 0;
+            margin: 20px 0 12px 0;
             padding-bottom: 6px;
             border-bottom: 1px solid #262626;
             letter-spacing: 0.5px;
@@ -209,7 +223,7 @@
             margin-top: 15px;
         }
 
-        /* Estilos de la Tabla de Desglose de Citas */
+        /* Estilos limpios para la Tabla HTML */
         .table-container {
             width: 100%;
             overflow-x: auto;
@@ -218,14 +232,14 @@
             border-radius: 4px;
         }
 
-        .citas-table {
+        table.data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.85rem;
             text-align: left;
         }
 
-        .citas-table th {
+        table.data-table th {
             background: #1f1f1f;
             color: #a3a3a3;
             font-weight: 600;
@@ -233,14 +247,14 @@
             border-bottom: 1px solid #262626;
         }
 
-        .citas-table td {
+        table.data-table td {
             padding: 12px 14px;
             border-bottom: 1px solid #1f1f1f;
             color: #e5e5e5;
         }
 
-        .citas-table tr:last-child td {
-            border-bottom: none;
+        table.data-table tr:hover {
+            background: #1a1a1a;
         }
 
         .badge-previa {
@@ -264,6 +278,23 @@
             border: 1px solid rgba(234, 179, 8, 0.3);
             display: inline-block;
         }
+
+        .btn-select-cita {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-select-cita:hover {
+            background: #ffffff;
+            color: #000000;
+        }
     </style>
 </head>
 <body>
@@ -278,139 +309,166 @@
         <!-- Workspace Dividido -->
         <div class="workspace">
             
-            <!-- Izquierda: Módulo Mecánico -->
+            <!-- Izquierda: Módulos del Mecánico -->
             <div class="sidebar-buttons">
                 <div class="sidebar-title">Servicios de Taller</div>
-                <button class="nav-btn">🛠️ Registro de Mantenimiento</button>
+                <button class="nav-btn active" onclick="cambiarVistaMecanico('mantenimiento', this)">
+                    🛠️ Registro de Mantenimiento
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaMecanico('citas', this)">
+                    📋 Citas y Registro de Clientes
+                </button>
             </div>
 
-            <!-- Centro / Derecho: Formulario de Registro de Mantenimiento + Desglose de Citas -->
-            <div class="main-panel">
-                <div class="panel-header">
-                    <h2>Nuevo Servicio / Mantenimiento</h2>
-                    <p>Registro de ingreso de motocicleta, diagnóstico inicial y asignación de refacciones.</p>
-                </div>
-
-                <form id="mantenimientoForm" onsubmit="guardarMantenimiento(event)">
-                    <!-- Paso 1: Búsqueda/Validación Cita -->
-                    <div class="form-section-title">1. Búsqueda y Validación de Cita</div>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Folio de Cita o Placas de la Motocicleta</label>
-                            <input type="text" id="busqueda" placeholder="Ej. CITA-102 o 12ABC3" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Estado de Cita</label>
-                            <select id="estadoCita">
-                                <option value="encontrada">Cita Previa Agendada (Validada)</option>
-                                <option value="nueva">Sin Cita (Registro Rápido de Cliente)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Paso 2: Diagnóstico e Inspección -->
-                    <div class="form-section-title">2. Diagnóstico Técnico e Inspección</div>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Kilometraje Actual (km)</label>
-                            <input type="number" id="kilometraje" placeholder="Ej. 12500" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Fallas Reportadas por el Cliente</label>
-                            <input type="text" id="fallas" placeholder="Ej. Ruidos en freno delantero" required>
-                        </div>
-                    </div>
-
-                    <div class="input-group" style="margin-bottom: 16px;">
-                        <label>Diagnóstico Inicial del Mecánico</label>
-                        <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
-                    </div>
-
-                    <!-- Paso 3: Refacciones -->
-                    <div class="form-section-title">3. Refacciones Requeridas (Verificación de Stock)</div>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Seleccionar Refacción / Insumo</label>
-                            <select id="refaccion">
-                                <option value="balatas">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
-                                <option value="aceite">Aceite Motul 10W40 1L (Stock Disponible)</option>
-                                <option value="bujia">Bujía NGK Iridium (Stock Disponible)</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Cantidad Requerida</label>
-                            <input type="number" value="1" min="1">
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
-                </form>
-
-                <div id="alertaExito" class="alert-box">
-                    ✓ Orden de mantenimiento registrada correctamente.
-                </div>
-
-                <!-- Desglose de Citas Agendadas e Ingresadas al Taller -->
-                <div class="form-section-title" style="margin-top: 40px;">📋 Desglose de Citas e Ingresos al Taller</div>
-                <p style="font-size:0.85rem; color:#a3a3a3; margin-bottom: 10px;">
-                    Histórico reciente de citas registradas para consulta y validación de modalidad de ingreso.
-                </p>
-
-                <div class="table-container">
-                    <citas-table class="citas-table">
-                        <thead>
-                            <tr>
-                                <th>Folio / Cita</th>
-                                <th>Cliente</th>
-                                <th>Motocicleta</th>
-                                <th>Placas</th>
-                                <th>Motivo / Servicio</th>
-                                <th>Modalidad</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="font-weight:600; color:#ffffff;">CITA-104</td>
-                                <td>Carlos Mendoza</td>
-                                <td>Hero Hunk 160R 4V</td>
-                                <td>12ABC3</td>
-                                <td>Afinación y cambio de balatas</td>
-                                <td><span class="badge-previa">Cita Previa</span></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight:600; color:#ffffff;">CITA-103</td>
-                                <td>Roberto Silva</td>
-                                <td>Italika FT150</td>
-                                <td>98XYZ1</td>
-                                <td>Revisión del sistema eléctrico</td>
-                                <td><span class="badge-previa">Cita Previa</span></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight:600; color:#ffffff;">S-8821</td>
-                                <td>Miguel Landa</td>
-                                <td>Hero Hunk 160R 4V</td>
-                                <td>45DEF6</td>
-                                <td>Cambio de aceite expres</td>
-                                <td><span class="badge-directa">Sin Cita (Directa)</span></td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight:600; color:#ffffff;">CITA-101</td>
-                                <td>Ana Martínez</td>
-                                <td>Yamaha FZ25</td>
-                                <td>77GHI8</td>
-                                <td>Mantenimiento general (10k km)</td>
-                                <td><span class="badge-previa">Cita Previa</span></td>
-                            </tr>
-                        </tbody>
-                    </citas-table>
-                </div>
-
+            <!-- Centro / Derecho: Despliegue de Paneles -->
+            <div class="main-panel" id="panel-contenido-mecanico">
+                <!-- Carga dinámicamente "Registro de Mantenimiento" -->
             </div>
 
         </div>
     </div>
 
     <script>
+        function cambiarVistaMecanico(vista, boton) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            boton.classList.add('active');
+
+            const panel = document.getElementById('panel-contenido-mecanico');
+
+            if (vista === 'mantenimiento') {
+                panel.innerHTML = `
+                    <div class="panel-header">
+                        <h2>Nuevo Servicio / Mantenimiento</h2>
+                        <p>Registro de ingreso de motocicleta, diagnóstico inicial y asignación de refacciones.</p>
+                    </div>
+
+                    <form id="mantenimientoForm" onsubmit="guardarMantenimiento(event)">
+                        <div class="form-section-title">1. Búsqueda y Validación de Cita</div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Folio de Cita o Placas de la Motocicleta</label>
+                                <input type="text" id="busqueda" placeholder="Ej. CITA-104 o 12ABC3" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Estado de Cita</label>
+                                <select id="estadoCita">
+                                    <option value="encontrada">Cita Previa Agendada (Validada)</option>
+                                    <option value="nueva">Sin Cita (Registro Rápido de Cliente)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">2. Diagnóstico Técnico e Inspección</div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Kilometraje Actual (km)</label>
+                                <input type="number" id="kilometraje" placeholder="Ej. 12500" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Fallas Reportadas por el Cliente</label>
+                                <input type="text" id="fallas" placeholder="Ej. Ruidos en freno delantero" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 16px;">
+                            <label>Diagnóstico Inicial del Mecánico</label>
+                            <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
+                        </div>
+
+                        <div class="form-section-title">3. Refacciones Requeridas (Verificación de Stock)</div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Seleccionar Refacción / Insumo</label>
+                                <select id="refaccion">
+                                    <option value="balatas">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
+                                    <option value="aceite">Aceite Motul 10W40 1L (Stock Disponible)</option>
+                                    <option value="bujia">Bujía NGK Iridium (Stock Disponible)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Cantidad Requerida</label>
+                                <input type="number" value="1" min="1">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
+                    </form>
+
+                    <div id="alertaExito" class="alert-box">
+                        ✓ Orden de mantenimiento registrada correctamente.
+                    </div>
+                `;
+            } else if (vista === 'citas') {
+                panel.innerHTML = `
+                    <div class="panel-header">
+                        <h2>Desglose de Citas y Registros de Clientes</h2>
+                        <p>Visualización de citas agendadas desde la web y registros directos en caja.</p>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio / Cita</th>
+                                    <th>Cliente</th>
+                                    <th>Motocicleta</th>
+                                    <th>Placas</th>
+                                    <th>Servicio Solicitado</th>
+                                    <th>Modalidad</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:600; color:#ffffff;">CITA-104</td>
+                                    <td>Carlos Mendoza</td>
+                                    <td>Hero Hunk 160R 4V</td>
+                                    <td>12ABC3</td>
+                                    <td>Afinación y cambio de balatas</td>
+                                    <td><span class="badge-previa">Cita Previa</span></td>
+                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-104')">Atender</button></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600; color:#ffffff;">CITA-103</td>
+                                    <td>Roberto Silva</td>
+                                    <td>Italika FT150</td>
+                                    <td>98XYZ1</td>
+                                    <td>Revisión del sistema eléctrico</td>
+                                    <td><span class="badge-previa">Cita Previa</span></td>
+                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-103')">Atender</button></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600; color:#ffffff;">S-8821</td>
+                                    <td>Miguel Landa</td>
+                                    <td>Hero Hunk 160R 4V</td>
+                                    <td>45DEF6</td>
+                                    <td>Cambio de aceite expres</td>
+                                    <td><span class="badge-directa">Sin Cita (Directa)</span></td>
+                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('S-8821')">Atender</button></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600; color:#ffffff;">CITA-101</td>
+                                    <td>Ana Martínez</td>
+                                    <td>Yamaha FZ25</td>
+                                    <td>77GHI8</td>
+                                    <td>Mantenimiento general (10k km)</td>
+                                    <td><span class="badge-previa">Cita Previa</span></td>
+                                    <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('CITA-101')">Atender</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+
+        function cargarCitaEnFormulario(folio) {
+            cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
+            setTimeout(() => {
+                document.getElementById('busqueda').value = folio;
+            }, 100);
+        }
+
         function guardarMantenimiento(event) {
             event.preventDefault();
             const alerta = document.getElementById("alertaExito");
@@ -420,6 +478,10 @@
                 document.getElementById("mantenimientoForm").reset(); 
             }, 3000);
         }
+
+        window.onload = function() {
+            cambiarVistaMecanico('mantenimiento', document.querySelector('.nav-btn'));
+        };
     </script>
 </body>
 </html>
