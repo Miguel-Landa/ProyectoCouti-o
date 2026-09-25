@@ -278,6 +278,12 @@
             display: inline-block;
         }
 
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
         .btn-select-cita {
             background: #262626;
             color: #ffffff;
@@ -293,6 +299,23 @@
         .btn-select-cita:hover {
             background: #ffffff;
             color: #000000;
+        }
+
+        .btn-delete-cita {
+            background: rgba(220, 38, 38, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(220, 38, 38, 0.4);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-delete-cita:hover {
+            background: #dc2626;
+            color: #ffffff;
         }
     </style>
 </head>
@@ -321,7 +344,6 @@
     </div>
 
     <script>
-        // Arreglo global de citas iniciales
         let listaCitas = [
             { folio: 'CITA-104', cliente: 'Carlos Mendoza', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
             { folio: 'CITA-103', cliente: 'Roberto Silva', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
@@ -411,7 +433,12 @@
                             <td>${cita.placas}</td>
                             <td>${cita.servicio}</td>
                             <td><span class="${badgeClass}">${cita.modalidad}</span></td>
-                            <td><button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender</button></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-delete-cita" onclick="eliminarCita('${cita.folio}')">Eliminar</button>
+                                    <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender</button>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 }).join('');
@@ -432,7 +459,7 @@
                                     <th>Placas</th>
                                     <th>Servicio Solicitado</th>
                                     <th>Modalidad</th>
-                                    <th>Acción</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -445,12 +472,27 @@
         }
 
         function cargarCitaEnFormulario(folio) {
+            const citaEncontrada = listaCitas.find(c => c.folio === folio);
             const botonesNav = document.querySelectorAll('.nav-btn');
+            
             cambiarVistaMecanico('mantenimiento', botonesNav[0]);
+
             setTimeout(() => {
-                const inputBusqueda = document.getElementById('busqueda');
-                if (inputBusqueda) inputBusqueda.value = folio;
+                if (citaEncontrada) {
+                    document.getElementById('busqueda').value = citaEncontrada.folio + ' - ' + citaEncontrada.placas;
+                    document.getElementById('estadoCita').value = citaEncontrada.modalidad;
+                    document.getElementById('fallas').value = citaEncontrada.servicio;
+                    document.getElementById('diagnostico').value = 'Revisión previa iniciada para cliente ' + citaEncontrada.cliente + ' (' + citaEncontrada.moto + ').';
+                }
             }, 100);
+        }
+
+        function eliminarCita(folio) {
+            if (confirm('¿Está seguro de eliminar la cita ' + folio + '?')) {
+                listaCitas = listaCitas.filter(c => c.folio !== folio);
+                const botonesNav = document.querySelectorAll('.nav-btn');
+                cambiarVistaMecanico('citas', botonesNav[1]);
+            }
         }
 
         function guardarMantenimiento(event) {
@@ -460,10 +502,8 @@
             const estadoCitaVal = document.getElementById('estadoCita').value;
             const fallasVal = document.getElementById('fallas').value;
 
-            // Generar o usar el folio asignado
-            const nuevoFolio = busquedaVal ? busquedaVal.toUpperCase() : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+            const nuevoFolio = busquedaVal ? busquedaVal.split(' - ')[0].toUpperCase() : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
 
-            // Agregar la nueva orden a la lista de citas
             listaCitas.unshift({
                 folio: nuevoFolio,
                 cliente: 'Cliente Atendido',
