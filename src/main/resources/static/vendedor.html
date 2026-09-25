@@ -426,7 +426,6 @@
             <div class="summary-box" id="modalDetalleContenido" style="margin-top:0;">
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 20px; gap: 10px;" id="modalAcciones">
-                <!-- Botones inyectados por JS -->
             </div>
         </div>
     </div>
@@ -446,6 +445,7 @@
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
+        let idCotizacionEnProceso = null;
         let ticketSeleccionadoId = null;
 
         function cambiarVistaVendedor(vista, boton) {
@@ -468,14 +468,14 @@
             }
         }
 
-        /* --- LÓGICA DE NUEVA VENTA CON DETALLE MULTI-PRODUCTO Y STOCK --- */
+        /* --- LÓGICA DE NUEVA VENTA --- */
         function renderizarModuloVenta() {
             const panel = document.getElementById('panel-contenido-vendedor');
             let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Nueva Venta</h2>
+                    <h2>Nueva Venta ${idCotizacionEnProceso ? '<span style="color:#60a5fa; font-size:0.9rem;">(Procesando Cotización #' + idCotizacionEnProceso + ')</span>' : ''}</h2>
                     <p>Selección de productos, verificación de existencias y cobro en caja.</p>
                 </div>
 
@@ -524,10 +524,10 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-action">Procesar Venta y Generar Ticket</button>
+                    <button type="submit" class="btn-action">${idCotizacionEnProceso ? 'Convertir Cotización #' + idCotizacionEnProceso + ' a Venta' : 'Procesar Venta y Generar Ticket'}</button>
                 </form>
 
-                <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y descontada del inventario.</div>
+                <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y actualizada en el historial.</div>
             `;
             actualizarTablaVenta();
         }
@@ -618,7 +618,6 @@
             let subtotal = 0;
             const itemsMapeados = itemsVentaActual.map(item => {
                 subtotal += (item.precio * item.cantidad);
-                // Descontar Stock
                 const prodReal = catalogoProductos.find(p => p.id === item.id);
                 if (prodReal) prodReal.stock -= item.cantidad;
                 return { id: item.id, producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
@@ -626,19 +625,40 @@
 
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
-            const nuevoId = Math.floor(1043 + Math.random() * 100);
 
-            historialVentas.unshift({
-                id: nuevoId,
-                cliente: cliente,
-                tipo: 'VENTA',
-                items: itemsMapeados,
-                subtotal: subtotal,
-                iva: iva,
-                total: total,
-                fecha: new Date().toLocaleDateString(),
-                pago: pago
-            });
+            if (idCotizacionEnProceso) {
+                // Actualizar la cotización existente en el historial
+                const indiceCotiz = historialVentas.findIndex(t => t.id === idCotizacionEnProceso);
+                if (indiceCotiz !== -1) {
+                    const registroActualizado = historialVentas.splice(indiceCotiz, 1)[0];
+                    registroActualizado.cliente = cliente;
+                    registroActualizado.tipo = 'VENTA';
+                    registroActualizado.items = itemsMapeados;
+                    registroActualizado.subtotal = subtotal;
+                    registroActualizado.iva = iva;
+                    registroActualizado.total = total;
+                    registroActualizado.pago = pago;
+                    registroActualizado.fecha = new Date().toLocaleDateString();
+
+                    // Colocar en el top del historial (reciente)
+                    historialVentas.unshift(registroActualizado);
+                }
+                idCotizacionEnProceso = null;
+            } else {
+                // Nueva venta directa
+                const nuevoId = Math.floor(1043 + Math.random() * 100);
+                historialVentas.unshift({
+                    id: nuevoId,
+                    cliente: cliente,
+                    tipo: 'VENTA',
+                    items: itemsMapeados,
+                    subtotal: subtotal,
+                    iva: iva,
+                    total: total,
+                    fecha: new Date().toLocaleDateString(),
+                    pago: pago
+                });
+            }
 
             const alerta = document.getElementById('alertaVenta');
             alerta.style.display = 'block';
@@ -891,6 +911,8 @@
         function cargarCotizacionEnVenta(idCotizacion) {
             const cotizacion = historialVentas.find(t => t.id === idCotizacion);
             if (!cotizacion) return;
+
+            idCotizacionEnProceso = idCotizacion;
 
             itemsVentaActual = cotizacion.items.map(it => {
                 const prodReal = catalogoProductos.find(p => p.nombre.toLowerCase().includes(it.producto.toLowerCase()) || p.id === it.id);
