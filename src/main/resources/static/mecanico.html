@@ -182,6 +182,13 @@
             outline: none;
         }
 
+        .input-group input[readonly] {
+            background: #171717;
+            color: #22c55e;
+            font-weight: 600;
+            border-color: #262626;
+        }
+
         .input-group textarea {
             resize: vertical;
             min-height: 80px;
@@ -344,10 +351,14 @@
     </div>
 
     <script>
+        // Contador consecutivo único para citas nuevas
+        let contadorConsecutivoFolio = 105;
+
+        // Arreglo global de citas iniciales
         let listaCitas = [
             { folio: 'CITA-104', cliente: 'Carlos Mendoza', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
             { folio: 'CITA-103', cliente: 'Roberto Silva', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
-            { folio: 'S-8821', cliente: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
+            { folio: 'CITA-102', cliente: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
             { folio: 'CITA-101', cliente: 'Ana Martínez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa' }
         ];
 
@@ -360,6 +371,8 @@
             const panel = document.getElementById('panel-contenido-mecanico');
 
             if (vista === 'mantenimiento') {
+                const siguienteFolio = 'CITA-' + contadorConsecutivoFolio;
+
                 panel.innerHTML = `
                     <div class="panel-header">
                         <h2>Nuevo Servicio / Mantenimiento</h2>
@@ -370,8 +383,19 @@
                         <div class="form-section-title">1. Búsqueda y Validación de Cita</div>
                         <div class="form-grid">
                             <div class="input-group">
-                                <label>Folio de Cita o Placas de la Motocicleta</label>
-                                <input type="text" id="busqueda" placeholder="Ej. CITA-104 o 12ABC3" required>
+                                <label>Folio de Cita Consecutivo Único</label>
+                                <input type="text" id="folioCita" value="${siguienteFolio}" readonly>
+                            </div>
+                            <div class="input-group">
+                                <label>Placas o Identificador de Motocicleta</label>
+                                <input type="text" id="placasInput" placeholder="Ej. 12ABC3 o MX-9921" required>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Nombre del Cliente</label>
+                                <input type="text" id="clienteInput" placeholder="Ej. Juan Pérez" required>
                             </div>
                             <div class="input-group">
                                 <label>Estado de Cita</label>
@@ -389,7 +413,7 @@
                                 <input type="number" id="kilometraje" placeholder="Ej. 12500" required>
                             </div>
                             <div class="input-group">
-                                <label>Fallas Reportadas por el Cliente</label>
+                                <label>Fallas Reportadas / Servicio Solicitado</label>
                                 <input type="text" id="fallas" placeholder="Ej. Ruidos en freno delantero" required>
                             </div>
                         </div>
@@ -419,7 +443,7 @@
                     </form>
 
                     <div id="alertaExito" class="alert-box">
-                        ✓ Orden de mantenimiento registrada y guardada en el desglose de citas.
+                        ✓ Orden registrada con Folio Consecutivo Único y guardada en el desglose.
                     </div>
                 `;
             } else if (vista === 'citas') {
@@ -479,10 +503,12 @@
 
             setTimeout(() => {
                 if (citaEncontrada) {
-                    document.getElementById('busqueda').value = citaEncontrada.folio + ' - ' + citaEncontrada.placas;
+                    document.getElementById('folioCita').value = citaEncontrada.folio;
+                    document.getElementById('placasInput').value = citaEncontrada.placas;
+                    document.getElementById('clienteInput').value = citaEncontrada.cliente;
                     document.getElementById('estadoCita').value = citaEncontrada.modalidad;
                     document.getElementById('fallas').value = citaEncontrada.servicio;
-                    document.getElementById('diagnostico').value = 'Revisión previa iniciada para cliente ' + citaEncontrada.cliente + ' (' + citaEncontrada.moto + ').';
+                    document.getElementById('diagnostico').value = 'Revisión técnica en proceso para la motocicleta ' + citaEncontrada.moto + '.';
                 }
             }, 100);
         }
@@ -498,28 +524,43 @@
         function guardarMantenimiento(event) {
             event.preventDefault();
 
-            const busquedaVal = document.getElementById('busqueda').value;
+            const folioActual = document.getElementById('folioCita').value;
+            const placasVal = document.getElementById('placasInput').value;
+            const clienteVal = document.getElementById('clienteInput').value;
             const estadoCitaVal = document.getElementById('estadoCita').value;
             const fallasVal = document.getElementById('fallas').value;
 
-            const nuevoFolio = busquedaVal ? busquedaVal.split(' - ')[0].toUpperCase() : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+            // Verificar si el folio ya existía en la lista
+            const indiceExistente = listaCitas.findIndex(c => c.folio === folioActual);
 
-            listaCitas.unshift({
-                folio: nuevoFolio,
-                cliente: 'Cliente Atendido',
-                moto: 'Motocicleta Ingresada',
-                placas: busquedaVal.includes('CITA') ? 'REG-MOTO' : busquedaVal.toUpperCase(),
-                servicio: fallasVal || 'Mantenimiento General',
-                modalidad: estadoCitaVal
-            });
+            if (indiceExistente !== -1) {
+                // Si la cita ya existía, se actualizan sus datos sin duplicar
+                listaCitas[indiceExistente].placas = placasVal;
+                listaCitas[indiceExistente].cliente = clienteVal;
+                listaCitas[indiceExistente].servicio = fallasVal;
+                listaCitas[indiceExistente].modalidad = estadoCitaVal;
+            } else {
+                // Si es un nuevo registro, se inserta con el consecutivo actual
+                listaCitas.unshift({
+                    folio: folioActual,
+                    cliente: clienteVal || 'Cliente General',
+                    moto: 'Motocicleta Ingresada',
+                    placas: placasVal.toUpperCase(),
+                    servicio: fallasVal || 'Mantenimiento General',
+                    modalidad: estadoCitaVal
+                });
+
+                // Incrementar el contador consecutivo para la siguiente cita
+                contadorConsecutivoFolio++;
+            }
 
             const alerta = document.getElementById("alertaExito");
             alerta.style.display = "block";
 
             setTimeout(() => { 
                 alerta.style.display = "none"; 
-                document.getElementById("mantenimientoForm").reset(); 
-            }, 2500);
+                cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
+            }, 2000);
         }
 
         window.onload = function() {
