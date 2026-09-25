@@ -321,7 +321,7 @@
             border: 1px solid #262626;
             border-radius: 6px;
             width: 100%;
-            max-width: 550px;
+            max-width: 580px;
             padding: 25px;
         }
 
@@ -337,6 +337,19 @@
         }
 
         .btn-danger:hover { background: #b91c1c; }
+
+        .btn-convert {
+            background: #16a34a;
+            color: #ffffff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-convert:hover { background: #15803d; }
 
         .btn-close {
             background: transparent;
@@ -412,9 +425,8 @@
             </div>
             <div class="summary-box" id="modalDetalleContenido" style="margin-top:0;">
             </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Registro</button>
-                <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; gap: 10px;" id="modalAcciones">
+                <!-- Botones inyectados por JS -->
             </div>
         </div>
     </div>
@@ -428,10 +440,11 @@
         ];
 
         let historialVentas = [
-            { id: 1042, cliente: 'Carlos Mendoza', tipo: 'VENTA', items: [{ producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' },
-            { id: 1041, cliente: 'Roberto Silva', tipo: 'COTIZACIÓN', items: [{ producto: 'Batería Hero Hunk 160R', cantidad: 1, precio: 850.00 }, { producto: 'Balatas Delanteras', cantidad: 2, precio: 180.00 }], subtotal: 1210.00, iva: 193.60, total: 1403.60, fecha: '24/09/2026', pago: 'Presupuesto' }
+            { id: 2035, cliente: 'Miguel Landa', tipo: 'COTIZACIÓN', items: [{ id: '2', producto: 'Batería Hero Hunk 160R (12V 7Ah)', cantidad: 1, precio: 850.00 }, { id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }, { id: '4', producto: 'Kit Arrastre Piñón y Cadena 428H', cantidad: 1, precio: 650.00 }], subtotal: 1720.00, iva: 275.20, total: 1995.20, fecha: '24/09/2026', pago: 'Presupuesto' },
+            { id: 1042, cliente: 'Carlos Mendoza', tipo: 'VENTA', items: [{ id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' }
         ];
 
+        let itemsVentaActual = [];
         let itemsCotizacionActual = [];
         let ticketSeleccionadoId = null;
 
@@ -444,64 +457,7 @@
             const panel = document.getElementById('panel-contenido-vendedor');
 
             if (vista === 'venta') {
-                let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">${p.nombre} - $${p.precio.toFixed(2)} MXN</option>`).join('');
-
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Nueva Venta</h2>
-                        <p>Selección de productos, cálculo dinámico de totales y cobro en caja.</p>
-                    </div>
-
-                    <form id="ventaForm" onsubmit="procesarVenta(event)">
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Cliente / Nombre</label>
-                                <input type="text" id="ventaCliente" placeholder="Ej. Carlos Mendoza" required>
-                            </div>
-                            <div class="input-group">
-                                <label>Seleccionar Producto / Refacción</label>
-                                <select id="ventaProductoSelect" onchange="recalcularTotalesVenta()">
-                                    ${opcionesProd}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Cantidad</label>
-                                <input type="number" id="ventaCantidad" value="1" min="1" oninput="recalcularTotalesVenta()" required>
-                            </div>
-                            <div class="input-group">
-                                <label>Método de Pago</label>
-                                <select id="ventaMetodoPago">
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Tarjeta">Tarjeta de Débito / Crédito</option>
-                                    <option value="Transferencia">Transferencia SPEI</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="summary-box">
-                            <div class="summary-row">
-                                <span>Subtotal:</span>
-                                <span id="lblSubtotal">$0.00 MXN</span>
-                            </div>
-                            <div class="summary-row">
-                                <span>IVA (16%):</span>
-                                <span id="lblIva">$0.00 MXN</span>
-                            </div>
-                            <div class="summary-row total">
-                                <span>Total a Cobrar:</span>
-                                <span id="lblTotal" style="color: #22c55e;">$0.00 MXN</span>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn-action">Procesar Venta y Generar Ticket</button>
-                    </form>
-
-                    <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y registrada en el historial.</div>
-                `;
-                recalcularTotalesVenta();
+                renderizarModuloVenta();
             } 
             else if (vista === 'cotizaciones') {
                 itemsCotizacionActual = [];
@@ -512,32 +468,162 @@
             }
         }
 
-        /* --- LÓGICA DE NUEVA VENTA --- */
-        function recalcularTotalesVenta() {
-            const prodId = document.getElementById('ventaProductoSelect').value;
-            const cantidad = parseInt(document.getElementById('ventaCantidad').value) || 1;
+        /* --- LÓGICA DE NUEVA VENTA CON DETALLE MULTI-PRODUCTO Y STOCK --- */
+        function renderizarModuloVenta() {
+            const panel = document.getElementById('panel-contenido-vendedor');
+            let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Nueva Venta</h2>
+                    <p>Selección de productos, verificación de existencias y cobro en caja.</p>
+                </div>
+
+                <form id="ventaForm" onsubmit="procesarVenta(event)">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nombre del Cliente</label>
+                            <input type="text" id="ventaCliente" placeholder="Ej. Carlos Mendoza" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Método de Pago</label>
+                            <select id="ventaMetodoPago">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta de Débito / Crédito</option>
+                                <option value="Transferencia">Transferencia SPEI</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                        <div class="input-group" style="margin-bottom:0; flex:2;">
+                            <label>Agregar Producto al Carrito (Stock Disponible Visible)</label>
+                            <select id="selectVentaProducto">
+                                ${opcionesProd}
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-bottom:0; flex:1;">
+                            <label>Cantidad</label>
+                            <input type="number" id="ventaCantidadInput" value="1" min="1">
+                        </div>
+                        <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarProductoAVenta()">+ Agregar Item</button>
+                    </div>
+
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                            🛒 Desglose de Productos en Venta
+                        </h3>
+                        <div id="listaItemsVenta">
+                            <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>
+                        </div>
+
+                        <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                            <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotal">$0.00 MXN</span></div>
+                            <div class="summary-row"><span>IVA (16%):</span><span id="lblIva">$0.00 MXN</span></div>
+                            <div class="summary-row total"><span>Total a Cobrar:</span><span id="lblTotal" style="color: #22c55e;">$0.00 MXN</span></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-action">Procesar Venta y Generar Ticket</button>
+                </form>
+
+                <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y descontada del inventario.</div>
+            `;
+            actualizarTablaVenta();
+        }
+
+        function agregarProductoAVenta() {
+            const prodId = document.getElementById('selectVentaProducto').value;
+            const cantidad = parseInt(document.getElementById('ventaCantidadInput').value) || 1;
             const producto = catalogoProductos.find(p => p.id === prodId);
 
             if (producto) {
-                const subtotal = producto.precio * cantidad;
-                const iva = subtotal * 0.16;
-                const total = subtotal + iva;
+                if (cantidad > producto.stock) {
+                    alert(`⚠️ Stock insuficiente. Solo quedan ${producto.stock} unidades disponibles de ${producto.nombre}.`);
+                    return;
+                }
 
-                document.getElementById('lblSubtotal').innerText = '$' + subtotal.toFixed(2) + ' MXN';
-                document.getElementById('lblIva').innerText = '$' + iva.toFixed(2) + ' MXN';
-                document.getElementById('lblTotal').innerText = '$' + total.toFixed(2) + ' MXN';
+                const existe = itemsVentaActual.find(item => item.id === prodId);
+                if (existe) {
+                    if ((existe.cantidad + cantidad) > producto.stock) {
+                        alert(`⚠️ Supera el stock máximo disponible (${producto.stock} pzas).`);
+                        return;
+                    }
+                    existe.cantidad += cantidad;
+                } else {
+                    itemsVentaActual.push({
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: cantidad
+                    });
+                }
+                actualizarTablaVenta();
             }
+        }
+
+        function removerItemVenta(id) {
+            itemsVentaActual = itemsVentaActual.filter(item => item.id !== id);
+            actualizarTablaVenta();
+        }
+
+        function actualizarTablaVenta() {
+            const contenedor = document.getElementById('listaItemsVenta');
+            if (!contenedor) return;
+
+            if (itemsVentaActual.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>';
+                document.getElementById('lblSubtotal').innerText = '$0.00 MXN';
+                document.getElementById('lblIva').innerText = '$0.00 MXN';
+                document.getElementById('lblTotal').innerText = '$0.00 MXN';
+                return;
+            }
+
+            let subtotalTotal = 0;
+            let html = itemsVentaActual.map(item => {
+                const importe = item.precio * item.cantidad;
+                subtotalTotal += importe;
+                return `
+                    <div class="summary-row">
+                        <div>
+                            <span style="background:#262626; color:#4ade80; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
+                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <button class="btn-remove-item" onclick="removerItemVenta('${item.id}')">Quitar</button>
+                        </div>
+                        <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                    </div>
+                `;
+            }).join('');
+
+            const ivaTotal = subtotalTotal * 0.16;
+            const total = subtotalTotal + ivaTotal;
+
+            contenedor.innerHTML = html;
+            document.getElementById('lblSubtotal').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIva').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblTotal').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
         function procesarVenta(event) {
             event.preventDefault();
             const cliente = document.getElementById('ventaCliente').value;
-            const prodId = document.getElementById('ventaProductoSelect').value;
-            const cantidad = parseInt(document.getElementById('ventaCantidad').value);
             const pago = document.getElementById('ventaMetodoPago').value;
-            const producto = catalogoProductos.find(p => p.id === prodId);
 
-            const subtotal = producto.precio * cantidad;
+            if (itemsVentaActual.length === 0) {
+                alert('Selecciona al menos un producto para procesar la venta.');
+                return;
+            }
+
+            let subtotal = 0;
+            const itemsMapeados = itemsVentaActual.map(item => {
+                subtotal += (item.precio * item.cantidad);
+                // Descontar Stock
+                const prodReal = catalogoProductos.find(p => p.id === item.id);
+                if (prodReal) prodReal.stock -= item.cantidad;
+                return { id: item.id, producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
+            });
+
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
             const nuevoId = Math.floor(1043 + Math.random() * 100);
@@ -546,7 +632,7 @@
                 id: nuevoId,
                 cliente: cliente,
                 tipo: 'VENTA',
-                items: [{ producto: producto.nombre, cantidad: cantidad, precio: producto.precio }],
+                items: itemsMapeados,
                 subtotal: subtotal,
                 iva: iva,
                 total: total,
@@ -558,19 +644,19 @@
             alerta.style.display = 'block';
             setTimeout(() => {
                 alerta.style.display = 'none';
-                document.getElementById('ventaForm').reset();
-                recalcularTotalesVenta();
+                itemsVentaActual = [];
+                renderizarModuloVenta();
             }, 2000);
         }
 
-        /* --- LÓGICA DE COTIZACIONES MULTI-PRODUCTO --- */
+        /* --- LÓGICA DE COTIZACIONES --- */
         function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido-vendedor');
 
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Cotizaciones y Presupuestos</h2>
-                    <p>Búsqueda de refacciones, agregación múltiple y registro de cotizaciones en el sistema.</p>
+                    <p>Búsqueda de refacciones con existencias visibles en tiempo real.</p>
                 </div>
 
                 <div class="form-grid">
@@ -579,9 +665,9 @@
                         <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
                     </div>
                     <div class="input-group">
-                        <label>Buscar / Seleccionar Refacción</label>
+                        <label>Buscar / Seleccionar Refacción (Stock Disponible Visible)</label>
                         <select id="selectCotizacionProducto">
-                            ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} MXN (Stock:${p.stock})</option>`).join('')}
+                            ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} (Stock:${p.stock} pzas)</option>`).join('')}
                         </select>
                     </div>
                 </div>
@@ -594,7 +680,6 @@
                     <button class="btn-add-item" style="padding:12px 20px;" onclick="agregarProductoACotizacion()">+ Agregar a la Cotización</button>
                 </div>
 
-                <!-- Desglose Dinámico de Refacciones en la Cotización -->
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
                         📋 Refacciones en la Cotización
@@ -690,7 +775,7 @@
             let subtotal = 0;
             const itemsMapeados = itemsCotizacionActual.map(item => {
                 subtotal += (item.precio * item.cantidad);
-                return { producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
+                return { id: item.id, producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
             });
 
             const iva = subtotal * 0.16;
@@ -718,7 +803,7 @@
             }, 2000);
         }
 
-        /* --- LÓGICA DE HISTORIAL DE VENTAS --- */
+        /* --- HISTORIAL Y CONVERSIÓN DE COTIZACIÓN A VENTA --- */
         function renderizarHistorialVentas() {
             const panel = document.getElementById('panel-contenido-vendedor');
 
@@ -749,7 +834,7 @@
 
                 <div class="input-group">
                     <label>Buscar Ticket, Cotización o Cliente</label>
-                    <input type="text" id="buscarTicketInput" placeholder="Ej. #1042 o Carlos Mendoza..." oninput="filtrarHistorial(this.value)">
+                    <input type="text" id="buscarTicketInput" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarHistorial(this.value)">
                 </div>
 
                 <div id="listaTicketsContenedor">
@@ -774,7 +859,7 @@
             `).join('');
 
             document.getElementById('modalDetalleContenido').innerHTML = `
-                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose de Refacciones:</h4>
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose de Refacciones Solicitadas:</h4>
                 ${itemsDesglose}
                 <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
                     <span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span>
@@ -786,7 +871,48 @@
                 </div>
             `;
 
+            const contenedorAcciones = document.getElementById('modalAcciones');
+            if (ticket.tipo === 'COTIZACIÓN') {
+                contenedorAcciones.innerHTML = `
+                    <button class="btn-convert" onclick="cargarCotizacionEnVenta(${ticket.id})">🛒 Cargar y Procesar Venta</button>
+                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
+                    <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
+                `;
+            } else {
+                contenedorAcciones.innerHTML = `
+                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Registro</button>
+                    <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
+                `;
+            }
+
             document.getElementById('modalDetalle').style.display = 'flex';
+        }
+
+        function cargarCotizacionEnVenta(idCotizacion) {
+            const cotizacion = historialVentas.find(t => t.id === idCotizacion);
+            if (!cotizacion) return;
+
+            itemsVentaActual = cotizacion.items.map(it => {
+                const prodReal = catalogoProductos.find(p => p.nombre.toLowerCase().includes(it.producto.toLowerCase()) || p.id === it.id);
+                return {
+                    id: prodReal ? prodReal.id : '1',
+                    sku: prodReal ? prodReal.sku : 'REF-100',
+                    nombre: it.producto,
+                    precio: it.precio,
+                    cantidad: it.cantidad
+                };
+            });
+
+            cerrarModal();
+
+            const botonesNav = document.querySelectorAll('.nav-btn');
+            cambiarVistaVendedor('venta', botonesNav[0]);
+
+            setTimeout(() => {
+                const clienteInput = document.getElementById('ventaCliente');
+                if (clienteInput) clienteInput.value = cotizacion.cliente;
+                actualizarTablaVenta();
+            }, 100);
         }
 
         function cerrarModal() {
