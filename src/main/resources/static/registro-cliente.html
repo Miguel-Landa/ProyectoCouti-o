@@ -1,11 +1,9 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>Registro de Cliente - Sistema MRX</title>
-    <!-- Fuente Inter limpia y profesional -->
+    <title>Registro de Cliente y Agendado - Sistema MRX</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,117 +17,126 @@
         }
 
         body {
+            background-color: #0d0d0d;
+            color: #ffffff;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            background: #0d0d0d;
             padding: 20px;
         }
 
-        .form-wrapper {
+        .container {
             width: 100%;
             max-width: 650px;
             background: #141414;
-            border-radius: 4px;
             border: 1px solid #262626;
+            border-radius: 6px;
+            padding: 35px 30px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-            padding: 40px;
         }
 
-        .header-section {
+        .header-title {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
-        .header-section h2 {
-            font-size: 1.4rem;
-            font-weight: 600;
+        .header-title h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
             color: #ffffff;
-            margin-bottom: 6px;
-            letter-spacing: 0.5px;
         }
 
-        .header-section p {
+        .header-title p {
             font-size: 0.85rem;
             color: #a3a3a3;
+            margin-top: 6px;
         }
 
         .section-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #ffffff;
-            margin: 20px 0 15px 0;
+            font-size: 0.8rem;
             text-transform: uppercase;
-            border-bottom: 1px solid #262626;
-            padding-bottom: 6px;
+            color: #737373;
             letter-spacing: 0.5px;
+            font-weight: 600;
+            margin: 20px 0 12px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #262626;
         }
 
-        .grid-2 {
+        .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
+            margin-bottom: 16px;
         }
 
         .input-group {
-            margin-bottom: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
         }
 
         .input-group label {
-            display: block;
             font-size: 0.8rem;
             color: #a3a3a3;
-            margin-bottom: 6px;
             font-weight: 500;
         }
 
-        .input-group input {
+        .input-group input, .input-group select {
             width: 100%;
-            padding: 12px 14px;
+            padding: 12px;
             background: #1f1f1f;
             border: 1px solid #333333;
             border-radius: 4px;
-            font-size: 0.9rem;
             color: #ffffff;
+            font-size: 0.9rem;
             outline: none;
-            transition: border-color 0.2s ease;
         }
 
-        .input-group input::placeholder {
-            color: #666666;
-        }
-
-        .input-group input:focus {
+        .input-group input:focus, .input-group select:focus {
             border-color: #ffffff;
             background: #262626;
         }
 
-        .btn-submit {
+        .btn-action {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: #ffffff;
             color: #000000;
             border: none;
             border-radius: 4px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s ease;
             margin-top: 15px;
+            transition: background 0.2s ease;
         }
 
-        .btn-submit:hover {
+        .btn-action:hover {
             background: #e5e5e5;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #a3a3a3;
+            border: 1px solid #404040;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #262626;
+            color: #ffffff;
         }
 
         .back-link {
             display: block;
             text-align: center;
             margin-top: 20px;
-            font-size: 0.85rem;
-            color: #888888;
+            color: #737373;
             text-decoration: none;
+            font-size: 0.85rem;
             transition: color 0.2s ease;
         }
 
@@ -137,111 +144,398 @@
             color: #ffffff;
         }
 
-        .mensaje {
-            margin-top: 15px;
-            font-size: 0.85rem;
-            text-align: center;
-            font-weight: 500;
+        /* Selector Dinámico de Horarios */
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
         }
 
-        @media (max-width: 600px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-            .form-wrapper {
-                padding: 25px 20px;
-            }
+        .time-slot {
+            padding: 10px;
+            background: #1f1f1f;
+            border: 1px solid #333333;
+            border-radius: 4px;
+            color: #ffffff;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .time-slot:hover {
+            border-color: #a3a3a3;
+            background: #262626;
+        }
+
+        .time-slot.selected {
+            background: #ffffff;
+            color: #000000;
+            border-color: #ffffff;
+            font-weight: 700;
+        }
+
+        .time-slot.disabled {
+            background: #141414;
+            color: #404040;
+            border-color: #262626;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+
+        /* Cajas de Aviso / Confirmación */
+        .card-box {
+            background: #1f1f1f;
+            border: 1px solid #262626;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .alert-success {
+            border-color: #22c55e;
+            color: #4ade80;
+        }
+
+        .alert-danger {
+            border-color: #ef4444;
+            color: #f87171;
+        }
+
+        .tab-menu {
+            display: flex;
+            border-bottom: 1px solid #262626;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            color: #737373;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            border-bottom-color: #ffffff;
         }
     </style>
 </head>
 <body>
 
-    <div class="form-wrapper">
-        <div class="header-section">
-            <h2>Registro de Cliente</h2>
-            <p>Ingresa tus datos para registrarte y agendar tu cita de servicio.</p>
+    <div class="container">
+
+        <!-- Pestañas Superiores: Nuevo Registro vs Modificar Cita -->
+        <div class="tab-menu">
+            <button class="tab-btn active" id="tabAgendar" onclick="mostrarPestana('agendar')">📝 Agendar Nueva Cita</button>
+            <button class="tab-btn" id="tabModificar" onclick="mostrarPestana('modificar')">🔍 Consultar / Modificar Cita</button>
         </div>
 
-        <form id="registroForm" onsubmit="registrarCliente(event)">
-            <div class="section-title">Información Personal</div>
+        <!-- VISTA 1: AGENDADO DE CITA NUEVA -->
+        <div id="vistaAgendar">
+
+            <!-- PASO 1: Registro de Datos -->
+            <div id="pasoRegistro">
+                <div class="header-title">
+                    <h2>Registro de Cliente</h2>
+                    <p>Ingresa tus datos para registrarte y seleccionar la fecha de tu servicio.</p>
+                </div>
+
+                <form id="clienteForm" onsubmit="siguientePasoCita(event)">
+                    <div class="section-title">Información Personal</div>
+                    <div class="input-group">
+                        <label>Nombre Completo</label>
+                        <input type="text" id="regNombre" placeholder="Ej. Carlos Mendoza" required>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Teléfono / WhatsApp</label>
+                            <input type="tel" id="regTelefono" placeholder="Ej. 2281234567" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" id="regCorreo" placeholder="cliente@correo.com" required>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Datos de la Motocicleta</div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Marca</label>
+                            <input type="text" id="regMarca" placeholder="Ej. Hero, Italika, Honda" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Modelo y Año</label>
+                            <input type="text" id="regModelo" placeholder="Ej. Hunk 160R (2024)" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Placas</label>
+                        <input type="text" id="regPlacas" placeholder="Ej. 12ABC3" required>
+                    </div>
+
+                    <button type="submit" class="btn-action">Continuar a Selección de Horario →</button>
+                </form>
+            </div>
+
+            <!-- PASO 2: Selección de Horario en Calendario Dinámico -->
+            <div id="pasoHorario" style="display: none;">
+                <div class="header-title">
+                    <h2>Selecciona Fecha y Horario</h2>
+                    <p>Elige el día y la hora disponible que más te convenga.</p>
+                </div>
+
+                <div class="input-group">
+                    <label>Fecha de Cita</label>
+                    <input type="date" id="fechaCita" onchange="cargarHorariosDisponibles()" required>
+                </div>
+
+                <div class="section-title">Horarios Disponibles</div>
+                <div class="time-grid" id="contenedorHorarios">
+                    <!-- Se generan dinámicamente -->
+                </div>
+
+                <div class="input-group" style="margin-top: 15px;">
+                    <label>Servicio / Motivo de Revisión</label>
+                    <select id="regServicio">
+                        <option value="Afinación y cambio de balatas">Afinación y cambio de balatas</option>
+                        <option value="Revisión del sistema eléctrico">Revisión del sistema eléctrico</option>
+                        <option value="Cambio de aceite y filtro expres">Cambio de aceite y filtro expres</option>
+                        <option value="Mantenimiento general preventivo">Mantenimiento general preventivo</option>
+                    </select>
+                </div>
+
+                <button type="button" class="btn-action" onclick="confirmarCitaCliente()">Confirmar y Agendar Cita</button>
+                <button type="button" class="btn-action btn-secondary" onclick="regresarAPaso1()">← Volver a Datos</button>
+            </div>
+
+            <!-- PASO 3: Confirmación con Folio Generado -->
+            <div id="pasoConfirmacion" style="display: none;">
+                <div class="header-title">
+                    <h2 style="color: #4ade80;">¡Cita Agendada con Éxito!</h2>
+                    <p>Conserva tu folio para cualquier consulta o modificación posterior.</p>
+                </div>
+
+                <div class="card-box alert-success" style="text-align: center;">
+                    <span style="font-size: 0.8rem; color: #a3a3a3;">TU FOLIO DE CITA ES:</span>
+                    <h1 id="lblFolioGenerado" style="font-size: 2.2rem; margin: 8px 0; color: #ffffff;">CITA-105</h1>
+                    <p id="lblDetallesCita" style="font-size: 0.85rem; color: #e5e5e5;"></p>
+                </div>
+
+                <a href="index.html" class="btn-action" style="text-align: center; text-decoration: none; display: block;">Volver al Inicio de Sesión</a>
+            </div>
+
+        </div>
+
+        <!-- VISTA 2: CONSULTAR / MODIFICAR CITA EXISTENTE -->
+        <div id="vistaModificar" style="display: none;">
+            <div class="header-title">
+                <h2>Consulta o Modificación de Cita</h2>
+                <p>Ingresa tu folio para reagendar tu cita. Recuerda la restricción de mínimo 8 horas de anticipación.</p>
+            </div>
+
             <div class="input-group">
-                <label for="nombre">Nombre Completo</label>
-                <input type="text" id="nombre" placeholder="Ej. Carlos Mendoza" required>
+                <label>Ingresa tu Folio de Cita</label>
+                <input type="text" id="busquedaFolio" placeholder="Ej. CITA-104" style="text-transform: uppercase;">
             </div>
+            <button type="button" class="btn-action" onclick="buscarCitaPorFolio()">Buscar Cita</button>
 
-            <div class="grid-2">
-                <div class="input-group">
-                    <label for="telefono">Teléfono / WhatsApp</label>
-                    <input type="tel" id="telefono" placeholder="2281234567" required>
-                </div>
-                <div class="input-group">
-                    <label for="correo">Correo Electrónico</label>
-                    <input type="email" id="correo" placeholder="cliente@correo.com" required>
+            <!-- Resultado de Búsqueda de Cita -->
+            <div id="resultadoBusqueda" style="display: none;">
+                <div class="card-box" id="boxDetalleModificacion">
+                    <!-- Rellenado por JS -->
                 </div>
             </div>
-
-            <div class="section-title">Datos de la Motocicleta</div>
-            <div class="grid-2">
-                <div class="input-group">
-                    <label for="marca">Marca</label>
-                    <input type="text" id="marca" placeholder="Ej. Hero, Italika, Honda" required>
-                </div>
-                <div class="input-group">
-                    <label for="modelo">Modelo y Año</label>
-                    <input type="text" id="modelo" placeholder="Ej. Hunk 160R (2024)" required>
-                </div>
-            </div>
-
-            <div class="input-group">
-                <label for="placas">Placas (Opcional)</label>
-                <input type="text" id="placas" placeholder="Ej. 12ABC3">
-            </div>
-
-            <button type="submit" class="btn-submit">Completar Registro</button>
-        </form>
-
-        <p id="mensaje" class="mensaje"></p>
+        </div>
 
         <a href="index.html" class="back-link">← Volver al Inicio de Sesión</a>
+
     </div>
 
     <script>
-        function registrarCliente(event) {
-            event.preventDefault();
+        // Arreglo central de citas (compartido conceptualmente)
+        let contadorFolio = 105;
+        let horarioSeleccionado = null;
+        let datosClienteTemporal = {};
 
-            const clienteData = {
-                nombre: document.getElementById('nombre').value,
-                telefono: document.getElementById('telefono').value,
-                correo: document.getElementById('correo').value,
-                marca: document.getElementById('marca').value,
-                modelo: document.getElementById('modelo').value,
-                placas: document.getElementById('placas').value
+        // Base inicial de citas
+        let citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || [
+            { folio: 'CITA-104', cliente: 'Carlos Mendoza', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa', fechaHora: '2026-09-26T10:00' },
+            { folio: 'CITA-103', cliente: 'Roberto Silva', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa', fechaHora: '2026-09-27T11:30' },
+            { folio: 'CITA-101', cliente: 'Ana Martínez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general', modalidad: 'Cita Previa', fechaHora: '2026-09-28T16:00' }
+        ];
+
+        // Establecer fecha mínima como HOY
+        window.onload = function() {
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fechaCita').min = hoy;
+            document.getElementById('fechaCita').value = hoy;
+            cargarHorariosDisponibles();
+        };
+
+        function mostrarPestana(pestana) {
+            document.getElementById('tabAgendar').classList.remove('active');
+            document.getElementById('tabModificar').classList.remove('active');
+
+            if (pestana === 'agendar') {
+                document.getElementById('tabAgendar').classList.add('active');
+                document.getElementById('vistaAgendar').style.display = 'block';
+                document.getElementById('vistaModificar').style.display = 'none';
+            } else {
+                document.getElementById('tabModificar').classList.add('active');
+                document.getElementById('vistaAgendar').style.display = 'none';
+                document.getElementById('vistaModificar').style.display = 'block';
+            }
+        }
+
+        function siguientePasoCita(event) {
+            event.preventDefault();
+            datosClienteTemporal = {
+                nombre: document.getElementById('regNombre').value,
+                telefono: document.getElementById('regTelefono').value,
+                correo: document.getElementById('regCorreo').value,
+                marca: document.getElementById('regMarca').value,
+                modelo: document.getElementById('regModelo').value,
+                placas: document.getElementById('regPlacas').value.toUpperCase()
             };
 
-            fetch('/api/clientes/registro', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(clienteData)
-            })
-            .then(res => res.json())
-            .then(data => {
-                const mensajeElem = document.getElementById('mensaje');
-                if (data.success) {
-                    mensajeElem.style.color = '#ffffff';
-                    mensajeElem.innerText = '¡Registro completado! Redirigiendo...';
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1500);
+            document.getElementById('pasoRegistro').style.display = 'none';
+            document.getElementById('pasoHorario').style.display = 'block';
+        }
+
+        function regresarAPaso1() {
+            document.getElementById('pasoRegistro').style.display = 'block';
+            document.getElementById('pasoHorario').style.display = 'none';
+        }
+
+        function cargarHorariosDisponibles() {
+            const contenedor = document.getElementById('contenedorHorarios');
+            contenedor.innerHTML = '';
+            horarioSeleccionado = null;
+
+            const bloquesHorarios = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:30 PM', '05:00 PM'];
+            
+            bloquesHorarios.forEach((hora, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'time-slot';
+                slot.innerText = hora;
+                
+                // Simulación: Inhabilitar un horario ocupado
+                if (index === 1) {
+                    slot.classList.add('disabled');
+                    slot.title = 'Horario Ocupado';
                 } else {
-                    mensajeElem.style.color = '#f87171';
-                    mensajeElem.innerText = data.message || 'Error al completar el registro.';
+                    slot.onclick = function() {
+                        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+                        slot.classList.add('selected');
+                        horarioSeleccionado = hora;
+                    };
                 }
-            })
-            .catch(() => {
-                const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#f87171';
-                mensajeElem.innerText = 'Error al conectar con el servidor.';
+                contenedor.appendChild(slot);
             });
+        }
+
+        function confirmarCitaCliente() {
+            if (!horarioSeleccionado) {
+                alert('Por favor selecciona un horario disponible de la lista.');
+                return;
+            }
+
+            const fechaVal = document.getElementById('fechaCita').value;
+            const servicioVal = document.getElementById('regServicio').value;
+            const nuevoFolio = 'CITA-' + contadorFolio;
+            contadorFolio++;
+
+            const nuevaCita = {
+                folio: nuevoFolio,
+                cliente: datosClienteTemporal.nombre,
+                moto: datosClienteTemporal.marca + ' ' + datosClienteTemporal.modelo,
+                placas: datosClienteTemporal.placas,
+                servicio: servicioVal,
+                modalidad: 'Cita Previa',
+                fechaHora: fechaVal + ' ' + horarioSeleccionado
+            };
+
+            citasGlobales.unshift(nuevaCita);
+            localStorage.setItem('mrx_citas', JSON.stringify(citasGlobales));
+
+            document.getElementById('lblFolioGenerado').innerText = nuevoFolio;
+            document.getElementById('lblDetallesCita').innerText = `Fecha: ${fechaVal} | Horario: ${horarioSeleccionado} | Vehículo: ${nuevaCita.moto} (${nuevaCita.placas})`;
+
+            document.getElementById('pasoHorario').style.display = 'none';
+            document.getElementById('pasoConfirmacion').style.display = 'block';
+        }
+
+        function buscarCitaPorFolio() {
+            const folioInput = document.getElementById('busquedaFolio').value.trim().toUpperCase();
+            const cita = citasGlobales.find(c => c.folio === folioInput);
+            const box = document.getElementById('boxDetalleModificacion');
+            const resContainer = document.getElementById('resultadoBusqueda');
+
+            if (!cita) {
+                resContainer.style.display = 'block';
+                box.className = 'card-box alert-danger';
+                box.innerHTML = `<p>❌ No se encontró ninguna cita registrada con el folio <strong>${folioInput}</strong>.</p>`;
+                return;
+            }
+
+            // Validación del Límite de 8 Horas
+            // Simulación de cálculo de diferencia de horas
+            const ahora = new Date();
+            const fechaCitaObj = new Date(cita.fechaHora.includes('T') ? cita.fechaHora : ahora.getTime() + (10 * 3600 * 1000)); 
+            const diferenciaHoras = (fechaCitaObj - ahora) / (1000 * 60 * 60);
+
+            resContainer.style.display = 'block';
+
+            if (diferenciaHoras < 8) {
+                box.className = 'card-box alert-danger';
+                box.innerHTML = `
+                    <h3 style="color:#f87171; font-size:1rem; margin-bottom:8px;">⚠️ Cambio no permitido (< 8 horas)</h3>
+                    <p style="font-size:0.85rem; color:#e5e5e5;">
+                        Tu cita <strong>${cita.folio}</strong> (${cita.servicio}) está programada para <strong>${cita.fechaHora}</strong>.
+                    </p>
+                    <p style="font-size:0.8rem; color:#a3a3a3; margin-top:8px;">
+                        De acuerdo con las políticas del taller, no es posible modificar o cancelar citas con menos de 8 horas de anticipación. Por favor comunícate directamente al taller.
+                    </p>
+                `;
+            } else {
+                box.className = 'card-box alert-success';
+                box.innerHTML = `
+                    <h3 style="color:#4ade80; font-size:1rem; margin-bottom:8px;">✓ Cita Localizada: ${cita.folio}</h3>
+                    <p style="font-size:0.85rem; color:#ffffff; margin-bottom:12px;">
+                        Cliente: <strong>${cita.cliente}</strong> | Moto: <strong>${cita.moto}</strong> (${cita.placas})<br>
+                        Fecha Actual: <strong>${cita.fechaHora}</strong>
+                    </p>
+                    <div class="input-group">
+                        <label>Nueva Fecha de Cita</label>
+                        <input type="date" id="nuevaFechaInput" min="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    <button class="btn-action" onclick="guardarReagendado('${cita.folio}')">Reagendar Cita</button>
+                `;
+            }
+        }
+
+        function guardarReagendado(folio) {
+            const nuevaFecha = document.getElementById('nuevaFechaInput').value;
+            if (!nuevaFecha) {
+                alert('Selecciona una nueva fecha válida.');
+                return;
+            }
+
+            const cita = citasGlobales.find(c => c.folio === folio);
+            if (cita) {
+                cita.fechaHora = nuevaFecha + ' 10:00 AM';
+                localStorage.setItem('mrx_citas', JSON.stringify(citasGlobales));
+                alert('✓ Tu cita ' + folio + ' ha sido reagendada exitosamente para ' + nuevaFecha);
+                location.reload();
+            }
         }
     </script>
 </body>
