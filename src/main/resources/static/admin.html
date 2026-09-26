@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -23,13 +23,11 @@
             padding: 20px;
         }
 
-        /* Contenedor Principal */
         .app-container {
             max-width: 1300px;
             margin: 0 auto;
         }
 
-        /* Barra Superior */
         .topbar {
             display: flex;
             justify-content: space-between;
@@ -64,7 +62,6 @@
             color: #000000;
         }
 
-        /* Layout Principal: 2 Columnas (Sidebar Izquierdo + Panel Derecho) */
         .workspace {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -72,7 +69,6 @@
             align-items: start;
         }
 
-        /* Sidebar Izquierda: Botones de Navegación */
         .sidebar-buttons {
             display: flex;
             flex-direction: column;
@@ -119,7 +115,6 @@
             font-weight: 600;
         }
 
-        /* Panel Derecho */
         .main-panel {
             background: #141414;
             border: 1px solid #262626;
@@ -146,18 +141,18 @@
             margin-top: 4px;
         }
 
-        /* Formularios */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .input-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
+            margin-bottom: 16px;
         }
 
         .input-group label {
@@ -177,7 +172,7 @@
             outline: none;
         }
 
-        .input-group input:focus {
+        .input-group input:focus, .input-group select:focus {
             border-color: #ffffff;
             background: #262626;
         }
@@ -193,6 +188,7 @@
         .summary-row {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 10px 0;
             font-size: 0.9rem;
             color: #a3a3a3;
@@ -201,6 +197,13 @@
 
         .summary-row:last-child {
             border-bottom: none;
+        }
+
+        .summary-row.total {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ffffff;
+            padding-top: 15px;
         }
 
         .btn-action {
@@ -217,18 +220,87 @@
             transition: background 0.2s ease;
         }
 
-        .btn-action:hover {
-            background: #e5e5e5;
+        .btn-action:hover { background: #e5e5e5; }
+
+        .btn-secondary {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .btn-danger {
-            background: #dc2626;
+        .btn-secondary:hover { background: #ffffff; color: #000000; }
+
+        .btn-danger-sm {
+            background: transparent;
+            color: #ef4444;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .btn-danger-sm:hover { text-decoration: underline; }
+
+        .qty-btn {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            width: 24px;
+            height: 24px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 4px;
+        }
+
+        .alert-box {
+            display: none;
+            padding: 14px;
+            background: #1f1f1f;
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        /* Tablas */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+            margin-top: 10px;
+        }
+
+        .data-table th {
+            background: #1a1a1a;
+            color: #a3a3a3;
+            font-weight: 600;
+            padding: 12px;
+            border-bottom: 1px solid #262626;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #262626;
             color: #ffffff;
         }
 
-        .btn-danger:hover {
-            background: #b91c1c;
-        }
+        .data-table tr:hover { background: #1f1f1f; }
     </style>
 </head>
 <body>
@@ -240,198 +312,520 @@
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Workspace Dividido -->
+        <!-- Layout de 2 Columnas -->
         <div class="workspace">
-            
-            <!-- Izquierda: Módulos específicos del Administrador -->
             <div class="sidebar-buttons">
-                <div class="sidebar-title">Módulos de Almacén</div>
+                <div class="sidebar-title">Módulos Unificados</div>
                 <button class="nav-btn active" onclick="cambiarVistaAdmin('compras', this)">
                     📦 Compras a Proveedores
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('proveedores', this)">
-                    🏭 Registro de Proveedores
+                    🏭 Gestión de Proveedores
                 </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('alta-articulo', this)">
-                    ➕ Registrar Artículos
-                </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('actualizar-articulo', this)">
-                    ✏️ Actualizar Artículos
-                </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('eliminar-articulo', this)">
-                    🗑️ Eliminar Artículos
+                <button class="nav-btn" onclick="cambiarVistaAdmin('articulos', this)">
+                    🛠️ Gestión del Catálogo de Artículos
                 </button>
             </div>
 
-            <!-- Centro / Derecho: Despliegue de Formularios -->
             <div class="main-panel" id="panel-contenido-admin">
-                <!-- Carga por defecto "Compras a Proveedores" -->
             </div>
-
         </div>
     </div>
 
     <script>
+        // --- MANEJO DE LOCALSTORAGE CENTRALIZADO ---
+        const CLAVE_CATALOGO = 'mrx_catalogo_productos';
+        const CLAVE_PROVEEDORES = 'mrx_proveedores';
+
+        const catalogoInicial = [
+            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, costoCompra: 140.00, stock: 15 },
+            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, costoCompra: 520.00, stock: 8 },
+            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, costoCompra: 110.00, stock: 20 },
+            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, costoCompra: 410.00, stock: 5 }
+        ];
+
+        const proveedoresIniciales = [
+            { id: '1', nombre: 'Refacciones Hero México S.A. de C.V.', rfc: 'RHM180312XYZ', telefono: '2288123456', email: 'ventas@heromexico.com' },
+            { id: '2', nombre: 'Distribuidora Motul Veracruz', rfc: 'DMV950510ABC', telefono: '2299876543', email: 'contacto@motulver.com' },
+            { id: '3', nombre: 'Comercializadora Italika Xalapa', rfc: 'CIX010920LMN', telefono: '2281239876', email: 'pedidos@italikaxal.com' }
+        ];
+
+        function obtenerCatalogo() {
+            const datos = localStorage.getItem(CLAVE_CATALOGO);
+            if (!datos) {
+                localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(catalogoInicial));
+                return catalogoInicial;
+            }
+            return JSON.parse(datos);
+        }
+
+        function guardarCatalogo(nuevoCatalogo) {
+            localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(nuevoCatalogo));
+        }
+
+        function obtenerProveedores() {
+            const datos = localStorage.getItem(CLAVE_PROVEEDORES);
+            if (!datos) {
+                localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(proveedoresIniciales));
+                return proveedoresIniciales;
+            }
+            return JSON.parse(datos);
+        }
+
+        function guardarProveedores(nuevosProveedores) {
+            localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(nuevosProveedores));
+        }
+
+        let itemsCompraActual = [];
+        let idArticuloEditando = null;
+
         function cambiarVistaAdmin(vista, boton) {
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            boton.classList.add('active');
+            if (boton) {
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                boton.classList.add('active');
+            }
 
             const panel = document.getElementById('panel-contenido-admin');
 
             if (vista === 'compras') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Registrar Compra de Mercancía</h2>
-                        <p>Ingreso de facturas de compra y surtido de stock a almacén.</p>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Seleccionar Proveedor</label>
-                            <select>
-                                <option>Refacciones Hero México S.A. de C.V.</option>
-                                <option>Italika MotoPartes Xalapa</option>
-                                <option>Lubricantes Motul Directo</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Número de Factura / Remisión</label>
-                            <input type="text" placeholder="Ej. FAC-2026-88">
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Artículo Surtido</label>
-                            <select>
-                                <option>Aceite Motul 10W40 1L</option>
-                                <option>Batería Hero 12V 7Ah</option>
-                                <option>Balatas Delanteras Hunk 160R</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Cantidad Comprada</label>
-                            <input type="number" placeholder="Ej. 50">
-                        </div>
-                    </div>
-
-                    <button class="btn-action">Guardar Compra e Incrementar Stock</button>
-                `;
+                itemsCompraActual = [];
+                renderizarModuloCompras();
             } else if (vista === 'proveedores') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Registrar Nuevo Proveedor</h2>
-                        <p>Dar de alta empresas proveedoras de refacciones y accesorios.</p>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Nombre de la Empresa / Proveedor</label>
-                            <input type="text" placeholder="Ej. MotoPartes del Golfo">
-                        </div>
-                        <div class="input-group">
-                            <label>RFC</label>
-                            <input type="text" placeholder="Ej. MPG900101XYZ">
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Teléfono / WhatsApp de Contacto</label>
-                            <input type="tel" placeholder="Ej. 2288123456">
-                        </div>
-                        <div class="input-group">
-                            <label>Correo Electrónico</label>
-                            <input type="email" placeholder="contacto@proveedor.com">
-                        </div>
-                    </div>
-
-                    <button class="btn-action">Registrar Proveedor</button>
-                `;
-            } else if (vista === 'alta-articulo') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Registrar Nuevo Artículo en Inventario</h2>
-                        <p>Dar de alta una nueva refacción o insumo en el catálogo.</p>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Código SKU / Referencia</label>
-                            <input type="text" placeholder="Ej. REF-3005">
-                        </div>
-                        <div class="input-group">
-                            <label>Nombre o Descripción del Artículo</label>
-                            <input type="text" placeholder="Ej. Filtro de Aceite Hero Hunk">
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Precio de Venta ($ MXN)</label>
-                            <input type="number" placeholder="Ej. 180.00">
-                        </div>
-                        <div class="input-group">
-                            <label>Stock Inicial</label>
-                            <input type="number" placeholder="Ej. 20">
-                        </div>
-                    </div>
-
-                    <button class="btn-action">Guardar Artículo en Inventario</button>
-                `;
-            } else if (vista === 'actualizar-articulo') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Actualizar Artículo en Inventario</h2>
-                        <p>Modificar precio de venta, descripción o existencias de un artículo.</p>
-                    </div>
-
-                    <div class="input-group" style="margin-bottom: 20px;">
-                        <label>Buscar Artículo por Código o Nombre</label>
-                        <input type="text" placeholder="Ej. REF-1002 o Batería Hero">
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Nuevo Precio ($ MXN)</label>
-                            <input type="number" value="850.00">
-                        </div>
-                        <div class="input-group">
-                            <label>Ajuste de Stock</label>
-                            <input type="number" value="15">
-                        </div>
-                    </div>
-
-                    <button class="btn-action">Actualizar Datos de Artículo</button>
-                `;
-            } else if (vista === 'eliminar-articulo') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Eliminar Artículo de Inventario</h2>
-                        <p>Dar de baja refacciones descontinuadas o fuera de catálogo.</p>
-                    </div>
-
-                    <div class="input-group" style="margin-bottom: 20px;">
-                        <label>Seleccionar Artículo a Eliminar</label>
-                        <select>
-                            <option>REF-9901 - Kit Arrastre Descontinuado</option>
-                            <option>REF-9902 - Espejo Retrovisor Universal Antiguo</option>
-                        </select>
-                    </div>
-
-                    <div class="summary-box">
-                        <div class="summary-row">
-                            <span style="color:#ef4444; font-weight:600;">⚠️ ADVERTENCIA:</span>
-                            <span>Esta acción eliminará el artículo permanentemente del sistema.</span>
-                        </div>
-                    </div>
-
-                    <button class="btn-action btn-danger">Confirmar y Eliminar Artículo</button>
-                `;
+                renderizarModuloProveedores();
+            } else if (vista === 'articulos') {
+                idArticuloEditando = null;
+                renderizarModuloArticulos();
             }
         }
 
-        // Cargar vista inicial
+        /* =========================================================
+           1. MÓDULO DE COMPRAS A PROVEEDORES
+           ========================================================= */
+        function renderizarModuloCompras() {
+            const panel = document.getElementById('panel-contenido-admin');
+            const provs = obtenerProveedores();
+            const arts = obtenerCatalogo();
+
+            let opcionesProvs = provs.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            let opcionesArts = arts.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} - Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Registrar Compra de Mercancía</h2>
+                    <p>Ingreso de facturas de compra y surtido dinámico de stock a almacén.</p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Seleccionar Proveedor Registrado</label>
+                        <select id="compraProveedorSelect">${opcionesProvs}</select>
+                    </div>
+                    <div class="input-group">
+                        <label>Número de Factura / Remisión</label>
+                        <input type="text" id="compraFacturaInput" placeholder="Ej. FAC-2026-88" required>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="input-group" style="margin-bottom:0; flex:2;">
+                        <label>Artículo Surtido</label>
+                        <select id="selectCompraArticulo">${opcionesArts}</select>
+                    </div>
+                    <div class="input-group" style="margin-bottom:0; flex:1;">
+                        <label>Cantidad Comprada</label>
+                        <input type="number" id="compraCantidadInput" value="10" min="1">
+                    </div>
+                    <button type="button" class="btn-secondary" style="padding:12px 18px;" onclick="agregarArticuloACompra()">+ Agregar a Compra</button>
+                </div>
+
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                        📦 Desglose de Artículos en la Factura de Compra
+                    </h3>
+                    <div id="listaArticulosCompra">
+                        <p style="color:#a3a3a3; text-align:center;">No se han agregado artículos.</p>
+                    </div>
+
+                    <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                        <div class="summary-row"><span>Subtotal Compra:</span><span id="lblSubtotalCompra">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>IVA Soportado (16%):</span><span id="lblIvaCompra">$0.00 MXN</span></div>
+                        <div class="summary-row total"><span>Total Factura:</span><span id="lblTotalCompra" style="color: #22c55e;">$0.00 MXN</span></div>
+                    </div>
+                </div>
+
+                <button class="btn-action" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
+                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock ha sido actualizado.</div>
+            `;
+            actualizarTablaCompra();
+        }
+
+        function agregarArticuloACompra() {
+            const artId = document.getElementById('selectCompraArticulo').value;
+            const cantidad = parseInt(document.getElementById('compraCantidadInput').value) || 1;
+            const arts = obtenerCatalogo();
+            const articulo = arts.find(a => a.id === artId);
+
+            if (articulo) {
+                const existe = itemsCompraActual.find(item => item.id === artId);
+                if (existe) {
+                    existe.cantidad += cantidad;
+                } else {
+                    itemsCompraActual.push({
+                        id: articulo.id,
+                        sku: articulo.sku,
+                        nombre: articulo.nombre,
+                        costo: articulo.costoCompra,
+                        cantidad: cantidad
+                    });
+                }
+                actualizarTablaCompra();
+            }
+        }
+
+        function modificarCantidadCompra(id, delta) {
+            const item = itemsCompraActual.find(i => i.id === id);
+            if (item) {
+                item.cantidad += delta;
+                if (item.cantidad <= 0) removerArticuloCompra(id);
+                else actualizarTablaCompra();
+            }
+        }
+
+        function removerArticuloCompra(id) {
+            itemsCompraActual = itemsCompraActual.filter(i => i.id !== id);
+            actualizarTablaCompra();
+        }
+
+        function actualizarTablaCompra() {
+            const contenedor = document.getElementById('listaArticulosCompra');
+            if (!contenedor) return;
+
+            if (itemsCompraActual.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center;">No se han agregado artículos.</p>';
+                document.getElementById('lblSubtotalCompra').innerText = '$0.00 MXN';
+                document.getElementById('lblIvaCompra').innerText = '$0.00 MXN';
+                document.getElementById('lblTotalCompra').innerText = '$0.00 MXN';
+                return;
+            }
+
+            let subtotal = 0;
+            let html = itemsCompraActual.map(item => {
+                const importe = item.costo * item.cantidad;
+                subtotal += importe;
+                return `
+                    <div class="summary-row">
+                        <div>
+                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
+                            <strong style="color:#ffffff;">${item.nombre}</strong> 
+                            <span style="margin-left:8px;">
+                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', -1)">-</button>
+                                <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
+                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', 1)">+</button>
+                            </span>
+                            <button class="btn-danger-sm" onclick="removerArticuloCompra('${item.id}')">Quitar</button>
+                        </div>
+                        <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                    </div>
+                `;
+            }).join('');
+
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
+
+            contenedor.innerHTML = html;
+            document.getElementById('lblSubtotalCompra').innerText = '$' + subtotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIvaCompra').innerText = '$' + iva.toFixed(2) + ' MXN';
+            document.getElementById('lblTotalCompra').innerText = '$' + total.toFixed(2) + ' MXN';
+        }
+
+        function guardarCompraMercancia() {
+            const factura = document.getElementById('compraFacturaInput').value;
+            if (!factura) { alert('Ingresa el número de factura o remisión.'); return; }
+            if (itemsCompraActual.length === 0) { alert('Agrega al menos un artículo.'); return; }
+
+            const arts = obtenerCatalogo();
+            itemsCompraActual.forEach(item => {
+                const artReal = arts.find(a => a.id === item.id);
+                if (artReal) artReal.stock += item.cantidad;
+            });
+            guardarCatalogo(arts);
+
+            const alerta = document.getElementById('alertaCompra');
+            alerta.style.display = 'block';
+            setTimeout(() => {
+                alerta.style.display = 'none';
+                itemsCompraActual = [];
+                renderizarModuloCompras();
+            }, 1800);
+        }
+
+        /* =========================================================
+           2. MÓDULO UNIFICADO DE PROVEEDORES (Registro + Tabla Interactiva)
+           ========================================================= */
+        function renderizarModuloProveedores() {
+            const panel = document.getElementById('panel-contenido-admin');
+            const provs = obtenerProveedores();
+
+            let filasTabla = provs.map(p => `
+                <tr>
+                    <td><strong>${p.nombre}</strong></td>
+                    <td>${p.rfc}</td>
+                    <td>${p.telefono}</td>
+                    <td>${p.email}</td>
+                    <td>
+                        <button class="btn-danger-sm" onclick="eliminarProveedor('${p.id}')">🗑️ Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Gestión de Proveedores</h2>
+                    <p>Registro de nuevos distribuidores y control del directorio existente.</p>
+                </div>
+
+                <form onsubmit="guardarNuevoProveedor(event)" style="margin-bottom: 30px;">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nombre / Razón Social</label>
+                            <input type="text" id="provNombre" placeholder="Ej. MotoPartes del Golfo" required>
+                        </div>
+                        <div class="input-group">
+                            <label>RFC</label>
+                            <input type="text" id="provRfc" placeholder="Ej. MPG900101XYZ" required>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Teléfono / WhatsApp</label>
+                            <input type="tel" id="provTel" placeholder="Ej. 2288123456" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" id="provEmail" placeholder="contacto@proveedor.com" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-action">+ Registrar Nuevo Proveedor</button>
+                </form>
+
+                <div id="alertaProv" class="alert-box">✓ Proveedor guardado correctamente.</div>
+
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
+                        🏭 Directorio de Proveedores Registrados
+                    </h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>RFC</th>
+                                <th>Teléfono</th>
+                                <th>Email</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasTabla.length > 0 ? filasTabla : '<tr><td colspan="5" style="text-align:center; color:#a3a3a3;">No hay proveedores registrados.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function guardarNuevoProveedor(e) {
+            e.preventDefault();
+            const provs = obtenerProveedores();
+
+            provs.push({
+                id: Date.now().toString(),
+                nombre: document.getElementById('provNombre').value.trim(),
+                rfc: document.getElementById('provRfc').value.trim(),
+                telefono: document.getElementById('provTel').value.trim(),
+                email: document.getElementById('provEmail').value.trim()
+            });
+
+            guardarProveedores(provs);
+            const alerta = document.getElementById('alertaProv');
+            alerta.style.display = 'block';
+            setTimeout(() => {
+                alerta.style.display = 'none';
+                renderizarModuloProveedores();
+            }, 1200);
+        }
+
+        function eliminarProveedor(id) {
+            if (confirm('¿Desea eliminar este proveedor del sistema?')) {
+                let provs = obtenerProveedores();
+                provs = provs.filter(p => p.id !== id);
+                guardarProveedores(provs);
+                renderizarModuloProveedores();
+            }
+        }
+
+        /* =========================================================
+           3. MÓDULO UNIFICADO DEL CATÁLOGO DE ARTÍCULOS
+           ========================================================= */
+        function renderizarModuloArticulos() {
+            const panel = document.getElementById('panel-contenido-admin');
+            const arts = obtenerCatalogo();
+
+            let filasTabla = arts.map(a => `
+                <tr>
+                    <td><span style="background:#262626; padding:2px 6px; border-radius:3px; font-weight:700;">${a.sku}</span></td>
+                    <td><strong>${a.nombre}</strong></td>
+                    <td>$${a.costoCompra ? a.costoCompra.toFixed(2) : '0.00'}</td>
+                    <td>$${a.precio ? a.precio.toFixed(2) : '0.00'}</td>
+                    <td style="color:${a.stock > 5 ? '#4ade80' : '#f87171'}; font-weight:700;">${a.stock} pzas</td>
+                    <td>
+                        <button class="btn-secondary" onclick="prepararEdicionArticulo('${a.id}')">✏️ Editar</button>
+                        <button class="btn-danger-sm" onclick="eliminarArticulo('${a.id}')">🗑️ Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Gestión del Catálogo de Artículos</h2>
+                    <p>Módulo unificado para dar de alta, modificar precio/stock o eliminar refacciones del inventario.</p>
+                </div>
+
+                <!-- Formulario Dinámico (Alta o Edición) -->
+                <form onsubmit="guardarFormularioArticulo(event)" style="margin-bottom: 30px;">
+                    <h3 id="tituloFormArticulo" style="font-size:0.95rem; color:#60a5fa; margin-bottom:14px;">
+                        ➕ Registrar Nuevo Artículo en Catálogo
+                    </h3>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Código SKU Único</label>
+                            <input type="text" id="artSku" placeholder="Ej. REF-3005" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Nombre / Descripción del Producto</label>
+                            <input type="text" id="artNombre" placeholder="Ej. Filtro de Aceite Hero Hunk" required>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Costo de Compra ($ MXN)</label>
+                            <input type="number" id="artCosto" step="0.01" placeholder="Ej. 110.00" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Precio de Venta ($ MXN)</label>
+                            <input type="number" id="artPrecio" step="0.01" placeholder="Ej. 180.00" required>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Stock Disponible en Almacén</label>
+                        <input type="number" id="artStock" placeholder="Ej. 20" min="0" required>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="submit" id="btnGuardarArt" class="btn-action">Guardar Artículo en Inventario</button>
+                        <button type="button" id="btnCancelarEdit" class="btn-secondary" style="display:none; margin-top:20px;" onclick="cancelarEdicionArticulo()">Cancelar Edición</button>
+                    </div>
+                </form>
+
+                <div id="alertaArt" class="alert-box">✓ Cambios guardados correctamente en el inventario.</div>
+
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
+                        📦 Inventario General de Refacciones
+                    </h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Descripción</th>
+                                <th>Costo Compra</th>
+                                <th>Precio Venta</th>
+                                <th>Stock Actual</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasTabla.length > 0 ? filasTabla : '<tr><td colspan="6" style="text-align:center; color:#a3a3a3;">No hay productos registrados.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function guardarFormularioArticulo(e) {
+            e.preventDefault();
+            const arts = obtenerCatalogo();
+
+            const sku = document.getElementById('artSku').value.trim().toUpperCase();
+            const nombre = document.getElementById('artNombre').value.trim();
+            const costo = parseFloat(document.getElementById('artCosto').value) || 0;
+            const precio = parseFloat(document.getElementById('artPrecio').value) || 0;
+            const stock = parseInt(document.getElementById('artStock').value) || 0;
+
+            if (idArticuloEditando) {
+                const art = arts.find(a => a.id === idArticuloEditando);
+                if (art) {
+                    art.sku = sku;
+                    art.nombre = nombre;
+                    art.costoCompra = costo;
+                    art.precio = precio;
+                    art.stock = stock;
+                }
+            } else {
+                arts.push({
+                    id: Date.now().toString(),
+                    sku: sku,
+                    nombre: nombre,
+                    costoCompra: costo,
+                    precio: precio,
+                    stock: stock
+                });
+            }
+
+            guardarCatalogo(arts);
+            const alerta = document.getElementById('alertaArt');
+            alerta.style.display = 'block';
+            setTimeout(() => {
+                alerta.style.display = 'none';
+                idArticuloEditando = null;
+                renderizarModuloArticulos();
+            }, 1200);
+        }
+
+        function prepararEdicionArticulo(id) {
+            const arts = obtenerCatalogo();
+            const art = arts.find(a => a.id === id);
+            if (!art) return;
+
+            idArticuloEditando = id;
+            document.getElementById('tituloFormArticulo').innerText = '✏️ Editar Artículo: ' + art.nombre;
+            document.getElementById('artSku').value = art.sku;
+            document.getElementById('artNombre').value = art.nombre;
+            document.getElementById('artCosto').value = art.costoCompra || 0;
+            document.getElementById('artPrecio').value = art.precio || 0;
+            document.getElementById('artStock').value = art.stock || 0;
+
+            document.getElementById('btnGuardarArt').innerText = 'Guardar Cambios del Artículo';
+            document.getElementById('btnCancelarEdit').style.display = 'block';
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelarEdicionArticulo() {
+            idArticuloEditando = null;
+            renderizarModuloArticulos();
+        }
+
+        function eliminarArticulo(id) {
+            if (confirm('¿Está seguro de eliminar este producto del inventario?')) {
+                let arts = obtenerCatalogo();
+                arts = arts.filter(a => a.id !== id);
+                guardarCatalogo(arts);
+                renderizarModuloArticulos();
+            }
+        }
+
         window.onload = function() {
             cambiarVistaAdmin('compras', document.querySelector('.nav-btn'));
         };
