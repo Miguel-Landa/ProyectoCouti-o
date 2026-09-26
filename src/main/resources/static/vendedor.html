@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Administración - Sistema MRX</title>
+    <title>Punto de Venta - Sistema MRX</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -228,9 +228,9 @@
             background: #262626;
             color: #ffffff;
             border: 1px solid #404040;
-            padding: 10px 16px;
+            padding: 8px 14px;
             border-radius: 4px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -241,38 +241,127 @@
             color: #000000;
         }
 
-        .qty-btn {
-            background: #262626;
-            color: #ffffff;
-            border: 1px solid #404040;
-            width: 24px;
-            height: 24px;
-            border-radius: 3px;
-            font-size: 0.8rem;
-            font-weight: 700;
+        .ticket-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1f1f1f;
+            border: 1px solid #262626;
+            border-radius: 4px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
             cursor: pointer;
-            display: inline-flex;
+            transition: all 0.2s ease;
+        }
+
+        .ticket-item:hover {
+            border-color: #ffffff;
+            background: #262626;
+        }
+
+        .ticket-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .ticket-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .ticket-sub {
+            font-size: 0.8rem;
+            color: #a3a3a3;
+        }
+
+        .ticket-price {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #22c55e;
+        }
+
+        .badge-cotizacion {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .badge-venta {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
             justify-content: center;
             align-items: center;
-            margin: 0 4px;
+            z-index: 1000;
         }
 
-        .qty-btn:hover {
-            background: #ffffff;
-            color: #000000;
+        .modal-card {
+            background: #141414;
+            border: 1px solid #262626;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 580px;
+            padding: 25px;
         }
 
-        .btn-remove-item {
-            color: #ef4444;
-            background: transparent;
+        .btn-danger {
+            background: #dc2626;
+            color: #ffffff;
             border: none;
-            cursor: pointer;
-            font-size: 0.8rem;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
             font-weight: 600;
-            margin-left: 10px;
+            cursor: pointer;
         }
 
-        .btn-remove-item:hover { text-decoration: underline; }
+        .btn-danger:hover { background: #b91c1c; }
+
+        .btn-convert {
+            background: #16a34a;
+            color: #ffffff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-convert:hover { background: #15803d; }
+
+        .btn-close {
+            background: transparent;
+            color: #a3a3a3;
+            border: 1px solid #404040;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .btn-close:hover { background: #262626; color: #ffffff; }
 
         .alert-box {
             display: none;
@@ -287,458 +376,607 @@
             margin-top: 15px;
         }
 
-        .badge-stock {
-            background: rgba(34, 197, 94, 0.15);
-            color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
+        .btn-remove-item {
+            color: #ef4444;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
             font-weight: 600;
+            margin-left: 10px;
         }
+
+        .btn-remove-item:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
+        <!-- Barra Superior -->
         <div class="topbar">
-            <h1>Panel del Administrador</h1>
+            <h1>Punto de Venta y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
+        <!-- Workspace Dividido -->
         <div class="workspace">
             <div class="sidebar-buttons">
-                <div class="sidebar-title">Módulos de Almacén</div>
-                <button class="nav-btn active" onclick="cambiarVistaAdmin('compras', this)">
-                    📦 Compras a Proveedores
+                <div class="sidebar-title">Módulos de Venta</div>
+                <button class="nav-btn active" onclick="cambiarVistaVendedor('venta', this)">
+                    🛒 Nueva Venta
                 </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('proveedores', this)">
-                    🏭 Registro de Proveedores
+                <button class="nav-btn" onclick="cambiarVistaVendedor('cotizaciones', this)">
+                    📄 Cotizaciones
                 </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('registrar-art', this)">
-                    ➕ Registrar Artículos
-                </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('actualizar-art', this)">
-                    ✏️ Actualizar Artículos
-                </button>
-                <button class="nav-btn" onclick="cambiarVistaAdmin('eliminar-art', this)">
-                    🗑️ Eliminar Artículos
+                <button class="nav-btn" onclick="cambiarVistaVendedor('historial', this)">
+                    📜 Historial de Ventas
                 </button>
             </div>
 
-            <div class="main-panel" id="panel-contenido-admin">
+            <div class="main-panel" id="panel-contenido-vendedor">
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Emergente de Detalle de Venta/Cotización -->
+    <div class="modal-overlay" id="modalDetalle">
+        <div class="modal-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h2 id="modalTicketTitulo">Detalle del Registro</h2>
+                <p id="modalTicketFecha">Fecha de emisión</p>
+            </div>
+            <div class="summary-box" id="modalDetalleContenido" style="margin-top:0;">
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; gap: 10px;" id="modalAcciones">
             </div>
         </div>
     </div>
 
     <script>
-        // Catálogo Global Administrable
-        let catalogoArticulosAdmin = [
-            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', costoCompra: 140.00, stock: 15 },
-            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', costoCompra: 520.00, stock: 8 },
-            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', costoCompra: 110.00, stock: 20 },
-            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', costoCompra: 410.00, stock: 5 }
+        const catalogoProductos = [
+            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, categoria: 'Motor y Aceites', stock: 15 },
+            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, categoria: 'Eléctrico y Baterías', stock: 8 },
+            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, categoria: 'Frenos y Suspensión', stock: 20 },
+            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, categoria: 'Motor y Aceites', stock: 5 }
         ];
 
-        // Lista Global de Proveedores
-        let proveedoresLista = [
-            'Refacciones Hero México S.A. de C.V.',
-            'Distribuidora Motul Veracruz',
-            'Comercializadora de Autopartes Italika'
+        let historialVentas = [
+            { id: 2035, cliente: 'Miguel Landa', tipo: 'COTIZACIÓN', items: [{ id: '2', producto: 'Batería Hero Hunk 160R (12V 7Ah)', cantidad: 1, precio: 850.00 }, { id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }, { id: '4', producto: 'Kit Arrastre Piñón y Cadena 428H', cantidad: 1, precio: 650.00 }], subtotal: 1720.00, iva: 275.20, total: 1995.20, fecha: '24/09/2026', pago: 'Presupuesto' },
+            { id: 1042, cliente: 'Carlos Mendoza', tipo: 'VENTA', items: [{ id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' }
         ];
 
-        let itemsCompraActual = [];
+        let itemsVentaActual = [];
+        let itemsCotizacionActual = [];
+        let idCotizacionEnProceso = null;
+        let ticketSeleccionadoId = null;
 
-        function cambiarVistaAdmin(vista, boton) {
+        function cambiarVistaVendedor(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 boton.classList.add('active');
             }
 
-            const panel = document.getElementById('panel-contenido-admin');
+            const panel = document.getElementById('panel-contenido-vendedor');
 
-            if (vista === 'compras') {
-                itemsCompraActual = [];
-                renderizarModuloCompras();
+            if (vista === 'venta') {
+                renderizarModuloVenta();
             } 
-            else if (vista === 'proveedores') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Registro de Proveedores</h2>
-                        <p>Gestión del directorio de distribuidores. Los proveedores registrados aparecerán en Compras.</p>
-                    </div>
-
-                    <form onsubmit="guardarNuevoProveedor(event)">
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Nombre / Razón Social del Proveedor</label>
-                                <input type="text" id="provNombreInput" placeholder="Ej. LUBRICANTES Y REFACCIONES DEL GOLFO" required>
-                            </div>
-                            <div class="input-group">
-                                <label>RFC / Identificación Fiscal</label>
-                                <input type="text" placeholder="Ej. LRG200315ABC">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-action">Guardar Proveedor</button>
-                    </form>
-
-                    <div id="alertaProv" class="alert-box">✓ Proveedor registrado con éxito y disponible para Compras.</div>
-
-                    <div class="summary-box" style="margin-top:25px;">
-                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                            🏭 Directorio de Proveedores Registrados
-                        </h3>
-                        ${proveedoresLista.map(p => `<div class="summary-row"><strong style="color:#ffffff;">${p}</strong> <span class="badge-stock">Activo</span></div>`).join('')}
-                    </div>
-                `;
+            else if (vista === 'cotizaciones') {
+                itemsCotizacionActual = [];
+                renderizarModuloCotizaciones();
             } 
-            else if (vista === 'registrar-art') {
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Registrar Nuevo Artículo</h2>
-                        <p>Alta de productos en el catálogo de la empresa con stock inicial.</p>
-                    </div>
-
-                    <form onsubmit="guardarNuevoArticulo(event)">
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Código SKU Único</label>
-                                <input type="text" id="newSkuInput" placeholder="Ej. REF-105" required>
-                            </div>
-                            <div class="input-group">
-                                <label>Descripción del Producto</label>
-                                <input type="text" id="newNombreInput" placeholder="Ej. Foco LED H4 Dual High/Low" required>
-                            </div>
-                        </div>
-
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Costo de Compra ($ MXN)</label>
-                                <input type="number" id="newCostoInput" placeholder="Ej. 180.00" step="0.01" required>
-                            </div>
-                            <div class="input-group">
-                                <label>Stock Inicial en Almacén</label>
-                                <input type="number" id="newStockInput" value="10" min="0" required>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn-action">Guardar Artículo en Catálogo</button>
-                    </form>
-
-                    <div id="alertaArt" class="alert-box">✓ Artículo dado de alta exitosamente en el catálogo.</div>
-                `;
-            } 
-            else if (vista === 'actualizar-art') {
-                let opcionesArt = catalogoArticulosAdmin.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} (Stock Actual: ${a.stock})</option>`).join('');
-
-                panel.innerHTML = `
-                    <div class="panel-header">
-                        <h2>Actualizar Artículos e Inventario</h2>
-                        <p>Modificación de costos, descripciones y actualización directa del stock disponible.</p>
-                    </div>
-
-                    <div class="input-group">
-                        <label>Seleccionar Artículo a Modificar</label>
-                        <select id="selectEditArticulo" onchange="cargarDatosEnEdicion()">
-                            ${opcionesArt}
-                        </select>
-                    </div>
-
-                    <form onsubmit="guardarEdicionArticulo(event)" style="margin-top:20px;">
-                        <div class="form-grid">
-                            <div class="input-group">
-                                <label>Descripción / Nombre</label>
-                                <input type="text" id="editNombreInput" required>
-                            </div>
-                            <div class="input-group">
-                                <label>Costo de Compra ($ MXN)</label>
-                                <input type="number" id="editCostoInput" step="0.01" required>
-                            </div>
-                        </div>
-
-                        <div class="input-group">
-                            <label>Stock Actual Disponible en Empresa</label>
-                            <input type="number" id="editStockInput" min="0" required>
-                        </div>
-
-                        <button type="submit" class="btn-action">Guardar Cambios del Artículo</button>
-                    </form>
-
-                    <div id="alertaEdit" class="alert-box">✓ Datos y stock del artículo actualizados correctamente.</div>
-                `;
-                cargarDatosEnEdicion();
-            } 
-            else if (vista === 'eliminar-art') {
-                renderizarModuloEliminar();
+            else if (vista === 'historial') {
+                renderizarHistorialVentas();
             }
         }
 
-        /* --- LÓGICA DE COMPRAS Y SURTIDO --- */
-        function renderizarModuloCompras() {
-            const panel = document.getElementById('panel-contenido-admin');
-            let opcionesProveedores = proveedoresLista.map(p => `<option value="${p}">${p}</option>`).join('');
-            let opcionesArticulos = catalogoArticulosAdmin.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} - Costo: $${a.costoCompra.toFixed(2)} (Stock Actual: ${a.stock} pzas)</option>`).join('');
+        function renderizarModuloVenta() {
+            const panel = document.getElementById('panel-contenido-vendedor');
+            let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Registrar Compra de Mercancía</h2>
-                    <p>Ingreso de facturas de compra y surtido dinámico de stock a almacén.</p>
+                    <h2>Nueva Venta ${idCotizacionEnProceso ? '<span style="color:#60a5fa; font-size:0.9rem;">(Procesando Cotización #' + idCotizacionEnProceso + ')</span>' : ''}</h2>
+                    <p>Selección de productos, verificación de existencias y cobro en caja.</p>
                 </div>
 
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>Seleccionar Proveedor Registrado</label>
-                        <select id="compraProveedorSelect">
-                            ${opcionesProveedores}
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Número de Factura / Remisión</label>
-                        <input type="text" id="compraFacturaInput" placeholder="Ej. FAC-2026-88" required>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
-                    <div class="input-group" style="margin-bottom:0; flex:2;">
-                        <label>Artículo Surtido (Stock Disponible Visible)</label>
-                        <select id="selectCompraArticulo">
-                            ${opcionesArticulos}
-                        </select>
-                    </div>
-                    <div class="input-group" style="margin-bottom:0; flex:1;">
-                        <label>Cantidad Comprada</label>
-                        <input type="number" id="compraCantidadInput" value="10" min="1">
-                    </div>
-                    <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarArticuloACompra()">+ Agregar a la Compra</button>
-                </div>
-
-                <div class="summary-box">
-                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                        📦 Desglose de Artículos en la Factura de Compra
-                    </h3>
-                    <div id="listaArticulosCompra">
-                        <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado artículos a esta compra.</p>
+                <form id="ventaForm" onsubmit="procesarVenta(event)">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nombre del Cliente</label>
+                            <input type="text" id="ventaCliente" placeholder="Ej. Carlos Mendoza" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Método de Pago</label>
+                            <select id="ventaMetodoPago">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta de Débito / Crédito</option>
+                                <option value="Transferencia">Transferencia SPEI</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
-                        <div class="summary-row"><span>Subtotal Compra:</span><span id="lblSubtotalCompra">$0.00 MXN</span></div>
-                        <div class="summary-row"><span>IVA Soportado (16%):</span><span id="lblIvaCompra">$0.00 MXN</span></div>
-                        <div class="summary-row total"><span>Total Factura:</span><span id="lblTotalCompra" style="color: #22c55e;">$0.00 MXN</span></div>
+                    <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                        <div class="input-group" style="margin-bottom:0; flex:2;">
+                            <label>Agregar Producto al Carrito (Stock Disponible Visible)</label>
+                            <select id="selectVentaProducto">
+                                ${opcionesProd}
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-bottom:0; flex:1;">
+                            <label>Cantidad</label>
+                            <input type="number" id="ventaCantidadInput" value="1" min="1">
+                        </div>
+                        <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarProductoAVenta()">+ Agregar Item</button>
                     </div>
-                </div>
 
-                <button class="btn-action" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
-                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock en almacén ha sido incrementado.</div>
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                            🛒 Desglose de Productos en Venta
+                        </h3>
+                        <div id="listaItemsVenta">
+                            <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>
+                        </div>
+
+                        <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                            <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotal">$0.00 MXN</span></div>
+                            <div class="summary-row"><span>IVA (16%):</span><span id="lblIva">$0.00 MXN</span></div>
+                            <div class="summary-row total"><span>Total a Cobrar:</span><span id="lblTotal" style="color: #22c55e;">$0.00 MXN</span></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-action">${idCotizacionEnProceso ? 'Convertir Cotización #' + idCotizacionEnProceso + ' a Venta' : 'Procesar Venta y Generar Ticket'}</button>
+                </form>
+
+                <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y actualizada en el historial.</div>
             `;
-            actualizarTablaCompra();
+            actualizarTablaVenta();
         }
 
-        function agregarArticuloACompra() {
-            const artId = document.getElementById('selectCompraArticulo').value;
-            const cantidad = parseInt(document.getElementById('compraCantidadInput').value) || 1;
-            const articulo = catalogoArticulosAdmin.find(a => a.id === artId);
+        function agregarProductoAVenta() {
+            const prodId = document.getElementById('selectVentaProducto').value;
+            const cantidad = parseInt(document.getElementById('ventaCantidadInput').value) || 1;
+            const producto = catalogoProductos.find(p => p.id === prodId);
 
-            if (articulo) {
-                const existe = itemsCompraActual.find(item => item.id === artId);
+            if (producto) {
+                if (cantidad > producto.stock) {
+                    alert(`⚠️ Stock insuficiente. Solo quedan ${producto.stock} unidades disponibles de ${producto.nombre}.`);
+                    return;
+                }
+
+                const existe = itemsVentaActual.find(item => item.id === prodId);
                 if (existe) {
+                    if ((existe.cantidad + cantidad) > producto.stock) {
+                        alert(`⚠️ Supera el stock máximo disponible (${producto.stock} pzas).`);
+                        return;
+                    }
                     existe.cantidad += cantidad;
                 } else {
-                    itemsCompraActual.push({
-                        id: articulo.id,
-                        sku: articulo.sku,
-                        nombre: articulo.nombre,
-                        costo: articulo.costoCompra,
+                    itemsVentaActual.push({
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
                         cantidad: cantidad
                     });
                 }
-                actualizarTablaCompra();
+                actualizarTablaVenta();
             }
         }
 
-        function modificarCantidadCompra(id, delta) {
-            const item = itemsCompraActual.find(i => i.id === id);
-            if (item) {
-                item.cantidad += delta;
-                if (item.cantidad <= 0) {
-                    removerArticuloCompra(id);
-                } else {
-                    actualizarTablaCompra();
-                }
-            }
+        function removerItemVenta(id) {
+            itemsVentaActual = itemsVentaActual.filter(item => item.id !== id);
+            actualizarTablaVenta();
         }
 
-        function removerArticuloCompra(id) {
-            itemsCompraActual = itemsCompraActual.filter(i => i.id !== id);
-            actualizarTablaCompra();
-        }
-
-        function actualizarTablaCompra() {
-            const contenedor = document.getElementById('listaArticulosCompra');
+        function actualizarTablaVenta() {
+            const contenedor = document.getElementById('listaItemsVenta');
             if (!contenedor) return;
 
-            if (itemsCompraActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado artículos a esta compra.</p>';
-                document.getElementById('lblSubtotalCompra').innerText = '$0.00 MXN';
-                document.getElementById('lblIvaCompra').innerText = '$0.00 MXN';
-                document.getElementById('lblTotalCompra').innerText = '$0.00 MXN';
+            if (itemsVentaActual.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>';
+                document.getElementById('lblSubtotal').innerText = '$0.00 MXN';
+                document.getElementById('lblIva').innerText = '$0.00 MXN';
+                document.getElementById('lblTotal').innerText = '$0.00 MXN';
                 return;
             }
 
-            let subtotal = 0;
-            let html = itemsCompraActual.map(item => {
-                const importe = item.costo * item.cantidad;
-                subtotal += importe;
+            let subtotalTotal = 0;
+            let html = itemsVentaActual.map(item => {
+                const importe = item.precio * item.cantidad;
+                subtotalTotal += importe;
                 return `
                     <div class="summary-row">
                         <div>
-                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
-                            <strong style="color:#ffffff;">${item.nombre}</strong> 
-                            <span style="margin-left:8px;">
-                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', -1)">-</button>
-                                <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', 1)">+</button>
-                            </span>
-                            <button class="btn-remove-item" onclick="removerArticuloCompra('${item.id}')">Quitar</button>
+                            <span style="background:#262626; color:#4ade80; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
+                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <button class="btn-remove-item" onclick="removerItemVenta('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
                     </div>
                 `;
             }).join('');
 
+            const ivaTotal = subtotalTotal * 0.16;
+            const total = subtotalTotal + ivaTotal;
+
+            contenedor.innerHTML = html;
+            document.getElementById('lblSubtotal').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIva').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblTotal').innerText = '$' + total.toFixed(2) + ' MXN';
+        }
+
+        function procesarVenta(event) {
+            event.preventDefault();
+            const cliente = document.getElementById('ventaCliente').value;
+            const pago = document.getElementById('ventaMetodoPago').value;
+
+            if (itemsVentaActual.length === 0) {
+                alert('Selecciona al menos un producto para procesar la venta.');
+                return;
+            }
+
+            let subtotal = 0;
+            const itemsMapeados = itemsVentaActual.map(item => {
+                subtotal += (item.precio * item.cantidad);
+                const prodReal = catalogoProductos.find(p => p.id === item.id);
+                if (prodReal) prodReal.stock -= item.cantidad;
+                return { id: item.id, producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
+            });
+
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
 
-            contenedor.innerHTML = html;
-            document.getElementById('lblSubtotalCompra').innerText = '$' + subtotal.toFixed(2) + ' MXN';
-            document.getElementById('lblIvaCompra').innerText = '$' + iva.toFixed(2) + ' MXN';
-            document.getElementById('lblTotalCompra').innerText = '$' + total.toFixed(2) + ' MXN';
-        }
+            if (idCotizacionEnProceso) {
+                const indiceCotiz = historialVentas.findIndex(t => t.id === idCotizacionEnProceso);
+                if (indiceCotiz !== -1) {
+                    const registroActualizado = historialVentas.splice(indiceCotiz, 1)[0];
+                    registroActualizado.cliente = cliente;
+                    registroActualizado.tipo = 'VENTA';
+                    registroActualizado.items = itemsMapeados;
+                    registroActualizado.subtotal = subtotal;
+                    registroActualizado.iva = iva;
+                    registroActualizado.total = total;
+                    registroActualizado.pago = pago;
+                    registroActualizado.fecha = new Date().toLocaleDateString();
 
-        function guardarCompraMercancia() {
-            const factura = document.getElementById('compraFacturaInput').value;
-            if (!factura) {
-                alert('Ingresa el número de factura o remisión.');
-                return;
+                    historialVentas.unshift(registroActualizado);
+                }
+                idCotizacionEnProceso = null;
+            } else {
+                const nuevoId = Math.floor(1043 + Math.random() * 100);
+                historialVentas.unshift({
+                    id: nuevoId,
+                    cliente: cliente,
+                    tipo: 'VENTA',
+                    items: itemsMapeados,
+                    subtotal: subtotal,
+                    iva: iva,
+                    total: total,
+                    fecha: new Date().toLocaleDateString(),
+                    pago: pago
+                });
             }
 
-            if (itemsCompraActual.length === 0) {
-                alert('Agrega al menos un artículo a la factura de compra.');
-                return;
-            }
-
-            itemsCompraActual.forEach(item => {
-                const artReal = catalogoArticulosAdmin.find(a => a.id === item.id);
-                if (artReal) artReal.stock += item.cantidad;
-            });
-
-            const alerta = document.getElementById('alertaCompra');
+            const alerta = document.getElementById('alertaVenta');
             alerta.style.display = 'block';
             setTimeout(() => {
                 alerta.style.display = 'none';
-                itemsCompraActual = [];
-                renderizarModuloCompras();
+                itemsVentaActual = [];
+                renderizarModuloVenta();
             }, 2000);
         }
 
-        /* --- PROVEEDORES Y ARTÍCULOS --- */
-        function guardarNuevoProveedor(event) {
-            event.preventDefault();
-            const provNombre = document.getElementById('provNombreInput').value.trim();
-            if (provNombre && !proveedoresLista.includes(provNombre)) {
-                proveedoresLista.push(provNombre);
-                const alerta = document.getElementById('alertaProv');
-                alerta.style.display = 'block';
-                setTimeout(() => {
-                    alerta.style.display = 'none';
-                    cambiarVistaAdmin('proveedores');
-                }, 1800);
-            }
-        }
-
-        function guardarNuevoArticulo(event) {
-            event.preventDefault();
-            const sku = document.getElementById('newSkuInput').value.toUpperCase();
-            const nombre = document.getElementById('newNombreInput').value;
-            const costo = parseFloat(document.getElementById('newCostoInput').value) || 0;
-            const stock = parseInt(document.getElementById('newStockInput').value) || 0;
-
-            const nuevoId = (catalogoArticulosAdmin.length + 1).toString();
-            catalogoArticulosAdmin.push({ id: nuevoId, sku: sku, nombre: nombre, costoCompra: costo, stock: stock });
-
-            const alerta = document.getElementById('alertaArt');
-            alerta.style.display = 'block';
-            setTimeout(() => {
-                alerta.style.display = 'none';
-                cambiarVistaAdmin('registrar-art');
-            }, 1800);
-        }
-
-        function cargarDatosEnEdicion() {
-            const artId = document.getElementById('selectEditArticulo').value;
-            const art = catalogoArticulosAdmin.find(a => a.id === artId);
-            if (art) {
-                document.getElementById('editNombreInput').value = art.nombre;
-                document.getElementById('editCostoInput').value = art.costoCompra;
-                document.getElementById('editStockInput').value = art.stock;
-            }
-        }
-
-        function guardarEdicionArticulo(event) {
-            event.preventDefault();
-            const artId = document.getElementById('selectEditArticulo').value;
-            const art = catalogoArticulosAdmin.find(a => a.id === artId);
-            if (art) {
-                art.nombre = document.getElementById('editNombreInput').value;
-                art.costoCompra = parseFloat(document.getElementById('editCostoInput').value);
-                art.stock = parseInt(document.getElementById('editStockInput').value);
-
-                const alerta = document.getElementById('alertaEdit');
-                alerta.style.display = 'block';
-                setTimeout(() => {
-                    alerta.style.display = 'none';
-                    cambiarVistaAdmin('actualizar-art');
-                }, 1800);
-            }
-        }
-
-        function renderizarModuloEliminar() {
-            const panel = document.getElementById('panel-contenido-admin');
-            let filasHTML = catalogoArticulosAdmin.map(art => `
-                <div class="summary-row">
-                    <div>
-                        <span style="background:#262626; color:#ef4444; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${art.sku}</span>
-                        <strong style="color:#ffffff;">${art.nombre}</strong>
-                        <span style="margin-left:10px; font-size:0.8rem; color:#a3a3a3;">Stock Actual: <strong style="color:#ffffff;">${art.stock} pzas</strong></span>
-                    </div>
-                    <button class="btn-remove-item" onclick="eliminarArticuloCatalog('${art.id}')">🗑️ Eliminar</button>
-                </div>
-            `).join('');
+        function renderizarModuloCotizaciones() {
+            const panel = document.getElementById('panel-contenido-vendedor');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Eliminar Artículos del Inventario</h2>
-                    <p>Baja definitiva de productos del catálogo general.</p>
+                    <h2>Cotizaciones y Presupuestos</h2>
+                    <p>Búsqueda de refacciones con existencias visibles en tiempo real.</p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Nombre del Cliente</label>
+                        <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
+                    </div>
+                    <div class="input-group">
+                        <label>Buscar / Seleccionar Refacción (Stock Disponible Visible)</label>
+                        <select id="selectCotizacionProducto">
+                            ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} (Stock:${p.stock} pzas)</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="input-group" style="margin-bottom:0; flex:1;">
+                        <label>Cantidad</label>
+                        <input type="number" id="cotizacionCantidad" value="1" min="1">
+                    </div>
+                    <button class="btn-add-item" style="padding:12px 20px;" onclick="agregarProductoACotizacion()">+ Agregar a la Cotización</button>
                 </div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                        📦 Catálogo de Productos Registrados
+                        📋 Refacciones en la Cotización
                     </h3>
-                    ${filasHTML.length > 0 ? filasHTML : '<p style="color:#a3a3a3; text-align:center;">No hay productos registrados.</p>'}
+                    <div id="listaItemsCotizacion">
+                        <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>
+                    </div>
+
+                    <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                        <div class="summary-row"><span>Subtotal Refacciones:</span><span id="lblSubtotalCotiz">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>IVA (16%):</span><span id="lblIvaCotiz">$0.00 MXN</span></div>
+                        <div class="summary-row total"><span>Total Cotizado:</span><span id="lblTotalCotiz" style="color:#60a5fa;">$0.00 MXN</span></div>
+                    </div>
+                </div>
+
+                <button class="btn-action" onclick="guardarCotizaciónFinal()">💾 Guardar Cotización en Registro de Ventas</button>
+                <div id="alertaCotizacion" class="alert-box">✓ Cotización registrada correctamente en el historial.</div>
+            `;
+            actualizarTablaCotizacion();
+        }
+
+        function agregarProductoACotizacion() {
+            const prodId = document.getElementById('selectCotizacionProducto').value;
+            const cantidad = parseInt(document.getElementById('cotizacionCantidad').value) || 1;
+            const producto = catalogoProductos.find(p => p.id === prodId);
+
+            if (producto) {
+                const existe = itemsCotizacionActual.find(item => item.id === prodId);
+                if (existe) {
+                    existe.cantidad += cantidad;
+                } else {
+                    itemsCotizacionActual.push({
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: cantidad
+                    });
+                }
+                actualizarTablaCotizacion();
+            }
+        }
+
+        function removerItemCotizacion(id) {
+            itemsCotizacionActual = itemsCotizacionActual.filter(item => item.id !== id);
+            actualizarTablaCotizacion();
+        }
+
+        function actualizarTablaCotizacion() {
+            const contenedor = document.getElementById('listaItemsCotizacion');
+            if (!contenedor) return;
+
+            if (itemsCotizacionActual.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>';
+                document.getElementById('lblSubtotalCotiz').innerText = '$0.00 MXN';
+                document.getElementById('lblIvaCotiz').innerText = '$0.00 MXN';
+                document.getElementById('lblTotalCotiz').innerText = '$0.00 MXN';
+                return;
+            }
+
+            let subtotalTotal = 0;
+            let html = itemsCotizacionActual.map(item => {
+                const importe = item.precio * item.cantidad;
+                subtotalTotal += importe;
+                return `
+                    <div class="summary-row">
+                        <div>
+                            <span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
+                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <button class="btn-remove-item" onclick="removerItemCotizacion('${item.id}')">Quitar</button>
+                        </div>
+                        <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                    </div>
+                `;
+            }).join('');
+
+            const ivaTotal = subtotalTotal * 0.16;
+            const totalCotizado = subtotalTotal + ivaTotal;
+
+            contenedor.innerHTML = html;
+            document.getElementById('lblSubtotalCotiz').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIvaCotiz').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblTotalCotiz').innerText = '$' + totalCotizado.toFixed(2) + ' MXN';
+        }
+
+        function guardarCotizaciónFinal() {
+            const cliente = document.getElementById('cotizacionCliente').value || 'Cliente General';
+            if (itemsCotizacionActual.length === 0) {
+                alert('Agrega al menos una refacción para generar la cotización.');
+                return;
+            }
+
+            let subtotal = 0;
+            const itemsMapeados = itemsCotizacionActual.map(item => {
+                subtotal += (item.precio * item.cantidad);
+                return { id: item.id, producto: item.nombre, cantidad: item.cantidad, precio: item.precio };
+            });
+
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
+            const nuevoId = Math.floor(2000 + Math.random() * 900);
+
+            historialVentas.unshift({
+                id: nuevoId,
+                cliente: cliente,
+                tipo: 'COTIZACIÓN',
+                items: itemsMapeados,
+                subtotal: subtotal,
+                iva: iva,
+                total: total,
+                fecha: new Date().toLocaleDateString(),
+                pago: 'Presupuesto'
+            });
+
+            const alerta = document.getElementById('alertaCotizacion');
+            alerta.style.display = 'block';
+            setTimeout(() => {
+                alerta.style.display = 'none';
+                itemsCotizacionActual = [];
+                renderizarModuloCotizaciones();
+            }, 2000);
+        }
+
+        function renderizarHistorialVentas() {
+            const panel = document.getElementById('panel-contenido-vendedor');
+
+            let itemsHTML = historialVentas.map(t => {
+                const isCotiz = t.tipo === 'COTIZACIÓN';
+                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
+                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
+
+                return `
+                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                        <div class="ticket-info">
+                            <div class="ticket-title">
+                                #${t.id} - ${t.cliente}
+                                <span class="${badgeClass}">${t.tipo}</span>
+                            </div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                        </div>
+                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
+                    </div>
+                `;
+            }).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Ventas y Cotizaciones</h2>
+                    <p>Registro centralizado de transacciones y presupuestos guardados.</p>
+                </div>
+
+                <div class="input-group">
+                    <label>Buscar Ticket, Cotización o Cliente</label>
+                    <input type="text" id="buscarTicketInput" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarHistorial(this.value)">
+                </div>
+
+                <div id="listaTicketsContenedor">
+                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay registros disponibles.</p>'}
                 </div>
             `;
         }
 
-        function eliminarArticuloCatalog(id) {
-            const art = catalogoArticulosAdmin.find(a => a.id === id);
-            if (art && confirm(`¿Está seguro de eliminar ${art.nombre} (${art.sku}) del inventario?`)) {
-                catalogoArticulosAdmin = catalogoArticulosAdmin.filter(a => a.id !== id);
-                renderizarModuloEliminar();
+        function abrirDetalleTicket(id) {
+            const ticket = historialVentas.find(t => t.id === id);
+            if (!ticket) return;
+
+            ticketSeleccionadoId = id;
+            document.getElementById('modalTicketTitulo').innerText = `${ticket.tipo} #${ticket.id} - ${ticket.cliente}`;
+            document.getElementById('modalTicketFecha').innerText = `Emisión: ${ticket.fecha} | Estado: ${ticket.pago}`;
+
+            let itemsDesglose = ticket.items.map(it => `
+                <div class="summary-row">
+                    <span>${it.producto} (x${it.cantidad})</span>
+                    <span>$${(it.precio * it.cantidad).toFixed(2)} MXN</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modalDetalleContenido').innerHTML = `
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose de Refacciones Solicitadas:</h4>
+                ${itemsDesglose}
+                <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
+                    <span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span>
+                </div>
+                <div class="summary-row"><span>IVA (16%):</span><span>$${ticket.iva.toFixed(2)} MXN</span></div>
+                <div class="summary-row total">
+                    <span>Total ${ticket.tipo}:</span>
+                    <span style="color:${ticket.tipo === 'COTIZACIÓN' ? '#60a5fa' : '#22c55e'};">$${ticket.total.toFixed(2)} MXN</span>
+                </div>
+            `;
+
+            const contenedorAcciones = document.getElementById('modalAcciones');
+            if (ticket.tipo === 'COTIZACIÓN') {
+                contenedorAcciones.innerHTML = `
+                    <button class="btn-convert" onclick="cargarCotizacionEnVenta(${ticket.id})">🛒 Cargar y Procesar Venta</button>
+                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
+                    <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
+                `;
+            } else {
+                contenedorAcciones.innerHTML = `
+                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Registro</button>
+                    <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
+                `;
+            }
+
+            document.getElementById('modalDetalle').style.display = 'flex';
+        }
+
+        function cargarCotizacionEnVenta(idCotizacion) {
+            const cotizacion = historialVentas.find(t => t.id === idCotizacion);
+            if (!cotizacion) return;
+
+            idCotizacionEnProceso = idCotizacion;
+
+            itemsVentaActual = cotizacion.items.map(it => {
+                const prodReal = catalogoProductos.find(p => p.nombre.toLowerCase().includes(it.producto.toLowerCase()) || p.id === it.id);
+                return {
+                    id: prodReal ? prodReal.id : '1',
+                    sku: prodReal ? prodReal.sku : 'REF-100',
+                    nombre: it.producto,
+                    precio: it.precio,
+                    cantidad: it.cantidad
+                };
+            });
+
+            cerrarModal();
+
+            const botonesNav = document.querySelectorAll('.nav-btn');
+            cambiarVistaVendedor('venta', botonesNav[0]);
+
+            setTimeout(() => {
+                const clienteInput = document.getElementById('ventaCliente');
+                if (clienteInput) clienteInput.value = cotizacion.cliente;
+                actualizarTablaVenta();
+            }, 100);
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalDetalle').style.display = 'none';
+        }
+
+        function confirmarEliminarTicket() {
+            if (confirm(`¿Está seguro de eliminar el registro #${ticketSeleccionadoId}?`)) {
+                historialVentas = historialVentas.filter(t => t.id !== ticketSeleccionadoId);
+                cerrarModal();
+                renderizarHistorialVentas();
             }
         }
 
+        function filtrarHistorial(query) {
+            const q = query.toLowerCase();
+            const filtrados = historialVentas.filter(t => 
+                t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.tipo.toLowerCase().includes(q)
+            );
+
+            let itemsHTML = filtrados.map(t => {
+                const isCotiz = t.tipo === 'COTIZACIÓN';
+                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
+                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
+
+                return `
+                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                        <div class="ticket-info">
+                            <div class="ticket-title">
+                                #${t.id} - ${t.cliente}
+                                <span class="${badgeClass}">${t.tipo}</span>
+                            </div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                        </div>
+                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('listaTicketsContenedor').innerHTML = itemsHTML.length > 0 
+                ? itemsHTML 
+                : '<p style="color:#a3a3a3; text-align:center;">No se encontraron coincidencias.</p>';
+        }
+
         window.onload = function() {
-            cambiarVistaAdmin('compras', document.querySelector('.nav-btn'));
+            cambiarVistaVendedor('venta', document.querySelector('.nav-btn'));
         };
     </script>
 </body>
