@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -241,6 +241,27 @@
             color: #000000;
         }
 
+        .qty-btn {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            width: 24px;
+            height: 24px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 4px;
+        }
+
+        .qty-btn:hover {
+            background: #ffffff;
+            color: #000000;
+        }
+
         .ticket-item {
             display: flex;
             justify-content: space-between;
@@ -392,16 +413,16 @@
 <body>
 
     <div class="app-container">
-        <!-- Barra Superior -->
+        <!-- Topbar -->
         <div class="topbar">
             <h1>Punto de Venta y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Workspace Dividido -->
+        <!-- Módulos de Venta -->
         <div class="workspace">
             <div class="sidebar-buttons">
-                <div class="sidebar-title">Módulos de Venta</div>
+                <div class="sidebar-title">Módulos Exclusivos de Venta</div>
                 <button class="nav-btn active" onclick="cambiarVistaVendedor('venta', this)">
                     🛒 Nueva Venta
                 </button>
@@ -418,7 +439,7 @@
         </div>
     </div>
 
-    <!-- Modal Emergente de Detalle de Venta/Cotización -->
+    <!-- Modal Emergente de Detalles -->
     <div class="modal-overlay" id="modalDetalle">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
@@ -434,10 +455,10 @@
 
     <script>
         const catalogoProductos = [
-            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, categoria: 'Motor y Aceites', stock: 15 },
-            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, categoria: 'Eléctrico y Baterías', stock: 8 },
-            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, categoria: 'Frenos y Suspensión', stock: 20 },
-            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, categoria: 'Motor y Aceites', stock: 5 }
+            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, stock: 15 },
+            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, stock: 8 },
+            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, stock: 20 },
+            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, stock: 5 }
         ];
 
         let historialVentas = [
@@ -460,16 +481,15 @@
 
             if (vista === 'venta') {
                 renderizarModuloVenta();
-            } 
-            else if (vista === 'cotizaciones') {
+            } else if (vista === 'cotizaciones') {
                 itemsCotizacionActual = [];
                 renderizarModuloCotizaciones();
-            } 
-            else if (vista === 'historial') {
+            } else if (vista === 'historial') {
                 renderizarHistorialVentas();
             }
         }
 
+        /* --- MÓDULO 1: NUEVA VENTA --- */
         function renderizarModuloVenta() {
             const panel = document.getElementById('panel-contenido-vendedor');
             let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
@@ -477,7 +497,7 @@
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Nueva Venta ${idCotizacionEnProceso ? '<span style="color:#60a5fa; font-size:0.9rem;">(Procesando Cotización #' + idCotizacionEnProceso + ')</span>' : ''}</h2>
-                    <p>Selección de productos, verificación de existencias y cobro en caja.</p>
+                    <p>Selección de productos, desglose dinámico y cobro directo.</p>
                 </div>
 
                 <form id="ventaForm" onsubmit="procesarVenta(event)">
@@ -498,10 +518,8 @@
 
                     <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div class="input-group" style="margin-bottom:0; flex:2;">
-                            <label>Agregar Producto al Carrito (Stock Disponible Visible)</label>
-                            <select id="selectVentaProducto">
-                                ${opcionesProd}
-                            </select>
+                            <label>Seleccionar Producto / Refacción</label>
+                            <select id="selectVentaProducto">${opcionesProd}</select>
                         </div>
                         <div class="input-group" style="margin-bottom:0; flex:1;">
                             <label>Cantidad</label>
@@ -512,12 +530,9 @@
 
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                            🛒 Desglose de Productos en Venta
+                            🛒 Desglose de Productos en la Venta
                         </h3>
-                        <div id="listaItemsVenta">
-                            <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>
-                        </div>
-
+                        <div id="listaItemsVenta"></div>
                         <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
                             <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotal">$0.00 MXN</span></div>
                             <div class="summary-row"><span>IVA (16%):</span><span id="lblIva">$0.00 MXN</span></div>
@@ -528,7 +543,7 @@
                     <button type="submit" class="btn-action">${idCotizacionEnProceso ? 'Convertir Cotización #' + idCotizacionEnProceso + ' a Venta' : 'Procesar Venta y Generar Ticket'}</button>
                 </form>
 
-                <div id="alertaVenta" class="alert-box">✓ Venta procesada con éxito y actualizada en el historial.</div>
+                <div id="alertaVenta" class="alert-box">✓ Venta registrada correctamente y descontada del stock.</div>
             `;
             actualizarTablaVenta();
         }
@@ -540,27 +555,34 @@
 
             if (producto) {
                 if (cantidad > producto.stock) {
-                    alert(`⚠️ Stock insuficiente. Solo quedan ${producto.stock} unidades disponibles de ${producto.nombre}.`);
+                    alert(`⚠️ Stock insuficiente. Quedan ${producto.stock} unidades de ${producto.nombre}.`);
                     return;
                 }
-
                 const existe = itemsVentaActual.find(item => item.id === prodId);
                 if (existe) {
                     if ((existe.cantidad + cantidad) > producto.stock) {
-                        alert(`⚠️ Supera el stock máximo disponible (${producto.stock} pzas).`);
+                        alert(`⚠️ Supera el stock disponible (${producto.stock} pzas).`);
                         return;
                     }
                     existe.cantidad += cantidad;
                 } else {
-                    itemsVentaActual.push({
-                        id: producto.id,
-                        sku: producto.sku,
-                        nombre: producto.nombre,
-                        precio: producto.precio,
-                        cantidad: cantidad
-                    });
+                    itemsVentaActual.push({ id: producto.id, sku: producto.sku, nombre: producto.nombre, precio: producto.precio, cantidad: cantidad });
                 }
                 actualizarTablaVenta();
+            }
+        }
+
+        function modificarCantidadVenta(id, delta) {
+            const item = itemsVentaActual.find(i => i.id === id);
+            const prodReal = catalogoProductos.find(p => p.id === id);
+            if (item && prodReal) {
+                if (delta > 0 && item.cantidad + delta > prodReal.stock) {
+                    alert(`⚠️ Alcanzaste el stock máximo disponible (${prodReal.stock} pzas).`);
+                    return;
+                }
+                item.cantidad += delta;
+                if (item.cantidad <= 0) removerItemVenta(id);
+                else actualizarTablaVenta();
             }
         }
 
@@ -574,22 +596,27 @@
             if (!contenedor) return;
 
             if (itemsVentaActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a la venta.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos.</p>';
                 document.getElementById('lblSubtotal').innerText = '$0.00 MXN';
                 document.getElementById('lblIva').innerText = '$0.00 MXN';
                 document.getElementById('lblTotal').innerText = '$0.00 MXN';
                 return;
             }
 
-            let subtotalTotal = 0;
+            let subtotal = 0;
             let html = itemsVentaActual.map(item => {
                 const importe = item.precio * item.cantidad;
-                subtotalTotal += importe;
+                subtotal += importe;
                 return `
                     <div class="summary-row">
                         <div>
                             <span style="background:#262626; color:#4ade80; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
-                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <strong style="color:#ffffff;">${item.nombre}</strong> 
+                            <span style="margin-left:8px;">
+                                <button class="qty-btn" onclick="modificarCantidadVenta('${item.id}', -1)">-</button>
+                                <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
+                                <button class="qty-btn" onclick="modificarCantidadVenta('${item.id}', 1)">+</button>
+                            </span>
                             <button class="btn-remove-item" onclick="removerItemVenta('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
@@ -597,12 +624,12 @@
                 `;
             }).join('');
 
-            const ivaTotal = subtotalTotal * 0.16;
-            const total = subtotalTotal + ivaTotal;
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
 
             contenedor.innerHTML = html;
-            document.getElementById('lblSubtotal').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
-            document.getElementById('lblIva').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
+            document.getElementById('lblSubtotal').innerText = '$' + subtotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIva').innerText = '$' + iva.toFixed(2) + ' MXN';
             document.getElementById('lblTotal').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
@@ -612,7 +639,7 @@
             const pago = document.getElementById('ventaMetodoPago').value;
 
             if (itemsVentaActual.length === 0) {
-                alert('Selecciona al menos un producto para procesar la venta.');
+                alert('Agrega al menos un producto.');
                 return;
             }
 
@@ -628,33 +655,21 @@
             const total = subtotal + iva;
 
             if (idCotizacionEnProceso) {
-                const indiceCotiz = historialVentas.findIndex(t => t.id === idCotizacionEnProceso);
-                if (indiceCotiz !== -1) {
-                    const registroActualizado = historialVentas.splice(indiceCotiz, 1)[0];
-                    registroActualizado.cliente = cliente;
-                    registroActualizado.tipo = 'VENTA';
-                    registroActualizado.items = itemsMapeados;
-                    registroActualizado.subtotal = subtotal;
-                    registroActualizado.iva = iva;
-                    registroActualizado.total = total;
-                    registroActualizado.pago = pago;
-                    registroActualizado.fecha = new Date().toLocaleDateString();
-
-                    historialVentas.unshift(registroActualizado);
+                const idx = historialVentas.findIndex(t => t.id === idCotizacionEnProceso);
+                if (idx !== -1) {
+                    const reg = historialVentas.splice(idx, 1)[0];
+                    reg.cliente = cliente; reg.tipo = 'VENTA'; reg.items = itemsMapeados;
+                    reg.subtotal = subtotal; reg.iva = iva; reg.total = total; reg.pago = pago;
+                    reg.fecha = new Date().toLocaleDateString();
+                    historialVentas.unshift(reg);
                 }
                 idCotizacionEnProceso = null;
             } else {
-                const nuevoId = Math.floor(1043 + Math.random() * 100);
                 historialVentas.unshift({
-                    id: nuevoId,
-                    cliente: cliente,
-                    tipo: 'VENTA',
-                    items: itemsMapeados,
-                    subtotal: subtotal,
-                    iva: iva,
-                    total: total,
-                    fecha: new Date().toLocaleDateString(),
-                    pago: pago
+                    id: Math.floor(1043 + Math.random() * 100),
+                    cliente: cliente, tipo: 'VENTA', items: itemsMapeados,
+                    subtotal: subtotal, iva: iva, total: total,
+                    fecha: new Date().toLocaleDateString(), pago: pago
                 });
             }
 
@@ -664,16 +679,17 @@
                 alerta.style.display = 'none';
                 itemsVentaActual = [];
                 renderizarModuloVenta();
-            }, 2000);
+            }, 1800);
         }
 
+        /* --- MÓDULO 2: COTIZACIONES --- */
         function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido-vendedor');
 
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Cotizaciones y Presupuestos</h2>
-                    <p>Búsqueda de refacciones con existencias visibles en tiempo real.</p>
+                    <p>Generación de presupuestos dinámicos para clientes.</p>
                 </div>
 
                 <div class="form-grid">
@@ -682,7 +698,7 @@
                         <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
                     </div>
                     <div class="input-group">
-                        <label>Buscar / Seleccionar Refacción (Stock Disponible Visible)</label>
+                        <label>Seleccionar Refacción</label>
                         <select id="selectCotizacionProducto">
                             ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} (Stock:${p.stock} pzas)</option>`).join('')}
                         </select>
@@ -694,26 +710,23 @@
                         <label>Cantidad</label>
                         <input type="number" id="cotizacionCantidad" value="1" min="1">
                     </div>
-                    <button class="btn-add-item" style="padding:12px 20px;" onclick="agregarProductoACotizacion()">+ Agregar a la Cotización</button>
+                    <button class="btn-add-item" style="padding:12px 20px;" onclick="agregarProductoACotizacion()">+ Agregar a Cotización</button>
                 </div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
                         📋 Refacciones en la Cotización
                     </h3>
-                    <div id="listaItemsCotizacion">
-                        <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>
-                    </div>
-
+                    <div id="listaItemsCotizacion"></div>
                     <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
-                        <div class="summary-row"><span>Subtotal Refacciones:</span><span id="lblSubtotalCotiz">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotalCotiz">$0.00 MXN</span></div>
                         <div class="summary-row"><span>IVA (16%):</span><span id="lblIvaCotiz">$0.00 MXN</span></div>
                         <div class="summary-row total"><span>Total Cotizado:</span><span id="lblTotalCotiz" style="color:#60a5fa;">$0.00 MXN</span></div>
                     </div>
                 </div>
 
-                <button class="btn-action" onclick="guardarCotizaciónFinal()">💾 Guardar Cotización en Registro de Ventas</button>
-                <div id="alertaCotizacion" class="alert-box">✓ Cotización registrada correctamente en el historial.</div>
+                <button class="btn-action" onclick="guardarCotizaciónFinal()">💾 Guardar Cotización en Historial</button>
+                <div id="alertaCotizacion" class="alert-box">✓ Cotización guardada con éxito.</div>
             `;
             actualizarTablaCotizacion();
         }
@@ -725,18 +738,18 @@
 
             if (producto) {
                 const existe = itemsCotizacionActual.find(item => item.id === prodId);
-                if (existe) {
-                    existe.cantidad += cantidad;
-                } else {
-                    itemsCotizacionActual.push({
-                        id: producto.id,
-                        sku: producto.sku,
-                        nombre: producto.nombre,
-                        precio: producto.precio,
-                        cantidad: cantidad
-                    });
-                }
+                if (existe) existe.cantidad += cantidad;
+                else itemsCotizacionActual.push({ id: producto.id, sku: producto.sku, nombre: producto.nombre, precio: producto.precio, cantidad: cantidad });
                 actualizarTablaCotizacion();
+            }
+        }
+
+        function modificarCantidadCotizacion(id, delta) {
+            const item = itemsCotizacionActual.find(i => i.id === id);
+            if (item) {
+                item.cantidad += delta;
+                if (item.cantidad <= 0) removerItemCotizacion(id);
+                else actualizarTablaCotizacion();
             }
         }
 
@@ -750,22 +763,27 @@
             if (!contenedor) return;
 
             if (itemsCotizacionActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos a esta cotización.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos.</p>';
                 document.getElementById('lblSubtotalCotiz').innerText = '$0.00 MXN';
                 document.getElementById('lblIvaCotiz').innerText = '$0.00 MXN';
                 document.getElementById('lblTotalCotiz').innerText = '$0.00 MXN';
                 return;
             }
 
-            let subtotalTotal = 0;
+            let subtotal = 0;
             let html = itemsCotizacionActual.map(item => {
                 const importe = item.precio * item.cantidad;
-                subtotalTotal += importe;
+                subtotal += importe;
                 return `
                     <div class="summary-row">
                         <div>
                             <span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
-                            <strong style="color:#ffffff;">${item.nombre}</strong> (x${item.cantidad})
+                            <strong style="color:#ffffff;">${item.nombre}</strong> 
+                            <span style="margin-left:8px;">
+                                <button class="qty-btn" onclick="modificarCantidadCotizacion('${item.id}', -1)">-</button>
+                                <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
+                                <button class="qty-btn" onclick="modificarCantidadCotizacion('${item.id}', 1)">+</button>
+                            </span>
                             <button class="btn-remove-item" onclick="removerItemCotizacion('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
@@ -773,19 +791,19 @@
                 `;
             }).join('');
 
-            const ivaTotal = subtotalTotal * 0.16;
-            const totalCotizado = subtotalTotal + ivaTotal;
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
 
             contenedor.innerHTML = html;
-            document.getElementById('lblSubtotalCotiz').innerText = '$' + subtotalTotal.toFixed(2) + ' MXN';
-            document.getElementById('lblIvaCotiz').innerText = '$' + ivaTotal.toFixed(2) + ' MXN';
-            document.getElementById('lblTotalCotiz').innerText = '$' + totalCotizado.toFixed(2) + ' MXN';
+            document.getElementById('lblSubtotalCotiz').innerText = '$' + subtotal.toFixed(2) + ' MXN';
+            document.getElementById('lblIvaCotiz').innerText = '$' + iva.toFixed(2) + ' MXN';
+            document.getElementById('lblTotalCotiz').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
         function guardarCotizaciónFinal() {
             const cliente = document.getElementById('cotizacionCliente').value || 'Cliente General';
             if (itemsCotizacionActual.length === 0) {
-                alert('Agrega al menos una refacción para generar la cotización.');
+                alert('Agrega al menos una refacción.');
                 return;
             }
 
@@ -797,18 +815,12 @@
 
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
-            const nuevoId = Math.floor(2000 + Math.random() * 900);
 
             historialVentas.unshift({
-                id: nuevoId,
-                cliente: cliente,
-                tipo: 'COTIZACIÓN',
-                items: itemsMapeados,
-                subtotal: subtotal,
-                iva: iva,
-                total: total,
-                fecha: new Date().toLocaleDateString(),
-                pago: 'Presupuesto'
+                id: Math.floor(2000 + Math.random() * 900),
+                cliente: cliente, tipo: 'COTIZACIÓN', items: itemsMapeados,
+                subtotal: subtotal, iva: iva, total: total,
+                fecha: new Date().toLocaleDateString(), pago: 'Presupuesto'
             });
 
             const alerta = document.getElementById('alertaCotizacion');
@@ -817,27 +829,25 @@
                 alerta.style.display = 'none';
                 itemsCotizacionActual = [];
                 renderizarModuloCotizaciones();
-            }, 2000);
+            }, 1800);
         }
 
+        /* --- HISTORIAL Y CONSULTA DE REGISTROS --- */
         function renderizarHistorialVentas() {
             const panel = document.getElementById('panel-contenido-vendedor');
 
             let itemsHTML = historialVentas.map(t => {
                 const isCotiz = t.tipo === 'COTIZACIÓN';
-                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
-                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
-
                 return `
                     <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
                         <div class="ticket-info">
                             <div class="ticket-title">
                                 #${t.id} - ${t.cliente}
-                                <span class="${badgeClass}">${t.tipo}</span>
+                                <span class="${isCotiz ? 'badge-cotizacion' : 'badge-venta'}">${t.tipo}</span>
                             </div>
                             <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
                         </div>
-                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
+                        <div class="ticket-price" style="color:${isCotiz ? '#60a5fa' : '#22c55e'};">$${t.total.toFixed(2)} MXN</div>
                     </div>
                 `;
             }).join('');
@@ -845,16 +855,16 @@
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Historial de Ventas y Cotizaciones</h2>
-                    <p>Registro centralizado de transacciones y presupuestos guardados.</p>
+                    <p>Consulta e interacción de transacciones.</p>
                 </div>
 
                 <div class="input-group">
                     <label>Buscar Ticket, Cotización o Cliente</label>
-                    <input type="text" id="buscarTicketInput" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarHistorial(this.value)">
+                    <input type="text" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarHistorial(this.value)">
                 </div>
 
                 <div id="listaTicketsContenedor">
-                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay registros disponibles.</p>'}
+                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay registros.</p>'}
                 </div>
             `;
         }
@@ -875,28 +885,28 @@
             `).join('');
 
             document.getElementById('modalDetalleContenido').innerHTML = `
-                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose de Refacciones Solicitadas:</h4>
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose:</h4>
                 ${itemsDesglose}
                 <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
                     <span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span>
                 </div>
                 <div class="summary-row"><span>IVA (16%):</span><span>$${ticket.iva.toFixed(2)} MXN</span></div>
                 <div class="summary-row total">
-                    <span>Total ${ticket.tipo}:</span>
+                    <span>Total:</span>
                     <span style="color:${ticket.tipo === 'COTIZACIÓN' ? '#60a5fa' : '#22c55e'};">$${ticket.total.toFixed(2)} MXN</span>
                 </div>
             `;
 
-            const contenedorAcciones = document.getElementById('modalAcciones');
+            const acciones = document.getElementById('modalAcciones');
             if (ticket.tipo === 'COTIZACIÓN') {
-                contenedorAcciones.innerHTML = `
+                acciones.innerHTML = `
                     <button class="btn-convert" onclick="cargarCotizacionEnVenta(${ticket.id})">🛒 Cargar y Procesar Venta</button>
                     <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             } else {
-                contenedorAcciones.innerHTML = `
-                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar Registro</button>
+                acciones.innerHTML = `
+                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             }
@@ -904,13 +914,12 @@
             document.getElementById('modalDetalle').style.display = 'flex';
         }
 
-        function cargarCotizacionEnVenta(idCotizacion) {
-            const cotizacion = historialVentas.find(t => t.id === idCotizacion);
-            if (!cotizacion) return;
+        function cargarCotizacionEnVenta(idCotiz) {
+            const cotiz = historialVentas.find(t => t.id === idCotiz);
+            if (!cotiz) return;
 
-            idCotizacionEnProceso = idCotizacion;
-
-            itemsVentaActual = cotizacion.items.map(it => {
+            idCotizacionEnProceso = idCotiz;
+            itemsVentaActual = cotiz.items.map(it => {
                 const prodReal = catalogoProductos.find(p => p.nombre.toLowerCase().includes(it.producto.toLowerCase()) || p.id === it.id);
                 return {
                     id: prodReal ? prodReal.id : '1',
@@ -922,23 +931,19 @@
             });
 
             cerrarModal();
-
-            const botonesNav = document.querySelectorAll('.nav-btn');
-            cambiarVistaVendedor('venta', botonesNav[0]);
+            cambiarVistaVendedor('venta', document.querySelectorAll('.nav-btn')[0]);
 
             setTimeout(() => {
-                const clienteInput = document.getElementById('ventaCliente');
-                if (clienteInput) clienteInput.value = cotizacion.cliente;
+                const c = document.getElementById('ventaCliente');
+                if (c) c.value = cotiz.cliente;
                 actualizarTablaVenta();
             }, 100);
         }
 
-        function cerrarModal() {
-            document.getElementById('modalDetalle').style.display = 'none';
-        }
+        function cerrarModal() { document.getElementById('modalDetalle').style.display = 'none'; }
 
         function confirmarEliminarTicket() {
-            if (confirm(`¿Está seguro de eliminar el registro #${ticketSeleccionadoId}?`)) {
+            if (confirm(`¿Eliminar registro #${ticketSeleccionadoId}?`)) {
                 historialVentas = historialVentas.filter(t => t.id !== ticketSeleccionadoId);
                 cerrarModal();
                 renderizarHistorialVentas();
@@ -947,32 +952,25 @@
 
         function filtrarHistorial(query) {
             const q = query.toLowerCase();
-            const filtrados = historialVentas.filter(t => 
-                t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.tipo.toLowerCase().includes(q)
-            );
+            const filtrados = historialVentas.filter(t => t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.tipo.toLowerCase().includes(q));
 
-            let itemsHTML = filtrados.map(t => {
+            let html = filtrados.map(t => {
                 const isCotiz = t.tipo === 'COTIZACIÓN';
-                const badgeClass = isCotiz ? 'badge-cotizacion' : 'badge-venta';
-                const colorMonto = isCotiz ? '#60a5fa' : '#22c55e';
-
                 return `
                     <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
                         <div class="ticket-info">
                             <div class="ticket-title">
                                 #${t.id} - ${t.cliente}
-                                <span class="${badgeClass}">${t.tipo}</span>
+                                <span class="${isCotiz ? 'badge-cotizacion' : 'badge-venta'}">${t.tipo}</span>
                             </div>
                             <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
                         </div>
-                        <div class="ticket-price" style="color:${colorMonto};">$${t.total.toFixed(2)} MXN</div>
+                        <div class="ticket-price" style="color:${isCotiz ? '#60a5fa' : '#22c55e'};">$${t.total.toFixed(2)} MXN</div>
                     </div>
                 `;
             }).join('');
 
-            document.getElementById('listaTicketsContenedor').innerHTML = itemsHTML.length > 0 
-                ? itemsHTML 
-                : '<p style="color:#a3a3a3; text-align:center;">No se encontraron coincidencias.</p>';
+            document.getElementById('listaTicketsContenedor').innerHTML = html.length > 0 ? html : '<p style="color:#a3a3a3; text-align:center;">No hay coincidencias.</p>';
         }
 
         window.onload = function() {
