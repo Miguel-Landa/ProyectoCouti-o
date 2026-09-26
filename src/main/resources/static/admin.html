@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -220,33 +220,26 @@
             transition: background 0.2s ease;
         }
 
-        .btn-action:hover { background: #e5e5e5; }
+        .btn-action:hover {
+            background: #e5e5e5;
+        }
 
-        .btn-secondary {
+        .btn-add-item {
             background: #262626;
             color: #ffffff;
             border: 1px solid #404040;
-            padding: 8px 12px;
+            padding: 10px 16px;
             border-radius: 4px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
-        .btn-secondary:hover { background: #ffffff; color: #000000; }
-
-        .btn-danger-sm {
-            background: transparent;
-            color: #ef4444;
-            border: none;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin-left: 8px;
+        .btn-add-item:hover {
+            background: #ffffff;
+            color: #000000;
         }
-
-        .btn-danger-sm:hover { text-decoration: underline; }
 
         .qty-btn {
             background: #262626;
@@ -264,6 +257,35 @@
             margin: 0 4px;
         }
 
+        .qty-btn:hover {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .btn-remove-item {
+            color: #ef4444;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .btn-remove-item:hover { text-decoration: underline; }
+
+        .btn-edit-item {
+            color: #60a5fa;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .btn-edit-item:hover { text-decoration: underline; }
+
         .alert-box {
             display: none;
             padding: 14px;
@@ -277,42 +299,65 @@
             margin-top: 15px;
         }
 
-        /* Tablas */
         .data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.85rem;
-            text-align: left;
             margin-top: 10px;
         }
 
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #262626;
+        }
+
         .data-table th {
-            background: #1a1a1a;
             color: #a3a3a3;
             font-weight: 600;
-            padding: 12px;
-            border-bottom: 1px solid #262626;
+            background: #1a1a1a;
         }
 
-        .data-table td {
-            padding: 12px;
-            border-bottom: 1px solid #262626;
-            color: #ffffff;
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
-        .data-table tr:hover { background: #1f1f1f; }
+        .modal-card {
+            background: #141414;
+            border: 1px solid #262626;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 600px;
+            padding: 25px;
+        }
+
+        .btn-close {
+            background: transparent;
+            color: #a3a3a3;
+            border: 1px solid #404040;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .btn-close:hover { background: #262626; color: #ffffff; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- Barra Superior -->
         <div class="topbar">
             <h1>Panel del Administrador</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Layout de 2 Columnas -->
         <div class="workspace">
             <div class="sidebar-buttons">
                 <div class="sidebar-title">Módulos Unificados</div>
@@ -323,7 +368,7 @@
                     🏭 Gestión de Proveedores
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('articulos', this)">
-                    🛠️ Gestión del Catálogo de Artículos
+                    🔧 Gestión del Catálogo de Artículos
                 </button>
             </div>
 
@@ -332,10 +377,25 @@
         </div>
     </div>
 
+    <!-- Modal Emergente de Detalle de Compra -->
+    <div class="modal-overlay" id="modalDetalleCompra">
+        <div class="modal-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h2 id="modalCompraTitulo">Detalle de Factura</h2>
+                <p id="modalCompraInfo">Proveedor / Fecha</p>
+            </div>
+            <div class="summary-box" id="modalCompraContenido" style="margin-top:0;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn-close" onclick="cerrarModalCompra()">Cerrar Ventana</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // --- MANEJO DE LOCALSTORAGE CENTRALIZADO ---
         const CLAVE_CATALOGO = 'mrx_catalogo_productos';
         const CLAVE_PROVEEDORES = 'mrx_proveedores';
+        const CLAVE_HISTORIAL_COMPRAS = 'mrx_historial_compras';
 
         const catalogoInicial = [
             { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, costoCompra: 140.00, stock: 15 },
@@ -345,39 +405,68 @@
         ];
 
         const proveedoresIniciales = [
-            { id: '1', nombre: 'Refacciones Hero México S.A. de C.V.', rfc: 'RHM180312XYZ', telefono: '2288123456', email: 'ventas@heromexico.com' },
-            { id: '2', nombre: 'Distribuidora Motul Veracruz', rfc: 'DMV950510ABC', telefono: '2299876543', email: 'contacto@motulver.com' },
-            { id: '3', nombre: 'Comercializadora Italika Xalapa', rfc: 'CIX010920LMN', telefono: '2281239876', email: 'pedidos@italikaxal.com' }
+            { id: '1', nombre: 'Refacciones Hero México S.A. de C.V.', rfc: 'RHM900101XYZ', telefono: '2288123456', email: 'ventas@heromexico.com' },
+            { id: '2', nombre: 'Distribuidora Motul Veracruz', rfc: 'DMV880202ABC', telefono: '2299876543', email: 'contacto@motulver.com' },
+            { id: '3', nombre: 'Comercializadora de Autopartes Italika', rfc: 'CAI950303DEF', telefono: '2281112233', email: 'pedidos@italikaxalapa.com' }
+        ];
+
+        const historialComprasInicial = [
+            {
+                id: '1',
+                factura: 'FAC-2026-88',
+                proveedor: 'Refacciones Hero México S.A. de C.V.',
+                fecha: '25/09/2026',
+                items: [
+                    { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', costo: 140.00, cantidad: 10 }
+                ],
+                subtotal: 1400.00,
+                iva: 224.00,
+                total: 1624.00
+            }
         ];
 
         function obtenerCatalogo() {
-            const datos = localStorage.getItem(CLAVE_CATALOGO);
-            if (!datos) {
+            const data = localStorage.getItem(CLAVE_CATALOGO);
+            if (!data) {
                 localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(catalogoInicial));
                 return catalogoInicial;
             }
-            return JSON.parse(datos);
+            return JSON.parse(data);
         }
 
-        function guardarCatalogo(nuevoCatalogo) {
-            localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(nuevoCatalogo));
+        function guardarCatalogo(catalogo) {
+            localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(catalogo));
         }
 
         function obtenerProveedores() {
-            const datos = localStorage.getItem(CLAVE_PROVEEDORES);
-            if (!datos) {
+            const data = localStorage.getItem(CLAVE_PROVEEDORES);
+            if (!data) {
                 localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(proveedoresIniciales));
                 return proveedoresIniciales;
             }
-            return JSON.parse(datos);
+            return JSON.parse(data);
         }
 
-        function guardarProveedores(nuevosProveedores) {
-            localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(nuevosProveedores));
+        function guardarProveedores(provs) {
+            localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(provs));
+        }
+
+        function obtenerHistorialCompras() {
+            const data = localStorage.getItem(CLAVE_HISTORIAL_COMPRAS);
+            if (!data) {
+                localStorage.setItem(CLAVE_HISTORIAL_COMPRAS, JSON.stringify(historialComprasInicial));
+                return historialComprasInicial;
+            }
+            return JSON.parse(data);
+        }
+
+        function guardarHistorialCompras(historial) {
+            localStorage.setItem(CLAVE_HISTORIAL_COMPRAS, JSON.stringify(historial));
         }
 
         let itemsCompraActual = [];
-        let idArticuloEditando = null;
+        let idProveedorEditando = null;
+        let idProductoEditando = null;
 
         function cambiarVistaAdmin(vista, boton) {
             if (boton) {
@@ -391,23 +480,36 @@
                 itemsCompraActual = [];
                 renderizarModuloCompras();
             } else if (vista === 'proveedores') {
+                idProveedorEditando = null;
                 renderizarModuloProveedores();
             } else if (vista === 'articulos') {
-                idArticuloEditando = null;
+                idProductoEditando = null;
                 renderizarModuloArticulos();
             }
         }
 
-        /* =========================================================
-           1. MÓDULO DE COMPRAS A PROVEEDORES
-           ========================================================= */
+        /* ================= 1. MÓDULO DE COMPRAS CON HISTORIAL Y DETALLES ================= */
         function renderizarModuloCompras() {
             const panel = document.getElementById('panel-contenido-admin');
-            const provs = obtenerProveedores();
-            const arts = obtenerCatalogo();
+            const proveedores = obtenerProveedores();
+            const catalogo = obtenerCatalogo();
+            const historial = obtenerHistorialCompras();
 
-            let opcionesProvs = provs.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-            let opcionesArts = arts.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} - Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
+            let opcionesProveedores = proveedores.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            let opcionesArticulos = catalogo.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} - Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
+
+            let filasHistorial = historial.map(c => `
+                <tr>
+                    <td><strong style="color:#ffffff;">${c.factura}</strong></td>
+                    <td>${c.proveedor}</td>
+                    <td>${c.fecha}</td>
+                    <td><strong style="color:#22c55e;">$${c.total.toFixed(2)} MXN</strong></td>
+                    <td>
+                        <button class="btn-edit-item" onclick="verDetalleCompra('${c.id}')">🔍 Detalle</button>
+                        <button class="btn-remove-item" onclick="eliminarCompra('${c.id}')">🗑️ Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
@@ -418,7 +520,7 @@
                 <div class="form-grid">
                     <div class="input-group">
                         <label>Seleccionar Proveedor Registrado</label>
-                        <select id="compraProveedorSelect">${opcionesProvs}</select>
+                        <select id="compraProveedorSelect">${opcionesProveedores}</select>
                     </div>
                     <div class="input-group">
                         <label>Número de Factura / Remisión</label>
@@ -429,23 +531,20 @@
                 <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                     <div class="input-group" style="margin-bottom:0; flex:2;">
                         <label>Artículo Surtido</label>
-                        <select id="selectCompraArticulo">${opcionesArts}</select>
+                        <select id="selectCompraArticulo">${opcionesArticulos}</select>
                     </div>
                     <div class="input-group" style="margin-bottom:0; flex:1;">
                         <label>Cantidad Comprada</label>
                         <input type="number" id="compraCantidadInput" value="10" min="1">
                     </div>
-                    <button type="button" class="btn-secondary" style="padding:12px 18px;" onclick="agregarArticuloACompra()">+ Agregar a Compra</button>
+                    <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarArticuloACompra()">+ Agregar a la Compra</button>
                 </div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
                         📦 Desglose de Artículos en la Factura de Compra
                     </h3>
-                    <div id="listaArticulosCompra">
-                        <p style="color:#a3a3a3; text-align:center;">No se han agregado artículos.</p>
-                    </div>
-
+                    <div id="listaArticulosCompra"></div>
                     <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
                         <div class="summary-row"><span>Subtotal Compra:</span><span id="lblSubtotalCompra">$0.00 MXN</span></div>
                         <div class="summary-row"><span>IVA Soportado (16%):</span><span id="lblIvaCompra">$0.00 MXN</span></div>
@@ -454,7 +553,25 @@
                 </div>
 
                 <button class="btn-action" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
-                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock ha sido actualizado.</div>
+                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock ha sido incrementado.</div>
+
+                <div class="summary-box" style="margin-top:30px;">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">📑 Historial de Compras Realizadas a Proveedores</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Factura / Remisión</th>
+                                <th>Proveedor</th>
+                                <th>Fecha</th>
+                                <th>Monto Total</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasHistorial.length > 0 ? filasHistorial : '<tr><td colspan="5" style="text-align:center;">No hay compras registradas en el historial.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
             `;
             actualizarTablaCompra();
         }
@@ -462,8 +579,8 @@
         function agregarArticuloACompra() {
             const artId = document.getElementById('selectCompraArticulo').value;
             const cantidad = parseInt(document.getElementById('compraCantidadInput').value) || 1;
-            const arts = obtenerCatalogo();
-            const articulo = arts.find(a => a.id === artId);
+            const catalogo = obtenerCatalogo();
+            const articulo = catalogo.find(a => a.id === artId);
 
             if (articulo) {
                 const existe = itemsCompraActual.find(item => item.id === artId);
@@ -501,7 +618,7 @@
             if (!contenedor) return;
 
             if (itemsCompraActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center;">No se han agregado artículos.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado artículos.</p>';
                 document.getElementById('lblSubtotalCompra').innerText = '$0.00 MXN';
                 document.getElementById('lblIvaCompra').innerText = '$0.00 MXN';
                 document.getElementById('lblTotalCompra').innerText = '$0.00 MXN';
@@ -522,7 +639,7 @@
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
                                 <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', 1)">+</button>
                             </span>
-                            <button class="btn-danger-sm" onclick="removerArticuloCompra('${item.id}')">Quitar</button>
+                            <button class="btn-remove-item" onclick="removerArticuloCompra('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
                     </div>
@@ -540,15 +657,36 @@
 
         function guardarCompraMercancia() {
             const factura = document.getElementById('compraFacturaInput').value;
+            const proveedor = document.getElementById('compraProveedorSelect').value;
+
             if (!factura) { alert('Ingresa el número de factura o remisión.'); return; }
             if (itemsCompraActual.length === 0) { alert('Agrega al menos un artículo.'); return; }
 
-            const arts = obtenerCatalogo();
+            let catalogo = obtenerCatalogo();
+            let subtotal = 0;
+
             itemsCompraActual.forEach(item => {
-                const artReal = arts.find(a => a.id === item.id);
+                subtotal += (item.costo * item.cantidad);
+                const artReal = catalogo.find(a => a.id === item.id);
                 if (artReal) artReal.stock += item.cantidad;
             });
-            guardarCatalogo(arts);
+            guardarCatalogo(catalogo);
+
+            const iva = subtotal * 0.16;
+            const total = subtotal + iva;
+
+            let historial = obtenerHistorialCompras();
+            historial.unshift({
+                id: Date.now().toString(),
+                factura: factura,
+                proveedor: proveedor,
+                fecha: new Date().toLocaleDateString(),
+                items: [...itemsCompraActual],
+                subtotal: subtotal,
+                iva: iva,
+                total: total
+            });
+            guardarHistorialCompras(historial);
 
             const alerta = document.getElementById('alertaCompra');
             alerta.style.display = 'block';
@@ -559,21 +697,73 @@
             }, 1800);
         }
 
-        /* =========================================================
-           2. MÓDULO UNIFICADO DE PROVEEDORES (Registro + Tabla Interactiva)
-           ========================================================= */
+        function verDetalleCompra(id) {
+            const historial = obtenerHistorialCompras();
+            const compra = historial.find(c => c.id === id);
+            if (!compra) return;
+
+            document.getElementById('modalCompraTitulo').innerText = `Factura / Remisión: ${compra.factura}`;
+            document.getElementById('modalCompraInfo').innerText = `Proveedor: ${compra.proveedor} | Fecha: ${compra.fecha}`;
+
+            let itemsHTML = compra.items.map(it => `
+                <div class="summary-row">
+                    <span>${it.nombre} (${it.sku}) - x${it.cantidad}</span>
+                    <span>$${(it.costo * it.cantidad).toFixed(2)} MXN</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modalCompraContenido').innerHTML = `
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Artículos Adquiridos:</h4>
+                ${itemsHTML}
+                <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
+                    <span>Subtotal:</span><span>$${compra.subtotal.toFixed(2)} MXN</span>
+                </div>
+                <div class="summary-row"><span>IVA (16%):</span><span>$${compra.iva.toFixed(2)} MXN</span></div>
+                <div class="summary-row total">
+                    <span>Total Factura:</span>
+                    <span style="color:#22c55e;">$${compra.total.toFixed(2)} MXN</span>
+                </div>
+            `;
+
+            document.getElementById('modalDetalleCompra').style.display = 'flex';
+        }
+
+        function cerrarModalCompra() {
+            document.getElementById('modalDetalleCompra').style.display = 'none';
+        }
+
+        function eliminarCompra(id) {
+            let historial = obtenerHistorialCompras();
+            const compra = historial.find(c => c.id === id);
+
+            if (compra && confirm(`¿Desea eliminar la compra ${compra.factura}? El stock de estos artículos será descontado.`)) {
+                let catalogo = obtenerCatalogo();
+                compra.items.forEach(it => {
+                    const artReal = catalogo.find(a => a.id === it.id);
+                    if (artReal) artReal.stock = Math.max(0, artReal.stock - it.cantidad);
+                });
+                guardarCatalogo(catalogo);
+
+                historial = historial.filter(c => c.id !== id);
+                guardarHistorialCompras(historial);
+                renderizarModuloCompras();
+            }
+        }
+
+        /* ================= 2. MÓDULO DE PROVEEDORES ================= */
         function renderizarModuloProveedores() {
             const panel = document.getElementById('panel-contenido-admin');
-            const provs = obtenerProveedores();
+            const proveedores = obtenerProveedores();
 
-            let filasTabla = provs.map(p => `
+            let filasHTML = proveedores.map(p => `
                 <tr>
-                    <td><strong>${p.nombre}</strong></td>
+                    <td><strong style="color:#ffffff;">${p.nombre}</strong></td>
                     <td>${p.rfc}</td>
                     <td>${p.telefono}</td>
                     <td>${p.email}</td>
                     <td>
-                        <button class="btn-danger-sm" onclick="eliminarProveedor('${p.id}')">🗑️ Eliminar</button>
+                        <button class="btn-edit-item" onclick="prepararEdicionProveedor('${p.id}')">✏️ Editar</button>
+                        <button class="btn-remove-item" onclick="eliminarProveedor('${p.id}')">🗑️ Eliminar</button>
                     </td>
                 </tr>
             `).join('');
@@ -581,39 +771,48 @@
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Gestión de Proveedores</h2>
-                    <p>Registro de nuevos distribuidores y control del directorio existente.</p>
+                    <p>Gestiona y actualiza las empresas proveedoras en una sola pantalla.</p>
                 </div>
 
-                <form onsubmit="guardarNuevoProveedor(event)" style="margin-bottom: 30px;">
+                <form onsubmit="guardarOActualizarProveedor(event)">
+                    <h3 style="font-size:0.95rem; color:#ffffff; margin-bottom:12px;">
+                        ${idProveedorEditando ? '✏️ Modificar Datos del Proveedor' : '➕ Registrar Nuevo Proveedor'}
+                    </h3>
+                    
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Nombre / Razón Social</label>
-                            <input type="text" id="provNombre" placeholder="Ej. MotoPartes del Golfo" required>
+                            <input type="text" id="provNombreInput" placeholder="Ej. MotoPartes del Golfo" required>
                         </div>
                         <div class="input-group">
                             <label>RFC</label>
-                            <input type="text" id="provRfc" placeholder="Ej. MPG900101XYZ" required>
+                            <input type="text" id="provRfcInput" placeholder="Ej. MPG900101XYZ" required>
                         </div>
                     </div>
+
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Teléfono / WhatsApp</label>
-                            <input type="tel" id="provTel" placeholder="Ej. 2288123456" required>
+                            <input type="tel" id="provTelInput" placeholder="Ej. 2288123456" required>
                         </div>
                         <div class="input-group">
                             <label>Correo Electrónico</label>
-                            <input type="email" id="provEmail" placeholder="contacto@proveedor.com" required>
+                            <input type="email" id="provEmailInput" placeholder="contacto@proveedor.com" required>
                         </div>
                     </div>
-                    <button type="submit" class="btn-action">+ Registrar Nuevo Proveedor</button>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="submit" class="btn-action" style="margin-top:10px;">
+                            ${idProveedorEditando ? 'Actualizar Proveedor' : 'Registrar Proveedor'}
+                        </button>
+                        ${idProveedorEditando ? `<button type="button" class="btn-action" style="margin-top:10px; background:#404040; color:#fff;" onclick="cancelarEdicionProv()">Cancelar</button>` : ''}
+                    </div>
                 </form>
 
-                <div id="alertaProv" class="alert-box">✓ Proveedor guardado correctamente.</div>
+                <div id="alertaProv" class="alert-box">✓ Directorio de proveedores actualizado.</div>
 
                 <div class="summary-box">
-                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
-                        🏭 Directorio de Proveedores Registrados
-                    </h3>
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🏭 Directorio de Proveedores Registrados</h3>
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -621,30 +820,36 @@
                                 <th>RFC</th>
                                 <th>Teléfono</th>
                                 <th>Email</th>
-                                <th>Acción</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasTabla.length > 0 ? filasTabla : '<tr><td colspan="5" style="text-align:center; color:#a3a3a3;">No hay proveedores registrados.</td></tr>'}
+                            ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="5" style="text-align:center;">No hay proveedores registrados.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
             `;
         }
 
-        function guardarNuevoProveedor(e) {
-            e.preventDefault();
-            const provs = obtenerProveedores();
+        function guardarOActualizarProveedor(event) {
+            event.preventDefault();
+            let proveedores = obtenerProveedores();
+            const nombre = document.getElementById('provNombreInput').value;
+            const rfc = document.getElementById('provRfcInput').value;
+            const tel = document.getElementById('provTelInput').value;
+            const email = document.getElementById('provEmailInput').value;
 
-            provs.push({
-                id: Date.now().toString(),
-                nombre: document.getElementById('provNombre').value.trim(),
-                rfc: document.getElementById('provRfc').value.trim(),
-                telefono: document.getElementById('provTel').value.trim(),
-                email: document.getElementById('provEmail').value.trim()
-            });
+            if (idProveedorEditando) {
+                const prov = proveedores.find(p => p.id === idProveedorEditando);
+                if (prov) {
+                    prov.nombre = nombre; prov.rfc = rfc; prov.telefono = tel; prov.email = email;
+                }
+                idProveedorEditando = null;
+            } else {
+                proveedores.push({ id: Date.now().toString(), nombre: nombre, rfc: rfc, telefono: tel, email: email });
+            }
 
-            guardarProveedores(provs);
+            guardarProveedores(proveedores);
             const alerta = document.getElementById('alertaProv');
             alerta.style.display = 'block';
             setTimeout(() => {
@@ -653,32 +858,48 @@
             }, 1200);
         }
 
+        function prepararEdicionProveedor(id) {
+            const proveedores = obtenerProveedores();
+            const prov = proveedores.find(p => p.id === id);
+            if (prov) {
+                idProveedorEditando = id;
+                renderizarModuloProveedores();
+                document.getElementById('provNombreInput').value = prov.nombre;
+                document.getElementById('provRfcInput').value = prov.rfc;
+                document.getElementById('provTelInput').value = prov.telefono;
+                document.getElementById('provEmailInput').value = prov.email;
+            }
+        }
+
+        function cancelarEdicionProv() {
+            idProveedorEditando = null;
+            renderizarModuloProveedores();
+        }
+
         function eliminarProveedor(id) {
-            if (confirm('¿Desea eliminar este proveedor del sistema?')) {
-                let provs = obtenerProveedores();
-                provs = provs.filter(p => p.id !== id);
-                guardarProveedores(provs);
+            let proveedores = obtenerProveedores();
+            if (confirm('¿Desea eliminar este proveedor del directorio?')) {
+                proveedores = proveedores.filter(p => p.id !== id);
+                guardarProveedores(proveedores);
                 renderizarModuloProveedores();
             }
         }
 
-        /* =========================================================
-           3. MÓDULO UNIFICADO DEL CATÁLOGO DE ARTÍCULOS
-           ========================================================= */
+        /* ================= 3. MÓDULO DE ARTÍCULOS ================= */
         function renderizarModuloArticulos() {
             const panel = document.getElementById('panel-contenido-admin');
-            const arts = obtenerCatalogo();
+            const catalogo = obtenerCatalogo();
 
-            let filasTabla = arts.map(a => `
+            let filasHTML = catalogo.map(a => `
                 <tr>
-                    <td><span style="background:#262626; padding:2px 6px; border-radius:3px; font-weight:700;">${a.sku}</span></td>
-                    <td><strong>${a.nombre}</strong></td>
-                    <td>$${a.costoCompra ? a.costoCompra.toFixed(2) : '0.00'}</td>
-                    <td>$${a.precio ? a.precio.toFixed(2) : '0.00'}</td>
-                    <td style="color:${a.stock > 5 ? '#4ade80' : '#f87171'}; font-weight:700;">${a.stock} pzas</td>
+                    <td><span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-weight:700;">${a.sku}</span></td>
+                    <td><strong style="color:#ffffff;">${a.nombre}</strong></td>
+                    <td>$${a.costoCompra.toFixed(2)} MXN</td>
+                    <td>$${a.precio.toFixed(2)} MXN</td>
+                    <td><strong style="color:${a.stock < 5 ? '#ef4444' : '#4ade80'};">${a.stock} pzas</strong></td>
                     <td>
-                        <button class="btn-secondary" onclick="prepararEdicionArticulo('${a.id}')">✏️ Editar</button>
-                        <button class="btn-danger-sm" onclick="eliminarArticulo('${a.id}')">🗑️ Eliminar</button>
+                        <button class="btn-edit-item" onclick="prepararEdicionArticulo('${a.id}')">✏️ Editar</button>
+                        <button class="btn-remove-item" onclick="eliminarArticulo('${a.id}')">🗑️ Eliminar</button>
                     </td>
                 </tr>
             `).join('');
@@ -686,142 +907,124 @@
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Gestión del Catálogo de Artículos</h2>
-                    <p>Módulo unificado para dar de alta, modificar precio/stock o eliminar refacciones del inventario.</p>
+                    <p>Alta de nuevos productos, ajuste de precios, costos y stock global en un solo lugar.</p>
                 </div>
 
-                <!-- Formulario Dinámico (Alta o Edición) -->
-                <form onsubmit="guardarFormularioArticulo(event)" style="margin-bottom: 30px;">
-                    <h3 id="tituloFormArticulo" style="font-size:0.95rem; color:#60a5fa; margin-bottom:14px;">
-                        ➕ Registrar Nuevo Artículo en Catálogo
+                <form onsubmit="guardarOActualizarArticulo(event)">
+                    <h3 style="font-size:0.95rem; color:#ffffff; margin-bottom:12px;">
+                        ${idProductoEditando ? '✏️ Modificar Artículo Existente' : '➕ Registrar Nuevo Producto'}
                     </h3>
 
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Código SKU Único</label>
-                            <input type="text" id="artSku" placeholder="Ej. REF-3005" required>
+                            <label>Código SKU</label>
+                            <input type="text" id="artSkuInput" placeholder="Ej. REF-300" required>
                         </div>
                         <div class="input-group">
-                            <label>Nombre / Descripción del Producto</label>
-                            <input type="text" id="artNombre" placeholder="Ej. Filtro de Aceite Hero Hunk" required>
+                            <label>Descripción / Nombre del Producto</label>
+                            <input type="text" id="artNombreInput" placeholder="Ej. Filtro de Aceite Hero" required>
                         </div>
                     </div>
 
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Costo de Compra ($ MXN)</label>
-                            <input type="number" id="artCosto" step="0.01" placeholder="Ej. 110.00" required>
+                            <input type="number" id="artCostoInput" step="0.01" placeholder="Ej. 120.00" required>
                         </div>
                         <div class="input-group">
                             <label>Precio de Venta ($ MXN)</label>
-                            <input type="number" id="artPrecio" step="0.01" placeholder="Ej. 180.00" required>
+                            <input type="number" id="artPrecioInput" step="0.01" placeholder="Ej. 180.00" required>
                         </div>
                     </div>
 
                     <div class="input-group">
                         <label>Stock Disponible en Almacén</label>
-                        <input type="number" id="artStock" placeholder="Ej. 20" min="0" required>
+                        <input type="number" id="artStockInput" placeholder="Ej. 15" min="0" required>
                     </div>
 
                     <div style="display:flex; gap:10px;">
-                        <button type="submit" id="btnGuardarArt" class="btn-action">Guardar Artículo en Inventario</button>
-                        <button type="button" id="btnCancelarEdit" class="btn-secondary" style="display:none; margin-top:20px;" onclick="cancelarEdicionArticulo()">Cancelar Edición</button>
+                        <button type="submit" class="btn-action" style="margin-top:10px;">
+                            ${idProductoEditando ? 'Actualizar Producto' : 'Guardar en Catálogo'}
+                        </button>
+                        ${idProductoEditando ? `<button type="button" class="btn-action" style="margin-top:10px; background:#404040; color:#fff;" onclick="cancelarEdicionArt()">Cancelar</button>` : ''}
                     </div>
                 </form>
 
-                <div id="alertaArt" class="alert-box">✓ Cambios guardados correctamente en el inventario.</div>
+                <div id="alertaArt" class="alert-box">✓ Catálogo de productos actualizado correctamente.</div>
 
                 <div class="summary-box">
-                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
-                        📦 Inventario General de Refacciones
-                    </h3>
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🔧 Inventario General de Productos</h3>
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>SKU</th>
-                                <th>Descripción</th>
+                                <th>Producto</th>
                                 <th>Costo Compra</th>
                                 <th>Precio Venta</th>
-                                <th>Stock Actual</th>
+                                <th>Stock</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasTabla.length > 0 ? filasTabla : '<tr><td colspan="6" style="text-align:center; color:#a3a3a3;">No hay productos registrados.</td></tr>'}
+                            ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="6" style="text-align:center;">No hay artículos registrados.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
             `;
         }
 
-        function guardarFormularioArticulo(e) {
-            e.preventDefault();
-            const arts = obtenerCatalogo();
+        function guardarOActualizarArticulo(event) {
+            event.preventDefault();
+            let catalogo = obtenerCatalogo();
+            const sku = document.getElementById('artSkuInput').value.toUpperCase();
+            const nombre = document.getElementById('artNombreInput').value;
+            const costo = parseFloat(document.getElementById('artCostoInput').value) || 0;
+            const precio = parseFloat(document.getElementById('artPrecioInput').value) || 0;
+            const stock = parseInt(document.getElementById('artStockInput').value) || 0;
 
-            const sku = document.getElementById('artSku').value.trim().toUpperCase();
-            const nombre = document.getElementById('artNombre').value.trim();
-            const costo = parseFloat(document.getElementById('artCosto').value) || 0;
-            const precio = parseFloat(document.getElementById('artPrecio').value) || 0;
-            const stock = parseInt(document.getElementById('artStock').value) || 0;
-
-            if (idArticuloEditando) {
-                const art = arts.find(a => a.id === idArticuloEditando);
+            if (idProductoEditando) {
+                const art = catalogo.find(a => a.id === idProductoEditando);
                 if (art) {
-                    art.sku = sku;
-                    art.nombre = nombre;
-                    art.costoCompra = costo;
-                    art.precio = precio;
-                    art.stock = stock;
+                    art.sku = sku; art.nombre = nombre; art.costoCompra = costo; art.precio = precio; art.stock = stock;
                 }
+                idProductoEditando = null;
             } else {
-                arts.push({
-                    id: Date.now().toString(),
-                    sku: sku,
-                    nombre: nombre,
-                    costoCompra: costo,
-                    precio: precio,
-                    stock: stock
-                });
+                catalogo.push({ id: Date.now().toString(), sku: sku, nombre: nombre, costoCompra: costo, precio: precio, stock: stock });
             }
 
-            guardarCatalogo(arts);
+            guardarCatalogo(catalogo);
             const alerta = document.getElementById('alertaArt');
             alerta.style.display = 'block';
             setTimeout(() => {
                 alerta.style.display = 'none';
-                idArticuloEditando = null;
                 renderizarModuloArticulos();
             }, 1200);
         }
 
         function prepararEdicionArticulo(id) {
-            const arts = obtenerCatalogo();
-            const art = arts.find(a => a.id === id);
-            if (!art) return;
-
-            idArticuloEditando = id;
-            document.getElementById('tituloFormArticulo').innerText = '✏️ Editar Artículo: ' + art.nombre;
-            document.getElementById('artSku').value = art.sku;
-            document.getElementById('artNombre').value = art.nombre;
-            document.getElementById('artCosto').value = art.costoCompra || 0;
-            document.getElementById('artPrecio').value = art.precio || 0;
-            document.getElementById('artStock').value = art.stock || 0;
-
-            document.getElementById('btnGuardarArt').innerText = 'Guardar Cambios del Artículo';
-            document.getElementById('btnCancelarEdit').style.display = 'block';
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const catalogo = obtenerCatalogo();
+            const art = catalogo.find(a => a.id === id);
+            if (art) {
+                idProductoEditando = id;
+                renderizarModuloArticulos();
+                document.getElementById('artSkuInput').value = art.sku;
+                document.getElementById('artNombreInput').value = art.nombre;
+                document.getElementById('artCostoInput').value = art.costoCompra;
+                document.getElementById('artPrecioInput').value = art.precio;
+                document.getElementById('artStockInput').value = art.stock;
+            }
         }
 
-        function cancelarEdicionArticulo() {
-            idArticuloEditando = null;
+        function cancelarEdicionArt() {
+            idProductoEditando = null;
             renderizarModuloArticulos();
         }
 
         function eliminarArticulo(id) {
-            if (confirm('¿Está seguro de eliminar este producto del inventario?')) {
-                let arts = obtenerCatalogo();
-                arts = arts.filter(a => a.id !== id);
-                guardarCatalogo(arts);
+            let catalogo = obtenerCatalogo();
+            if (confirm('¿Desea eliminar permanentemente este producto del catálogo?')) {
+                catalogo = catalogo.filter(a => a.id !== id);
+                guardarCatalogo(catalogo);
                 renderizarModuloArticulos();
             }
         }
