@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Punto de Venta - Sistema MRX</title>
+    <title>Sistema de Ventas y Cotizaciones - MRX</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -300,7 +300,6 @@
         .ticket-price {
             font-size: 1rem;
             font-weight: 700;
-            color: #22c55e;
         }
 
         .badge-cotizacion {
@@ -415,26 +414,30 @@
     <div class="app-container">
         <!-- Topbar -->
         <div class="topbar">
-            <h1>Punto de Venta y Cotizaciones</h1>
+            <h1>Sistema MRX - Módulo de Ventas y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Módulos de Venta -->
+        <!-- Workspace Lateral + Panel Principal -->
         <div class="workspace">
             <div class="sidebar-buttons">
-                <div class="sidebar-title">Módulos Exclusivos de Venta</div>
-                <button class="nav-btn active" onclick="cambiarVistaVendedor('venta', this)">
-                    🛒 Nueva Venta
+                <div class="sidebar-title">MÓDULOS DE VENTAS Y COTIZACIONES</div>
+                <button class="nav-btn active" onclick="cambiarModulo('venta', this)">
+                    🛒 Venta de Productos
                 </button>
-                <button class="nav-btn" onclick="cambiarVistaVendedor('cotizaciones', this)">
-                    📄 Cotizaciones
+                <button class="nav-btn" onclick="cambiarModulo('cotizacion', this)">
+                    📋 Cotización de Productos
                 </button>
-                <button class="nav-btn" onclick="cambiarVistaVendedor('historial', this)">
+                <button class="nav-btn" onclick="cambiarModulo('historial_ventas', this)">
                     📜 Historial de Ventas
+                </button>
+                <button class="nav-btn" onclick="cambiarModulo('historial_cotizaciones', this)">
+                    📄 Historial de Cotizaciones
                 </button>
             </div>
 
-            <div class="main-panel" id="panel-contenido-vendedor">
+            <div class="main-panel" id="panel-contenido">
+                <!-- Se renderizan los módulos dinámicamente -->
             </div>
         </div>
     </div>
@@ -461,43 +464,42 @@
             { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, stock: 5 }
         ];
 
-        let historialVentas = [
-            { id: 2035, cliente: 'Miguel Landa', tipo: 'COTIZACIÓN', items: [{ id: '2', producto: 'Batería Hero Hunk 160R (12V 7Ah)', cantidad: 1, precio: 850.00 }, { id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }, { id: '4', producto: 'Kit Arrastre Piñón y Cadena 428H', cantidad: 1, precio: 650.00 }], subtotal: 1720.00, iva: 275.20, total: 1995.20, fecha: '24/09/2026', pago: 'Presupuesto' },
+        let historialRegistros = [
+            { id: 2035, cliente: 'Miguel Landa', tipo: 'COTIZACIÓN', items: [{ id: '2', producto: 'Batería Hero Hunk 160R (12V 7Ah)', cantidad: 1, precio: 850.00 }, { id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 1070.00, iva: 171.20, total: 1241.20, fecha: '24/09/2026', pago: 'Presupuesto' },
             { id: 1042, cliente: 'Carlos Mendoza', tipo: 'VENTA', items: [{ id: '1', producto: 'Aceite Motul 10W40 1L', cantidad: 1, precio: 220.00 }], subtotal: 220.00, iva: 35.20, total: 255.20, fecha: '24/09/2026', pago: 'Efectivo' }
         ];
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
         let idCotizacionEnProceso = null;
-        let ticketSeleccionadoId = null;
+        let registroSeleccionadoId = null;
 
-        function cambiarVistaVendedor(vista, boton) {
+        function cambiarModulo(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 boton.classList.add('active');
             }
 
-            const panel = document.getElementById('panel-contenido-vendedor');
-
             if (vista === 'venta') {
                 renderizarModuloVenta();
-            } else if (vista === 'cotizaciones') {
-                itemsCotizacionActual = [];
+            } else if (vista === 'cotizacion') {
                 renderizarModuloCotizaciones();
-            } else if (vista === 'historial') {
-                renderizarHistorialVentas();
+            } else if (vista === 'historial_ventas') {
+                renderizarHistorial('VENTA');
+            } else if (vista === 'historial_cotizaciones') {
+                renderizarHistorial('COTIZACIÓN');
             }
         }
 
-        /* --- MÓDULO 1: NUEVA VENTA --- */
+        /* --- MÓDULO: VENTA DE PRODUCTOS --- */
         function renderizarModuloVenta() {
-            const panel = document.getElementById('panel-contenido-vendedor');
+            const panel = document.getElementById('panel-contenido');
             let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Nueva Venta ${idCotizacionEnProceso ? '<span style="color:#60a5fa; font-size:0.9rem;">(Procesando Cotización #' + idCotizacionEnProceso + ')</span>' : ''}</h2>
-                    <p>Selección de productos, desglose dinámico y cobro directo.</p>
+                    <h2>Venta de Productos ${idCotizacionEnProceso ? '<span style="color:#60a5fa; font-size:0.9rem;">(Cargado desde Cotización #' + idCotizacionEnProceso + ')</span>' : ''}</h2>
+                    <p>Selecciona los productos para procesar el cobro e imprimir ticket.</p>
                 </div>
 
                 <form id="ventaForm" onsubmit="procesarVenta(event)">
@@ -518,7 +520,7 @@
 
                     <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div class="input-group" style="margin-bottom:0; flex:2;">
-                            <label>Seleccionar Producto / Refacción</label>
+                            <label>Seleccionar Producto</label>
                             <select id="selectVentaProducto">${opcionesProd}</select>
                         </div>
                         <div class="input-group" style="margin-bottom:0; flex:1;">
@@ -540,10 +542,10 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-action">${idCotizacionEnProceso ? 'Convertir Cotización #' + idCotizacionEnProceso + ' a Venta' : 'Procesar Venta y Generar Ticket'}</button>
+                    <button type="submit" class="btn-action">${idCotizacionEnProceso ? 'Convertir Cotización #' + idCotizacionEnProceso + ' a Venta' : 'Procesar Venta'}</button>
                 </form>
 
-                <div id="alertaVenta" class="alert-box">✓ Venta registrada correctamente y descontada del stock.</div>
+                <div id="alertaVenta" class="alert-box">✓ Venta registrada exitosamente y stock actualizado.</div>
             `;
             actualizarTablaVenta();
         }
@@ -555,7 +557,7 @@
 
             if (producto) {
                 if (cantidad > producto.stock) {
-                    alert(`⚠️ Stock insuficiente. Quedan ${producto.stock} unidades de ${producto.nombre}.`);
+                    alert(`⚠️ Stock insuficiente. Disponibles: ${producto.stock} pzas.`);
                     return;
                 }
                 const existe = itemsVentaActual.find(item => item.id === prodId);
@@ -577,7 +579,7 @@
             const prodReal = catalogoProductos.find(p => p.id === id);
             if (item && prodReal) {
                 if (delta > 0 && item.cantidad + delta > prodReal.stock) {
-                    alert(`⚠️ Alcanzaste el stock máximo disponible (${prodReal.stock} pzas).`);
+                    alert(`⚠️ Stock máximo alcanzado (${prodReal.stock} pzas).`);
                     return;
                 }
                 item.cantidad += delta;
@@ -596,7 +598,7 @@
             if (!contenedor) return;
 
             if (itemsVentaActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No hay productos agregados.</p>';
                 document.getElementById('lblSubtotal').innerText = '$0.00 MXN';
                 document.getElementById('lblIva').innerText = '$0.00 MXN';
                 document.getElementById('lblTotal').innerText = '$0.00 MXN';
@@ -613,11 +615,11 @@
                             <span style="background:#262626; color:#4ade80; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
                             <strong style="color:#ffffff;">${item.nombre}</strong> 
                             <span style="margin-left:8px;">
-                                <button class="qty-btn" onclick="modificarCantidadVenta('${item.id}', -1)">-</button>
+                                <button class="qty-btn" type="button" onclick="modificarCantidadVenta('${item.id}', -1)">-</button>
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                <button class="qty-btn" onclick="modificarCantidadVenta('${item.id}', 1)">+</button>
+                                <button class="qty-btn" type="button" onclick="modificarCantidadVenta('${item.id}', 1)">+</button>
                             </span>
-                            <button class="btn-remove-item" onclick="removerItemVenta('${item.id}')">Quitar</button>
+                            <button type="button" class="btn-remove-item" onclick="removerItemVenta('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
                     </div>
@@ -639,7 +641,7 @@
             const pago = document.getElementById('ventaMetodoPago').value;
 
             if (itemsVentaActual.length === 0) {
-                alert('Agrega al menos un producto.');
+                alert('Agrega al menos un producto a la venta.');
                 return;
             }
 
@@ -655,18 +657,18 @@
             const total = subtotal + iva;
 
             if (idCotizacionEnProceso) {
-                const idx = historialVentas.findIndex(t => t.id === idCotizacionEnProceso);
+                const idx = historialRegistros.findIndex(t => t.id === idCotizacionEnProceso);
                 if (idx !== -1) {
-                    const reg = historialVentas.splice(idx, 1)[0];
+                    const reg = historialRegistros.splice(idx, 1)[0];
                     reg.cliente = cliente; reg.tipo = 'VENTA'; reg.items = itemsMapeados;
                     reg.subtotal = subtotal; reg.iva = iva; reg.total = total; reg.pago = pago;
                     reg.fecha = new Date().toLocaleDateString();
-                    historialVentas.unshift(reg);
+                    historialRegistros.unshift(reg);
                 }
                 idCotizacionEnProceso = null;
             } else {
-                historialVentas.unshift({
-                    id: Math.floor(1043 + Math.random() * 100),
+                historialRegistros.unshift({
+                    id: Math.floor(1000 + Math.random() * 9000),
                     cliente: cliente, tipo: 'VENTA', items: itemsMapeados,
                     subtotal: subtotal, iva: iva, total: total,
                     fecha: new Date().toLocaleDateString(), pago: pago
@@ -679,17 +681,17 @@
                 alerta.style.display = 'none';
                 itemsVentaActual = [];
                 renderizarModuloVenta();
-            }, 1800);
+            }, 1500);
         }
 
-        /* --- MÓDULO 2: COTIZACIONES --- */
+        /* --- MÓDULO: COTIZACIÓN DE PRODUCTOS --- */
         function renderizarModuloCotizaciones() {
-            const panel = document.getElementById('panel-contenido-vendedor');
+            const panel = document.getElementById('panel-contenido');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Cotizaciones y Presupuestos</h2>
-                    <p>Generación de presupuestos dinámicos para clientes.</p>
+                    <h2>Cotización de Productos</h2>
+                    <p>Crea presupuestos formalizados para los clientes.</p>
                 </div>
 
                 <div class="form-grid">
@@ -698,7 +700,7 @@
                         <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
                     </div>
                     <div class="input-group">
-                        <label>Seleccionar Refacción</label>
+                        <label>Seleccionar Producto</label>
                         <select id="selectCotizacionProducto">
                             ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} (Stock:${p.stock} pzas)</option>`).join('')}
                         </select>
@@ -715,7 +717,7 @@
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                        📋 Refacciones en la Cotización
+                        📋 Productos en la Cotización
                     </h3>
                     <div id="listaItemsCotizacion"></div>
                     <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
@@ -725,8 +727,8 @@
                     </div>
                 </div>
 
-                <button class="btn-action" onclick="guardarCotizaciónFinal()">💾 Guardar Cotización en Historial</button>
-                <div id="alertaCotizacion" class="alert-box">✓ Cotización guardada con éxito.</div>
+                <button class="btn-action" onclick="guardarCotizacion()">💾 Guardar Cotización</button>
+                <div id="alertaCotizacion" class="alert-box">✓ Cotización registrada en el historial.</div>
             `;
             actualizarTablaCotizacion();
         }
@@ -763,7 +765,7 @@
             if (!contenedor) return;
 
             if (itemsCotizacionActual.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado productos.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No hay productos agregados.</p>';
                 document.getElementById('lblSubtotalCotiz').innerText = '$0.00 MXN';
                 document.getElementById('lblIvaCotiz').innerText = '$0.00 MXN';
                 document.getElementById('lblTotalCotiz').innerText = '$0.00 MXN';
@@ -780,11 +782,11 @@
                             <span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
                             <strong style="color:#ffffff;">${item.nombre}</strong> 
                             <span style="margin-left:8px;">
-                                <button class="qty-btn" onclick="modificarCantidadCotizacion('${item.id}', -1)">-</button>
+                                <button class="qty-btn" type="button" onclick="modificarCantidadCotizacion('${item.id}', -1)">-</button>
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                <button class="qty-btn" onclick="modificarCantidadCotizacion('${item.id}', 1)">+</button>
+                                <button class="qty-btn" type="button" onclick="modificarCantidadCotizacion('${item.id}', 1)">+</button>
                             </span>
-                            <button class="btn-remove-item" onclick="removerItemCotizacion('${item.id}')">Quitar</button>
+                            <button type="button" class="btn-remove-item" onclick="removerItemCotizacion('${item.id}')">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
                     </div>
@@ -800,10 +802,10 @@
             document.getElementById('lblTotalCotiz').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
-        function guardarCotizaciónFinal() {
+        function guardarCotizacion() {
             const cliente = document.getElementById('cotizacionCliente').value || 'Cliente General';
             if (itemsCotizacionActual.length === 0) {
-                alert('Agrega al menos una refacción.');
+                alert('Agrega al menos un producto a la cotización.');
                 return;
             }
 
@@ -816,8 +818,8 @@
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
 
-            historialVentas.unshift({
-                id: Math.floor(2000 + Math.random() * 900),
+            historialRegistros.unshift({
+                id: Math.floor(2000 + Math.random() * 8000),
                 cliente: cliente, tipo: 'COTIZACIÓN', items: itemsMapeados,
                 subtotal: subtotal, iva: iva, total: total,
                 fecha: new Date().toLocaleDateString(), pago: 'Presupuesto'
@@ -829,23 +831,24 @@
                 alerta.style.display = 'none';
                 itemsCotizacionActual = [];
                 renderizarModuloCotizaciones();
-            }, 1800);
+            }, 1500);
         }
 
-        /* --- HISTORIAL Y CONSULTA DE REGISTROS --- */
-        function renderizarHistorialVentas() {
-            const panel = document.getElementById('panel-contenido-vendedor');
+        /* --- MÓDULOS DE HISTORIAL: VENTAS Y COTIZACIONES --- */
+        function renderizarHistorial(tipoFiltro) {
+            const panel = document.getElementById('panel-contenido');
+            const registrosFiltrados = historialRegistros.filter(r => r.tipo === tipoFiltro);
 
-            let itemsHTML = historialVentas.map(t => {
+            let itemsHTML = registrosFiltrados.map(t => {
                 const isCotiz = t.tipo === 'COTIZACIÓN';
                 return `
-                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                    <div class="ticket-item" onclick="abrirDetalleModal(${t.id})">
                         <div class="ticket-info">
                             <div class="ticket-title">
                                 #${t.id} - ${t.cliente}
                                 <span class="${isCotiz ? 'badge-cotizacion' : 'badge-venta'}">${t.tipo}</span>
                             </div>
-                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Cantidad de productos: ${t.items.length} item(s)</div>
                         </div>
                         <div class="ticket-price" style="color:${isCotiz ? '#60a5fa' : '#22c55e'};">$${t.total.toFixed(2)} MXN</div>
                     </div>
@@ -854,30 +857,30 @@
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Historial de Ventas y Cotizaciones</h2>
-                    <p>Consulta e interacción de transacciones.</p>
+                    <h2>Historial de ${tipoFiltro === 'VENTA' ? 'Ventas' : 'Cotizaciones'}</h2>
+                    <p>Consulta, busca o convierte los registros seleccionados.</p>
                 </div>
 
                 <div class="input-group">
-                    <label>Buscar Ticket, Cotización o Cliente</label>
-                    <input type="text" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarHistorial(this.value)">
+                    <label>Buscar por Folio o Cliente</label>
+                    <input type="text" placeholder="Ej. #2035 o Miguel Landa..." oninput="filtrarListaHistorial(this.value, '${tipoFiltro}')">
                 </div>
 
-                <div id="listaTicketsContenedor">
-                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center;">No hay registros.</p>'}
+                <div id="contenedorListaHistorial">
+                    ${itemsHTML.length > 0 ? itemsHTML : '<p style="color:#a3a3a3; text-align:center; padding:20px;">No se encontraron registros.</p>'}
                 </div>
             `;
         }
 
-        function abrirDetalleTicket(id) {
-            const ticket = historialVentas.find(t => t.id === id);
-            if (!ticket) return;
+        function abrirDetalleModal(id) {
+            const reg = historialRegistros.find(t => t.id === id);
+            if (!reg) return;
 
-            ticketSeleccionadoId = id;
-            document.getElementById('modalTicketTitulo').innerText = `${ticket.tipo} #${ticket.id} - ${ticket.cliente}`;
-            document.getElementById('modalTicketFecha').innerText = `Emisión: ${ticket.fecha} | Estado: ${ticket.pago}`;
+            registroSeleccionadoId = id;
+            document.getElementById('modalTicketTitulo').innerText = `${reg.tipo} #${reg.id} - ${reg.cliente}`;
+            document.getElementById('modalTicketFecha').innerText = `Fecha: ${reg.fecha} | Estado: ${reg.pago}`;
 
-            let itemsDesglose = ticket.items.map(it => `
+            let itemsDesglose = reg.items.map(it => `
                 <div class="summary-row">
                     <span>${it.producto} (x${it.cantidad})</span>
                     <span>$${(it.precio * it.cantidad).toFixed(2)} MXN</span>
@@ -885,28 +888,29 @@
             `).join('');
 
             document.getElementById('modalDetalleContenido').innerHTML = `
-                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Desglose:</h4>
+                <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Detalle de ítems:</h4>
                 ${itemsDesglose}
                 <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
-                    <span>Subtotal:</span><span>$${ticket.subtotal.toFixed(2)} MXN</span>
+                    <span>Subtotal:</span><span>$${reg.subtotal.toFixed(2)} MXN</span>
                 </div>
-                <div class="summary-row"><span>IVA (16%):</span><span>$${ticket.iva.toFixed(2)} MXN</span></div>
+                <div class="summary-row"><span>IVA (16%):</span><span>$${reg.iva.toFixed(2)} MXN</span></div>
                 <div class="summary-row total">
                     <span>Total:</span>
-                    <span style="color:${ticket.tipo === 'COTIZACIÓN' ? '#60a5fa' : '#22c55e'};">$${ticket.total.toFixed(2)} MXN</span>
+                    <span style="color:${reg.tipo === 'COTIZACIÓN' ? '#60a5fa' : '#22c55e'};">$${reg.total.toFixed(2)} MXN</span>
                 </div>
             `;
 
             const acciones = document.getElementById('modalAcciones');
-            if (ticket.tipo === 'COTIZACIÓN') {
+            if (reg.tipo === 'COTIZACIÓN') {
                 acciones.innerHTML = `
-                    <button class="btn-convert" onclick="cargarCotizacionEnVenta(${ticket.id})">🛒 Cargar y Procesar Venta</button>
-                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
+                    <button class="btn-convert" onclick="convertirCotizacionAVenta(${reg.id})">🛒 Convertir a Venta</button>
+                    <button class="btn-danger" onclick="eliminarRegistroModal()">🗑️ Eliminar</button>
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             } else {
                 acciones.innerHTML = `
-                    <button class="btn-danger" onclick="confirmarEliminarTicket()">🗑️ Eliminar</button>
+                    <button class="btn-convert" style="background:#2563eb;" onclick="generarCotizacionDesdeVenta(${reg.id})">📋 Generar Cotización desde Venta</button>
+                    <button class="btn-danger" onclick="eliminarRegistroModal()">🗑️ Eliminar</button>
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             }
@@ -914,8 +918,8 @@
             document.getElementById('modalDetalle').style.display = 'flex';
         }
 
-        function cargarCotizacionEnVenta(idCotiz) {
-            const cotiz = historialVentas.find(t => t.id === idCotiz);
+        function convertirCotizacionAVenta(idCotiz) {
+            const cotiz = historialRegistros.find(t => t.id === idCotiz);
             if (!cotiz) return;
 
             idCotizacionEnProceso = idCotiz;
@@ -931,7 +935,7 @@
             });
 
             cerrarModal();
-            cambiarVistaVendedor('venta', document.querySelectorAll('.nav-btn')[0]);
+            cambiarModulo('venta', document.querySelectorAll('.nav-btn')[0]);
 
             setTimeout(() => {
                 const c = document.getElementById('ventaCliente');
@@ -940,41 +944,68 @@
             }, 100);
         }
 
+        function generarCotizacionDesdeVenta(idVenta) {
+            const venta = historialRegistros.find(t => t.id === idVenta);
+            if (!venta) return;
+
+            itemsCotizacionActual = venta.items.map(it => {
+                const prodReal = catalogoProductos.find(p => p.nombre.toLowerCase().includes(it.producto.toLowerCase()) || p.id === it.id);
+                return {
+                    id: prodReal ? prodReal.id : '1',
+                    sku: prodReal ? prodReal.sku : 'REF-100',
+                    nombre: it.producto,
+                    precio: it.precio,
+                    cantidad: it.cantidad
+                };
+            });
+
+            cerrarModal();
+            cambiarModulo('cotizacion', document.querySelectorAll('.nav-btn')[1]);
+
+            setTimeout(() => {
+                const c = document.getElementById('cotizacionCliente');
+                if (c) c.value = venta.cliente;
+                actualizarTablaCotizacion();
+            }, 100);
+        }
+
         function cerrarModal() { document.getElementById('modalDetalle').style.display = 'none'; }
 
-        function confirmarEliminarTicket() {
-            if (confirm(`¿Eliminar registro #${ticketSeleccionadoId}?`)) {
-                historialVentas = historialVentas.filter(t => t.id !== ticketSeleccionadoId);
+        function eliminarRegistroModal() {
+            if (confirm(`¿Eliminar el registro #${registroSeleccionadoId}?`)) {
+                const reg = historialRegistros.find(t => t.id === registroSeleccionadoId);
+                const tipoAnterior = reg ? reg.tipo : 'VENTA';
+                historialRegistros = historialRegistros.filter(t => t.id !== registroSeleccionadoId);
                 cerrarModal();
-                renderizarHistorialVentas();
+                renderizarHistorial(tipoAnterior);
             }
         }
 
-        function filtrarHistorial(query) {
+        function filtrarListaHistorial(query, tipoFiltro) {
             const q = query.toLowerCase();
-            const filtrados = historialVentas.filter(t => t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q) || t.tipo.toLowerCase().includes(q));
+            const filtrados = historialRegistros.filter(t => t.tipo === tipoFiltro && (t.id.toString().includes(q) || t.cliente.toLowerCase().includes(q)));
 
             let html = filtrados.map(t => {
                 const isCotiz = t.tipo === 'COTIZACIÓN';
                 return `
-                    <div class="ticket-item" onclick="abrirDetalleTicket(${t.id})">
+                    <div class="ticket-item" onclick="abrirDetalleModal(${t.id})">
                         <div class="ticket-info">
                             <div class="ticket-title">
                                 #${t.id} - ${t.cliente}
                                 <span class="${isCotiz ? 'badge-cotizacion' : 'badge-venta'}">${t.tipo}</span>
                             </div>
-                            <div class="ticket-sub">Fecha: ${t.fecha} | Total Refacciones: ${t.items.length} item(s)</div>
+                            <div class="ticket-sub">Fecha: ${t.fecha} | Cantidad de productos: ${t.items.length} item(s)</div>
                         </div>
                         <div class="ticket-price" style="color:${isCotiz ? '#60a5fa' : '#22c55e'};">$${t.total.toFixed(2)} MXN</div>
                     </div>
                 `;
             }).join('');
 
-            document.getElementById('listaTicketsContenedor').innerHTML = html.length > 0 ? html : '<p style="color:#a3a3a3; text-align:center;">No hay coincidencias.</p>';
+            document.getElementById('contenedorListaHistorial').innerHTML = html.length > 0 ? html : '<p style="color:#a3a3a3; text-align:center; padding:20px;">No hay coincidencias.</p>';
         }
 
         window.onload = function() {
-            cambiarVistaVendedor('venta', document.querySelector('.nav-btn'));
+            cambiarModulo('venta', document.querySelector('.nav-btn'));
         };
     </script>
 </body>
