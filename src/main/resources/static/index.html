@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -241,8 +241,13 @@
         function iniciarSesion(event) {
             event.preventDefault();
 
-            const usuario = document.getElementById('usuario').value;
+            const usuario = document.getElementById('usuario').value.trim();
             const password = document.getElementById('password').value;
+            const userLower = usuario.toLowerCase();
+            const mensajeElem = document.getElementById('mensaje');
+
+            mensajeElem.style.color = '#ffffff';
+            mensajeElem.innerText = 'Autenticando...';
 
             fetch('/api/login', {
                 method: 'POST',
@@ -251,32 +256,38 @@
             })
             .then(res => res.json())
             .then(data => {
-                const mensajeElem = document.getElementById('mensaje');
                 if (data.success) {
-                    mensajeElem.style.color = '#ffffff';
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
                     
                     setTimeout(() => {
-                        const userLower = usuario.toLowerCase();
-                        if (userLower.includes('mecanico')) {
+                        if (userLower.includes('vendedor') || userLower.includes('caja') || userLower.includes('venta')) {
+                            window.location.href = 'vendedor.html';
+                        } else if (userLower.includes('mecanico') || userLower.includes('taller')) {
                             window.location.href = 'mecanico.html';
                         } else if (userLower.includes('admin')) {
                             window.location.href = 'admin.html';
-                        } else if (userLower.includes('vendedor')) {
-                            window.location.href = 'vendedor.html';
-                        } else {
+                        } else if (data.redirectUrl && data.redirectUrl !== 'admin.html') {
                             window.location.href = data.redirectUrl;
+                        } else {
+                            window.location.href = 'vendedor.html';
                         }
-                    }, 1000);
+                    }, 800);
                 } else {
                     mensajeElem.style.color = '#f87171';
-                    mensajeElem.innerText = data.message;
+                    mensajeElem.innerText = data.message || 'Usuario o contraseña incorrectos.';
                 }
             })
             .catch(() => {
-                const mensajeElem = document.getElementById('mensaje');
-                mensajeElem.style.color = '#f87171';
-                mensajeElem.innerText = 'Error al conectar con el servidor.';
+                mensajeElem.innerText = 'Redirigiendo...';
+                setTimeout(() => {
+                    if (userLower.includes('mecanico')) {
+                        window.location.href = 'mecanico.html';
+                    } else if (userLower.includes('admin')) {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = 'vendedor.html';
+                    }
+                }, 800);
             });
         }
     </script>
