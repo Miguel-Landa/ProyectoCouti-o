@@ -271,12 +271,11 @@
             border-radius: 4px;
             padding: 16px 20px;
             margin-bottom: 12px;
-            cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .ticket-item:hover {
-            border-color: #ffffff;
+            border-color: #404040;
             background: #262626;
         }
 
@@ -324,6 +323,36 @@
             font-weight: 600;
             display: inline-block;
             margin-left: 8px;
+        }
+
+        .badge-stock-ok {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-stock-low {
+            background: rgba(234, 179, 8, 0.15);
+            color: #facc15;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-stock-empty {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
         }
 
         .modal-overlay {
@@ -422,17 +451,20 @@
         <div class="workspace">
             <div class="sidebar-buttons">
                 <div class="sidebar-title">MÓDULOS DE VENTAS Y COTIZACIONES</div>
-                <button class="nav-btn active" onclick="cambiarModulo('venta', this)">
-                    🛒 Venta de Productos
+                <button class="nav-btn active" onclick="cambiarModulo('consulta_stock', this)">
+                    🔍 Consultar Disponibilidad
                 </button>
                 <button class="nav-btn" onclick="cambiarModulo('cotizacion', this)">
                     📋 Cotización de Productos
                 </button>
-                <button class="nav-btn" onclick="cambiarModulo('historial_ventas', this)">
-                    📜 Historial de Ventas
+                <button class="nav-btn" onclick="cambiarModulo('venta', this)">
+                    🛒 Venta de Productos
                 </button>
                 <button class="nav-btn" onclick="cambiarModulo('historial_cotizaciones', this)">
                     📄 Historial de Cotizaciones
+                </button>
+                <button class="nav-btn" onclick="cambiarModulo('historial_ventas', this)">
+                    📜 Historial de Ventas
                 </button>
             </div>
 
@@ -461,7 +493,8 @@
             { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, stock: 15 },
             { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, stock: 8 },
             { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, stock: 20 },
-            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, stock: 5 }
+            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, stock: 3 },
+            { id: '5', sku: 'REF-105', nombre: 'Filtro de Aire Hunk 160R', precio: 120.00, stock: 0 }
         ];
 
         let historialRegistros = [
@@ -480,7 +513,9 @@
                 boton.classList.add('active');
             }
 
-            if (vista === 'venta') {
+            if (vista === 'consulta_stock') {
+                renderizarConsultaStock();
+            } else if (vista === 'venta') {
                 renderizarModuloVenta();
             } else if (vista === 'cotizacion') {
                 renderizarModuloCotizaciones();
@@ -491,10 +526,99 @@
             }
         }
 
-        /* --- MÓDULO: VENTA DE PRODUCTOS --- */
+        /* --- MÓDULO 0: CONSULTA DE DISPONIBILIDAD / STOCK POR CÓDIGO --- */
+        function renderizarConsultaStock() {
+            const panel = document.getElementById('panel-contenido');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Consulta de Disponibilidad y Stock</h2>
+                    <p>Busca productos por código (SKU) o nombre para verificar existencias antes de cotizar o vender.</p>
+                </div>
+
+                <div class="input-group" style="margin-bottom: 24px;">
+                    <label>Buscar por Código (SKU) o Nombre del Producto</label>
+                    <input type="text" id="inputBuscarStock" placeholder="Ej. REF-101 o Aceite Motul..." oninput="filtrarProductosStock(this.value)" autofocus>
+                </div>
+
+                <div id="contenedorListaProductosStock"></div>
+            `;
+
+            filtrarProductosStock('');
+        }
+
+        function filtrarProductosStock(query) {
+            const contenedor = document.getElementById('contenedorListaProductosStock');
+            if (!contenedor) return;
+
+            const q = query.toLowerCase().trim();
+            const productosFiltrados = catalogoProductos.filter(p => p.sku.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q));
+
+            if (productosFiltrados.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:30px 0;">No se encontraron productos con ese código o nombre.</p>';
+                return;
+            }
+
+            let html = productosFiltrados.map(p => {
+                let badgeStock = `<span class="badge-stock-ok">✓ Disponible (${p.stock} pzas)</span>`;
+                if (p.stock === 0) {
+                    badgeStock = `<span class="badge-stock-empty">❌ Agotado (0 pzas)</span>`;
+                } else if (p.stock <= 5) {
+                    badgeStock = `<span class="badge-stock-low">⚠️ Poco Stock (${p.stock} pzas)</span>`;
+                }
+
+                return `
+                    <div class="ticket-item">
+                        <div class="ticket-info">
+                            <div class="ticket-title">
+                                <span style="background:#262626; color:#60a5fa; padding:2px 8px; border-radius:3px; font-size:0.8rem; font-weight:700; margin-right:8px;">${p.sku}</span>
+                                ${p.nombre}
+                            </div>
+                            <div class="ticket-sub">Precio unitario: <strong>$${p.precio.toFixed(2)} MXN</strong></div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${badgeStock}
+                            ${p.stock > 0 ? `
+                                <button class="btn-add-item" onclick="enviarAOperacion('${p.id}', 'cotizacion')">📋 Cotizar</button>
+                                <button class="btn-add-item" style="background:#22c55e; border-color:#22c55e; color:#000;" onclick="enviarAOperacion('${p.id}', 'venta')">🛒 Vender</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            contenedor.innerHTML = html;
+        }
+
+        function enviarAOperacion(prodId, destino) {
+            const producto = catalogoProductos.find(p => p.id === prodId);
+            if (!producto) return;
+
+            if (destino === 'cotizacion') {
+                const existe = itemsCotizacionActual.find(i => i.id === prodId);
+                if (existe) existe.cantidad++;
+                else itemsCotizacionActual.push({ id: producto.id, sku: producto.sku, nombre: producto.nombre, precio: producto.precio, cantidad: 1 });
+                
+                cambiarModulo('cotizacion', document.querySelectorAll('.nav-btn')[1]);
+            } else if (destino === 'venta') {
+                const existe = itemsVentaActual.find(i => i.id === prodId);
+                if (existe) {
+                    if (existe.cantidad + 1 > producto.stock) {
+                        alert(`⚠️ Supera el stock disponible (${producto.stock} pzas).`);
+                        return;
+                    }
+                    existe.cantidad++;
+                } else {
+                    itemsVentaActual.push({ id: producto.id, sku: producto.sku, nombre: producto.nombre, precio: producto.precio, cantidad: 1 });
+                }
+
+                cambiarModulo('venta', document.querySelectorAll('.nav-btn')[2]);
+            }
+        }
+
+        /* --- MÓDULO 1: VENTA DE PRODUCTOS --- */
         function renderizarModuloVenta() {
             const panel = document.getElementById('panel-contenido');
-            let opcionesProd = catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
@@ -519,9 +643,13 @@
                     </div>
 
                     <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                        <div class="input-group" style="margin-bottom:0; flex:1;">
+                            <label>Filtrar / Buscar por Código SKU</label>
+                            <input type="text" id="buscarSKUVenta" placeholder="Ej. REF-101..." oninput="filtrarSelectProductos('selectVentaProducto', this.value)">
+                        </div>
                         <div class="input-group" style="margin-bottom:0; flex:2;">
                             <label>Seleccionar Producto</label>
-                            <select id="selectVentaProducto">${opcionesProd}</select>
+                            <select id="selectVentaProducto"></select>
                         </div>
                         <div class="input-group" style="margin-bottom:0; flex:1;">
                             <label>Cantidad</label>
@@ -547,11 +675,33 @@
 
                 <div id="alertaVenta" class="alert-box">✓ Venta registrada exitosamente y stock actualizado.</div>
             `;
+
+            filtrarSelectProductos('selectVentaProducto', '');
             actualizarTablaVenta();
         }
 
+        function filtrarSelectProductos(selectId, query) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            const q = query.toLowerCase().trim();
+            const filtrados = catalogoProductos.filter(p => p.sku.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q));
+
+            if (filtrados.length === 0) {
+                select.innerHTML = `<option value="">Sin coincidencias</option>`;
+                return;
+            }
+
+            select.innerHTML = filtrados.map(p => 
+                `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock} pzas)</option>`
+            ).join('');
+        }
+
         function agregarProductoAVenta() {
-            const prodId = document.getElementById('selectVentaProducto').value;
+            const select = document.getElementById('selectVentaProducto');
+            if (!select || !select.value) return;
+
+            const prodId = select.value;
             const cantidad = parseInt(document.getElementById('ventaCantidadInput').value) || 1;
             const producto = catalogoProductos.find(p => p.id === prodId);
 
@@ -684,7 +834,7 @@
             }, 1500);
         }
 
-        /* --- MÓDULO: COTIZACIÓN DE PRODUCTOS --- */
+        /* --- MÓDULO 2: COTIZACIÓN DE PRODUCTOS --- */
         function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido');
 
@@ -700,14 +850,16 @@
                         <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
                     </div>
                     <div class="input-group">
-                        <label>Seleccionar Producto</label>
-                        <select id="selectCotizacionProducto">
-                            ${catalogoProductos.map(p => `<option value="${p.id}">[${p.sku}] ${p.nombre} -$${p.precio.toFixed(2)} (Stock:${p.stock} pzas)</option>`).join('')}
-                        </select>
+                        <label>Filtrar por Código SKU</label>
+                        <input type="text" id="buscarSKUCotizacion" placeholder="Ej. REF-102..." oninput="filtrarSelectProductos('selectCotizacionProducto', this.value)">
                     </div>
                 </div>
 
                 <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="input-group" style="margin-bottom:0; flex:2;">
+                        <label>Seleccionar Producto</label>
+                        <select id="selectCotizacionProducto"></select>
+                    </div>
                     <div class="input-group" style="margin-bottom:0; flex:1;">
                         <label>Cantidad</label>
                         <input type="number" id="cotizacionCantidad" value="1" min="1">
@@ -730,11 +882,16 @@
                 <button class="btn-action" onclick="guardarCotizacion()">💾 Guardar Cotización</button>
                 <div id="alertaCotizacion" class="alert-box">✓ Cotización registrada en el historial.</div>
             `;
+
+            filtrarSelectProductos('selectCotizacionProducto', '');
             actualizarTablaCotizacion();
         }
 
         function agregarProductoACotizacion() {
-            const prodId = document.getElementById('selectCotizacionProducto').value;
+            const select = document.getElementById('selectCotizacionProducto');
+            if (!select || !select.value) return;
+
+            const prodId = select.value;
             const cantidad = parseInt(document.getElementById('cotizacionCantidad').value) || 1;
             const producto = catalogoProductos.find(p => p.id === prodId);
 
@@ -935,7 +1092,7 @@
             });
 
             cerrarModal();
-            cambiarModulo('venta', document.querySelectorAll('.nav-btn')[0]);
+            cambiarModulo('venta', document.querySelectorAll('.nav-btn')[2]);
 
             setTimeout(() => {
                 const c = document.getElementById('ventaCliente');
@@ -1005,7 +1162,7 @@
         }
 
         window.onload = function() {
-            cambiarModulo('venta', document.querySelector('.nav-btn'));
+            cambiarModulo('consulta_stock', document.querySelector('.nav-btn'));
         };
     </script>
 </body>
