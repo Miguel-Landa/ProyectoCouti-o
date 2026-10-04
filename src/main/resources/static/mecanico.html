@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -420,7 +420,10 @@
                     🛠️ Registro de Mantenimiento
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaMecanico('citas', this)">
-                    📋 Citas y Registros de Clientes
+                    📋 Citas y Registro de Clientes
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaMecanico('cobro', this)">
+                    💳 Cobro de Mantenimiento / Servicio
                 </button>
             </div>
 
@@ -434,13 +437,13 @@
 
         let contadorConsecutivoFolio = 105;
         let piezasyInsumosServicio = [];
+        let servicioSeleccionadoParaCobro = null;
 
-        // Arreglo global de citas iniciales con el campo del mecánico asignado
         let listaCitas = [
-            { folio: 'CITA-104', cliente: 'Carlos Mendoza', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa', costoServicio: 350.00 },
-            { folio: 'CITA-103', cliente: 'Roberto Silva', mecanico: 'Carlos Mendoza', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa', costoServicio: 250.00 },
-            { folio: 'CITA-102', cliente: 'Miguel Landa', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)', costoServicio: 150.00 },
-            { folio: 'CITA-101', cliente: 'Ana Martínez', mecanico: 'Ramón Gómez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa', costoServicio: 500.00 }
+            { folio: 'CITA-104', cliente: 'Carlos Mendoza', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
+            { folio: 'CITA-103', cliente: 'Roberto Silva', mecanico: 'Carlos Mendoza', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
+            { folio: 'CITA-102', cliente: 'Miguel Landa', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
+            { folio: 'CITA-101', cliente: 'Ana Martínez', mecanico: 'Ramón Gómez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa' }
         ];
 
         function obtenerCatalogo() {
@@ -467,42 +470,37 @@
             const panel = document.getElementById('panel-contenido-mecanico');
 
             if (vista === 'mantenimiento') {
-                piezasyInsumosServicio = [];
-                renderizarFormularioMantenimiento();
+                renderizarFormularioMantenimientoOriginal();
             } else if (vista === 'citas') {
-                renderizarTablaCitas();
+                renderizarTablaCitasOriginal();
+            } else if (vista === 'cobro') {
+                servicioSeleccionadoParaCobro = null;
+                piezasyInsumosServicio = [];
+                renderizarModuloCobroSeparado();
             }
         }
 
-        function renderizarFormularioMantenimiento() {
+        /* 1. MÓDULO ORIGINAL: REGISTRO DE MANTENIMIENTO */
+        function renderizarFormularioMantenimientoOriginal() {
             const panel = document.getElementById('panel-contenido-mecanico');
             const siguienteFolio = 'CITA-' + contadorConsecutivoFolio;
-            const catalogo = obtenerCatalogo();
-
-            let opcionesRefacciones = catalogo.map(p => 
-                `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock})</option>`
-            ).join('');
 
             panel.innerHTML = `
                 <div class="panel-header">
-                    <h2>Nuevo Servicio / Mantenimiento y Cobro</h2>
-                    <p>Registro de ingreso de motocicleta, diagnóstico, asignación de mecánico y desglose de cobro.</p>
+                    <h2>Nuevo Servicio / Mantenimiento</h2>
+                    <p>Registro de ingreso de motocicleta, diagnóstico inicial y asignación de refacciones.</p>
                 </div>
 
-                <form id="mantenimientoForm" onsubmit="guardarMantenimiento(event)">
-                    <div class="form-section-title">1. Búsqueda y Asignación de Cita / Mecánico</div>
+                <form id="mantenimientoForm" onsubmit="guardarMantenimientoOriginal(event)">
+                    <div class="form-section-title">1. Búsqueda y Validación de Cita</div>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Folio de Cita Consecutivo Único</label>
                             <input type="text" id="folioCita" value="${siguienteFolio}" readonly>
                         </div>
                         <div class="input-group">
-                            <label>Mecánico Asignado al Servicio</label>
-                            <select id="mecanicoAsignadoSelect" required>
-                                <option value="Miguel Landa">Miguel Landa</option>
-                                <option value="Carlos Mendoza">Carlos Mendoza</option>
-                                <option value="Ramón Gómez">Ramón Gómez</option>
-                            </select>
+                            <label>Placas o Identificador de Motocicleta</label>
+                            <input type="text" id="placasInput" placeholder="Ej. 12ABC3 o MX-9921" required>
                         </div>
                     </div>
 
@@ -512,20 +510,15 @@
                             <input type="text" id="clienteInput" placeholder="Ej. Juan Pérez" required>
                         </div>
                         <div class="input-group">
-                            <label>Placas o Identificador de Motocicleta</label>
-                            <input type="text" id="placasInput" placeholder="Ej. 12ABC3 o MX-9921" required>
+                            <label>Estado de Cita</label>
+                            <select id="estadoCita">
+                                <option value="Cita Previa">Cita Previa Agendada (Validada)</option>
+                                <option value="Sin Cita (Directa)">Sin Cita (Registro Rápido de Cliente)</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div class="input-group" style="margin-bottom:16px;">
-                        <label>Estado de la Cita</label>
-                        <select id="estadoCita">
-                            <option value="Cita Previa">Cita Previa Agendada (Validada)</option>
-                            <option value="Sin Cita (Directa)">Sin Cita (Registro Rápido de Cliente)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-section-title">2. Diagnóstico Técnico y Costo de Mano de Obra</div>
+                    <div class="form-section-title">2. Diagnóstico Técnico e Inspección</div>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Kilometraje Actual (km)</label>
@@ -537,90 +530,237 @@
                         </div>
                     </div>
 
+                    <div class="input-group" style="margin-bottom: 16px;">
+                        <label>Diagnóstico Inicial del Mecánico</label>
+                        <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
+                    </div>
+
+                    <div class="form-section-title">3. Refacciones Requeridas (Verificación de Stock)</div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Diagnóstico Técnico del Mecánico</label>
-                            <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
+                            <label>Seleccionar Refacción / Insumo</label>
+                            <select id="refaccion">
+                                <option value="Balatas Delanteras Hunk 160R">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
+                                <option value="Aceite Motul 10W40 1L">Aceite Motul 10W40 1L (Stock Disponible)</option>
+                                <option value="Bujía NGK Iridium">Bujía NGK Iridium (Stock Disponible)</option>
+                            </select>
                         </div>
                         <div class="input-group">
-                            <label>Costo de Mano de Obra / Servicio Técnico ($ MXN)</label>
-                            <input type="number" id="costoManoObraInput" value="250.00" step="0.01" oninput="actualizarTablaCobroServicio()" required>
+                            <label>Cantidad Requerida</label>
+                            <input type="number" id="cantidadRefacion" value="1" min="1">
                         </div>
                     </div>
 
-                    <div class="form-section-title">3. Piezas y Refacciones Utilizadas (Descuento de Stock)</div>
-                    <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
-                        <div class="input-group" style="margin-bottom:0; flex:2;">
-                            <label>Seleccionar Refacción / Insumo</label>
-                            <select id="selectRefaccionModal">${opcionesRefacciones}</select>
-                        </div>
-                        <div class="input-group" style="margin-bottom:0; flex:1;">
-                            <label>Cantidad</label>
-                            <input type="number" id="cantidadRefacionInput" value="1" min="1">
-                        </div>
-                        <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarPiezaAServicio()">+ Agregar Pieza</button>
-                    </div>
-
-                    <!-- Desglose de Cobro Detallado -->
-                    <div class="summary-box">
-                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
-                            💳 Desglose de Cobro del Mantenimiento
-                        </h3>
-                        <div id="listaPiezasServicio">
-                            <p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado refacciones adicionales al servicio.</p>
-                        </div>
-
-                        <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
-                            <div class="summary-row"><span>Costo Mano de Obra:</span><span id="lblManoObra">$250.00 MXN</span></div>
-                            <div class="summary-row"><span>Subtotal Refacciones y Servicio:</span><span id="lblSubtotalServicio">$250.00 MXN</span></div>
-                            <div class="summary-row"><span>IVA (16%):</span><span id="lblIvaServicio">$40.00 MXN</span></div>
-                            <div class="summary-row total"><span>Total General a Cobrar:</span><span id="lblTotalServicio" style="color: #22c55e;">$290.00 MXN</span></div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn-action">Guardar Orden, Cobrar e Incrementar Servicio</button>
+                    <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
                 </form>
 
                 <div id="alertaExito" class="alert-box">
-                    ✓ Orden registrada correctamente. Se asignó al mecánico y las piezas fueron descontadas del inventario.
+                    ✓ Orden registrada con Folio Consecutivo Único y guardada en el desglose.
                 </div>
             `;
-            actualizarTablaCobroServicio();
         }
 
-        function agregarPiezaAServicio() {
-            const refId = document.getElementById('selectRefaccionModal').value;
-            const cant = parseInt(document.getElementById('cantidadRefacionInput').value) || 1;
+        /* 2. MÓDULO ORIGINAL: CITAS Y REGISTRO DE CLIENTES */
+        function renderizarTablaCitasOriginal() {
+            const panel = document.getElementById('panel-contenido-mecanico');
+
+            let filasHTML = listaCitas.map(cita => {
+                const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
+                return `
+                    <tr>
+                        <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
+                        <td>${cita.cliente}</td>
+                        <td>${cita.moto}</td>
+                        <td>${cita.placas}</td>
+                        <td>${cita.servicio}</td>
+                        <td><span class="${badgeClass}">${cita.modalidad}</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-delete-cita" onclick="eliminarCita('${cita.folio}')">Eliminar</button>
+                                <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Desglose de Citas y Registros de Clientes</h2>
+                    <p>Visualización de citas agendadas desde la web y registros directos en caja.</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Folio / Cita</th>
+                                <th>Cliente</th>
+                                <th>Motocicleta</th>
+                                <th>Placas</th>
+                                <th>Servicio Solicitado</th>
+                                <th>Modalidad</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasHTML}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        /* 3. NUEVO MÓDULO INDEPENDIENTE: COBRO DE MANTENIMIENTO / SERVICIO */
+        function renderizarModuloCobroSeparado() {
+            const panel = document.getElementById('panel-contenido-mecanico');
+            const catalogo = obtenerCatalogo();
+
+            let filasServicios = listaCitas.map(cita => `
+                <tr>
+                    <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
+                    <td><strong>${cita.cliente}</strong></td>
+                    <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:600;">${cita.mecanico || 'Miguel Landa'}</span></td>
+                    <td>${cita.moto} (${cita.placas})</td>
+                    <td>${cita.servicio}</td>
+                    <td>
+                        <button class="btn-select-cita" style="background:#22c55e; color:#000;" onclick="seleccionarServicioParaCobrar('${cita.folio}')">💳 Generar Cobro / Ticket</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            let opcionesRefacciones = catalogo.map(p => 
+                `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock})</option>`
+            ).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Cobro de Mantenimiento / Servicio Técnico</h2>
+                    <p>Selección de servicios concluidos, asignación de mecánico, refacciones utilizadas y emisión de ticket.</p>
+                </div>
+
+                <div class="summary-box" style="margin-top:0; margin-bottom:25px;">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">📋 Seleccionar Mantenimiento o Servicio a Cobrar</h3>
+                    <div class="table-container" style="margin-top:0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Cliente</th>
+                                    <th>Mecánico Encargado</th>
+                                    <th>Motocicleta</th>
+                                    <th>Servicio Realizado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filasServicios.length > 0 ? filasServicios : '<tr><td colspan="6" style="text-align:center;">No hay servicios registrados para cobrar.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="formularioCobroDetalle" style="display: ${servicioSeleccionadoParaCobro ? 'block' : 'none'};">
+                    <div class="form-section-title">Detalles de Facturación y Cobro (${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.folio : ''})</div>
+                    
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Cliente</label>
+                            <input type="text" id="cobroClienteInput" value="${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.cliente : ''}" readonly>
+                        </div>
+                        <div class="input-group">
+                            <label>Mecánico que Realizó el Mantenimiento</label>
+                            <select id="cobroMecanicoSelect">
+                                <option value="Miguel Landa">Miguel Landa</option>
+                                <option value="Carlos Mendoza">Carlos Mendoza</option>
+                                <option value="Ramón Gómez">Ramón Gómez</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Servicio Técnico Realizado</label>
+                            <input type="text" id="cobroServicioDescInput" value="${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.servicio : ''}">
+                        </div>
+                        <div class="input-group">
+                            <label>Costo de Mano de Obra ($ MXN)</label>
+                            <input type="number" id="cobroManoObraInput" value="300.00" step="0.01" oninput="actualizarTotalesCobroModulo()">
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">Piezas y Refacciones Utilizadas en el Servicio</div>
+                    <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                        <div class="input-group" style="margin-bottom:0; flex:2;">
+                            <label>Agregar Refacción al Ticket</label>
+                            <select id="selectRefaccionCobro">${opcionesRefacciones}</select>
+                        </div>
+                        <div class="input-group" style="margin-bottom:0; flex:1;">
+                            <label>Cantidad</label>
+                            <input type="number" id="cantRefaccionCobro" value="1" min="1">
+                        </div>
+                        <button type="button" class="btn-add-item" style="padding:12px 18px;" onclick="agregarPiezaAlCobroModulo()">+ Agregar Pieza</button>
+                    </div>
+
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                            🧾 Desglose Final del Cobro de Servicio
+                        </h3>
+                        <div id="listaPiezasCobroModulo"></div>
+
+                        <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
+                            <div class="summary-row"><span>Mano de Obra / Servicio Técnico:</span><span id="lblCobroManoObra">$300.00 MXN</span></div>
+                            <div class="summary-row"><span>Subtotal General:</span><span id="lblCobroSubtotal">$300.00 MXN</span></div>
+                            <div class="summary-row"><span>IVA (16%):</span><span id="lblCobroIva">$48.00 MXN</span></div>
+                            <div class="summary-row total"><span>Total a Cobrar al Cliente:</span><span id="lblCobroTotal" style="color: #22c55e;">$348.00 MXN</span></div>
+                        </div>
+                    </div>
+
+                    <button class="btn-action" onclick="finalizarCobroMantenimiento()">Finalizar Cobro y Descontar Refacciones</button>
+                    <div id="alertaCobroExito" class="alert-box">✓ Cobro procesado correctamente y stock de refacciones actualizado.</div>
+                </div>
+            `;
+            if (servicioSeleccionadoParaCobro) actualizarTotalesCobroModulo();
+        }
+
+        function seleccionarServicioParaCobrar(folio) {
+            const servicio = listaCitas.find(c => c.folio === folio);
+            if (servicio) {
+                servicioSeleccionadoParaCobro = servicio;
+                piezasyInsumosServicio = [];
+                renderizarModuloCobroSeparado();
+                if (servicio.mecanico) {
+                    document.getElementById('cobroMecanicoSelect').value = servicio.mecanico;
+                }
+            }
+        }
+
+        function agregarPiezaAlCobroModulo() {
+            const refId = document.getElementById('selectRefaccionCobro').value;
+            const cant = parseInt(document.getElementById('cantRefaccionCobro').value) || 1;
             const catalogo = obtenerCatalogo();
             const ref = catalogo.find(p => p.id === refId);
 
             if (ref) {
                 if (cant > ref.stock) {
-                    alert(`⚠️ Stock insuficiente. Solo quedan ${ref.stock} pzas disponibles de ${ref.nombre}.`);
+                    alert(`⚠️ Stock insuficiente. Quedan ${ref.stock} pzas de ${ref.nombre}.`);
                     return;
                 }
-
                 const existe = piezasyInsumosServicio.find(i => i.id === refId);
                 if (existe) {
                     if ((existe.cantidad + cant) > ref.stock) {
-                        alert(`⚠️ La cantidad acumulada supera el stock disponible (${ref.stock} pzas).`);
+                        alert(`⚠️ Supera el stock disponible (${ref.stock} pzas).`);
                         return;
                     }
                     existe.cantidad += cant;
                 } else {
-                    piezasyInsumosServicio.push({
-                        id: ref.id,
-                        sku: ref.sku,
-                        nombre: ref.nombre,
-                        precio: ref.precio,
-                        cantidad: cant
-                    });
+                    piezasyInsumosServicio.push({ id: ref.id, sku: ref.sku, nombre: ref.nombre, precio: ref.precio, cantidad: cant });
                 }
-                actualizarTablaCobroServicio();
+                actualizarTotalesCobroModulo();
             }
         }
 
-        function modificarCantidadPieza(id, delta) {
+        function modificarCantidadPiezaModulo(id, delta) {
             const item = piezasyInsumosServicio.find(i => i.id === id);
             const catalogo = obtenerCatalogo();
             const ref = catalogo.find(p => p.id === id);
@@ -631,40 +771,40 @@
                     return;
                 }
                 item.cantidad += delta;
-                if (item.cantidad <= 0) removerPiezaServicio(id);
-                else actualizarTablaCobroServicio();
+                if (item.cantidad <= 0) piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
+                actualizarTotalesCobroModulo();
             }
         }
 
-        function removerPiezaServicio(id) {
+        function removerPiezaCobroModulo(id) {
             piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
-            actualizarTablaCobroServicio();
+            actualizarTotalesCobroModulo();
         }
 
-        function actualizarTablaCobroServicio() {
-            const contenedor = document.getElementById('listaPiezasServicio');
+        function actualizarTotalesCobroModulo() {
+            const contenedor = document.getElementById('listaPiezasCobroModulo');
             if (!contenedor) return;
 
-            const manoObra = parseFloat(document.getElementById('costoManoObraInput').value) || 0;
-            let subtotalRefacciones = 0;
+            const manoObra = parseFloat(document.getElementById('cobroManoObraInput').value) || 0;
+            let subtotalRef = 0;
 
             if (piezasyInsumosServicio.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado refacciones adicionales al servicio.</p>';
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado refacciones al ticket de cobro.</p>';
             } else {
                 contenedor.innerHTML = piezasyInsumosServicio.map(item => {
                     const importe = item.precio * item.cantidad;
-                    subtotalRefacciones += importe;
+                    subtotalRef += importe;
                     return `
                         <div class="summary-row">
                             <div>
                                 <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
                                 <strong style="color:#ffffff;">${item.nombre}</strong> 
                                 <span style="margin-left:8px;">
-                                    <button class="qty-btn" onclick="modificarCantidadPieza('${item.id}', -1)">-</button>
+                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', -1)">-</button>
                                     <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                    <button class="qty-btn" onclick="modificarCantidadPieza('${item.id}', 1)">+</button>
+                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', 1)">+</button>
                                 </span>
-                                <button class="btn-remove-item" onclick="removerPiezaServicio('${item.id}')">Quitar</button>
+                                <button class="btn-remove-item" onclick="removerPiezaCobroModulo('${item.id}')">Quitar</button>
                             </div>
                             <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
                         </div>
@@ -672,70 +812,39 @@
                 }).join('');
             }
 
-            const subtotalGeneral = subtotalRefacciones + manoObra;
-            const iva = subtotalGeneral * 0.16;
-            const total = subtotalGeneral + iva;
+            const subtotalGen = subtotalRef + manoObra;
+            const iva = subtotalGen * 0.16;
+            const total = subtotalGen + iva;
 
-            document.getElementById('lblManoObra').innerText = '$' + manoObra.toFixed(2) + ' MXN';
-            document.getElementById('lblSubtotalServicio').innerText = '$' + subtotalGeneral.toFixed(2) + ' MXN';
-            document.getElementById('lblIvaServicio').innerText = '$' + iva.toFixed(2) + ' MXN';
-            document.getElementById('lblTotalServicio').innerText = '$' + total.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroManoObra').innerText = '$' + manoObra.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroSubtotal').innerText = '$' + subtotalGen.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroIva').innerText = '$' + iva.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
-        function renderizarTablaCitas() {
-            const panel = document.getElementById('panel-contenido-mecanico');
+        function finalizarCobroMantenimiento() {
+            if (!servicioSeleccionadoParaCobro) return;
 
-            let filasHTML = listaCitas.map(cita => {
-                const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
-                return `
-                    <tr>
-                        <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
-                        <td><strong>${cita.cliente}</strong></td>
-                        <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-weight:600;">${cita.mecanico || 'Sin Asignar'}</span></td>
-                        <td>${cita.moto}</td>
-                        <td>${cita.placas}</td>
-                        <td>${cita.servicio}</td>
-                        <td><span class="${badgeClass}">${cita.modalidad}</span></td>
-                        <td><strong style="color:#22c55e;">$${(cita.costoServicio || 250).toFixed(2)} MXN</strong></td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn-delete-cita" onclick="eliminarCita('${cita.folio}')">Eliminar</button>
-                                <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender / Editar</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            // Descontar refacciones utilizadas del catálogo general
+            let catalogo = obtenerCatalogo();
+            piezasyInsumosServicio.forEach(item => {
+                const ref = catalogo.find(p => p.id === item.id);
+                if (ref) ref.stock = Math.max(0, ref.stock - item.cantidad);
+            });
+            guardarCatalogo(catalogo);
 
-            panel.innerHTML = `
-                <div class="panel-header">
-                    <h2>Desglose de Citas y Registros de Clientes</h2>
-                    <p>Visualización de citas agendadas, mecánico asignado y estado del servicio.</p>
-                </div>
+            const alerta = document.getElementById("alertaCobroExito");
+            alerta.style.display = "block";
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Folio / Cita</th>
-                                <th>Cliente</th>
-                                <th>Mecánico Asignado</th>
-                                <th>Motocicleta</th>
-                                <th>Placas</th>
-                                <th>Servicio Solicitado</th>
-                                <th>Modalidad</th>
-                                <th>Costo Base</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="9" style="text-align:center;">No hay citas o servicios registrados.</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+            setTimeout(() => {
+                alerta.style.display = "none";
+                servicioSeleccionadoParaCobro = null;
+                piezasyInsumosServicio = [];
+                renderizarModuloCobroSeparado();
+            }, 1800);
         }
 
+        /* FUNCIONES AUXILIARES DE MANTENIMIENTO Y CITAS */
         function cargarCitaEnFormulario(folio) {
             const citaEncontrada = listaCitas.find(c => c.folio === folio);
             const botonesNav = document.querySelectorAll('.nav-btn');
@@ -747,61 +856,46 @@
                     document.getElementById('folioCita').value = citaEncontrada.folio;
                     document.getElementById('placasInput').value = citaEncontrada.placas;
                     document.getElementById('clienteInput').value = citaEncontrada.cliente;
-                    document.getElementById('mecanicoAsignadoSelect').value = citaEncontrada.mecanico || 'Miguel Landa';
                     document.getElementById('estadoCita').value = citaEncontrada.modalidad;
                     document.getElementById('fallas').value = citaEncontrada.servicio;
-                    document.getElementById('costoManoObraInput').value = citaEncontrada.costoServicio || 250.00;
                     document.getElementById('diagnostico').value = 'Revisión técnica en proceso para la motocicleta ' + citaEncontrada.moto + '.';
-                    actualizarTablaCobroServicio();
                 }
             }, 100);
         }
 
         function eliminarCita(folio) {
-            if (confirm('¿Está seguro de eliminar el registro de cita ' + folio + '?')) {
+            if (confirm('¿Está seguro de eliminar la cita ' + folio + '?')) {
                 listaCitas = listaCitas.filter(c => c.folio !== folio);
-                renderizarTablaCitas();
+                const botonesNav = document.querySelectorAll('.nav-btn');
+                cambiarVistaMecanico('citas', botonesNav[1]);
             }
         }
 
-        function guardarMantenimiento(event) {
+        function guardarMantenimientoOriginal(event) {
             event.preventDefault();
 
             const folioActual = document.getElementById('folioCita').value;
             const placasVal = document.getElementById('placasInput').value;
             const clienteVal = document.getElementById('clienteInput').value;
-            const mecanicoVal = document.getElementById('mecanicoAsignadoSelect').value;
             const estadoCitaVal = document.getElementById('estadoCita').value;
             const fallasVal = document.getElementById('fallas').value;
-            const manoObraVal = parseFloat(document.getElementById('costoManoObraInput').value) || 0;
-
-            // Descontar del catálogo general las refacciones utilizadas
-            let catalogo = obtenerCatalogo();
-            piezasyInsumosServicio.forEach(item => {
-                const ref = catalogo.find(p => p.id === item.id);
-                if (ref) ref.stock = Math.max(0, ref.stock - item.cantidad);
-            });
-            guardarCatalogo(catalogo);
 
             const indiceExistente = listaCitas.findIndex(c => c.folio === folioActual);
 
             if (indiceExistente !== -1) {
                 listaCitas[indiceExistente].placas = placasVal;
                 listaCitas[indiceExistente].cliente = clienteVal;
-                listaCitas[indiceExistente].mecanico = mecanicoVal;
                 listaCitas[indiceExistente].servicio = fallasVal;
                 listaCitas[indiceExistente].modalidad = estadoCitaVal;
-                listaCitas[indiceExistente].costoServicio = manoObraVal;
             } else {
                 listaCitas.unshift({
                     folio: folioActual,
                     cliente: clienteVal || 'Cliente General',
-                    mecanico: mecanicoVal,
+                    mecanico: 'Miguel Landa',
                     moto: 'Motocicleta Ingresada',
                     placas: placasVal.toUpperCase(),
                     servicio: fallasVal || 'Mantenimiento General',
-                    modalidad: estadoCitaVal,
-                    costoServicio: manoObraVal
+                    modalidad: estadoCitaVal
                 });
                 contadorConsecutivoFolio++;
             }
@@ -811,9 +905,8 @@
 
             setTimeout(() => { 
                 alerta.style.display = "none"; 
-                piezasyInsumosServicio = [];
                 cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
-            }, 1800);
+            }, 2000);
         }
 
         window.onload = function() {
@@ -821,4 +914,4 @@
         };
     </script>
 </body>
-</html> 
+</html>
