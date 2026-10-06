@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS cobro_refacciones (
     cantidad INTEGER NOT NULL,
     importe DECIMAL(12, 2) NOT NULL,
     CONSTRAINT fk_cobro_refacciones_cobro
-        FOREIGN KEY (cobro_id) REFERENCES cobros(id)
+        FOREIGN KEY (cobro_id) REFERENCES cobros(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_cobros_fecha_pago ON cobros(fecha_pago);
