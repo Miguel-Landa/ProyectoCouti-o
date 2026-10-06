@@ -551,6 +551,71 @@
             color: var(--muted) !important;
         }
 
+        .report-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin: 18px 0;
+        }
+
+        .report-total-card {
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-alt);
+        }
+
+        .report-total-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: 1.35rem;
+        }
+
+        .report-filter-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            gap: 12px;
+        }
+
+        @media print {
+            @page {
+                size: landscape;
+                margin: 12mm;
+            }
+
+            body.reporte-impresion {
+                background: #fff !important;
+                color: #111 !important;
+            }
+
+            body.reporte-impresion .topbar,
+            body.reporte-impresion .sidebar-buttons,
+            body.reporte-impresion .no-print {
+                display: none !important;
+            }
+
+            body.reporte-impresion .workspace,
+            body.reporte-impresion .main-panel {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                box-shadow: none !important;
+            }
+
+            body.reporte-impresion .summary-box,
+            body.reporte-impresion .report-total-card,
+            body.reporte-impresion table.data-table th,
+            body.reporte-impresion table.data-table td {
+                background: #fff !important;
+                color: #111 !important;
+                border-color: #aaa !important;
+            }
+        }
+
         [style*="background:#262626"], [style*="background: #262626"] {
             background: var(--panel-alt) !important;
         }
@@ -591,6 +656,9 @@
                 <button class="nav-btn" onclick="cambiarVistaMecanico('cobro', this)">
                     💳 Cobro de Mantenimiento / Servicio
                 </button>
+                <button class="nav-btn" onclick="cambiarVistaMecanico('historial', this)">
+                    📊 Historial de Cobros
+                </button>
             </div>
 
             <div class="main-panel" id="panel-contenido-mecanico">
@@ -604,6 +672,7 @@
         let piezasyInsumosServicio = [];
         let refaccionesMantenimientoForm = [];
         let servicioSeleccionadoParaCobro = null;
+        let historialCobros = [];
 
         const CLAVE_CITAS = 'mrx_citas';
         const citasInicialesMecanico = [
@@ -694,6 +763,8 @@
                 servicioSeleccionadoParaCobro = null;
                 piezasyInsumosServicio = [];
                 renderizarModuloCobroSeparado();
+            } else if (vista === 'historial') {
+                renderizarHistorialCobros();
             }
         }
 
@@ -920,7 +991,9 @@
                     <td>${cita.moto} (${cita.placas})</td>
                     <td>${cita.servicio}</td>
                     <td>
-                        <button class="btn-select-cita" style="background:#22c55e; color:#000;" onclick="seleccionarServicioParaCobrar('${cita.folio}')">💳 Generar Cobro / Ticket</button>
+                        ${cita.pagoRegistradoId
+                            ? '<button class="btn-select-cita" disabled>✓ Cobrado</button>'
+                            : `<button class="btn-select-cita" style="background:#22c55e; color:#000;" onclick="seleccionarServicioParaCobrar('${cita.folio}')">💳 Generar Cobro / Ticket</button>`}
                     </td>
                 </tr>
             `).join('');
@@ -1018,11 +1091,182 @@
                         </div>
                     </div>
 
-                    <button class="btn-action" onclick="finalizarCobroMantenimiento()">Finalizar Cobro y Descontar Refacciones</button>
+                    <button class="btn-action" onclick="finalizarCobroMantenimiento(this)">Finalizar Cobro y Descontar Refacciones</button>
                     <div id="alertaCobroExito" class="alert-box">✓ Cobro procesado correctamente y stock de refacciones actualizado.</div>
                 </div>
             `;
             if (servicioSeleccionadoParaCobro) actualizarTotalesCobroModulo();
+        }
+
+        async function renderizarHistorialCobros() {
+            const panel = document.getElementById('panel-contenido-mecanico');
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Cobros</h2>
+                    <p>Consulta servicios cobrados y totales de caja por día o semana.</p>
+                </div>
+                <div class="summary-box">Cargando historial...</div>
+            `;
+            try {
+                const respuesta = await fetch('/api/cobros');
+                if (!respuesta.ok) throw new Error(`El servidor respondió con estado ${respuesta.status}.`);
+                historialCobros = await respuesta.json();
+                mostrarHistorialCobros();
+            } catch (error) {
+                console.error('No se pudo cargar el historial de cobros:', error);
+                panel.innerHTML = `
+                    <div class="panel-header"><h2>Historial de Cobros</h2></div>
+                    <div class="summary-box">
+                        <p>No fue posible conectar con el servidor: ${escaparHtml(error.message || 'Error de conexión.')}</p>
+                        <button class="btn-action" onclick="renderizarHistorialCobros()">Reintentar</button>
+                    </div>
+                `;
+            }
+        }
+
+        function mostrarHistorialCobros(fechaInicio = fechaLocalISO(new Date()), fechaFin = fechaLocalISO(new Date())) {
+            const panel = document.getElementById('panel-contenido-mecanico');
+            const cobrosFiltrados = historialCobros.filter(cobro => {
+                const fechaPago = fechaLocalISO(new Date(cobro.fechaPago));
+                return fechaPago >= fechaInicio && fechaPago <= fechaFin;
+            });
+            const totalPeriodo = cobrosFiltrados.reduce((total, cobro) => total + Number(cobro.total || 0), 0);
+            const totalRefacciones = cobrosFiltrados.reduce((total, cobro) =>
+                total + (cobro.refacciones || []).reduce((suma, refaccion) => suma + Number(refaccion.importe || 0), 0), 0);
+            const totalServicios = cobrosFiltrados.reduce((total, cobro) =>
+                total + Number(cobro.manoObra || 0) + Number(cobro.servicioExtraPrecio || 0), 0);
+            const totalesPorDia = new Map();
+            cobrosFiltrados.forEach(cobro => {
+                const fecha = fechaLocalISO(new Date(cobro.fechaPago));
+                const registro = totalesPorDia.get(fecha) || { cantidad: 0, total: 0 };
+                registro.cantidad++;
+                registro.total += Number(cobro.total || 0);
+                totalesPorDia.set(fecha, registro);
+            });
+
+            const filasDiarias = [...totalesPorDia.entries()]
+                .sort(([fechaA], [fechaB]) => fechaA.localeCompare(fechaB))
+                .map(([fecha, registro]) => `
+                    <tr>
+                        <td>${new Date(`${fecha}T12:00:00`).toLocaleDateString('es-MX')}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+            const filasCobros = cobrosFiltrados.map(cobro => {
+                const detalleRefacciones = (cobro.refacciones || []).map(refaccion =>
+                    `${escaparHtml(refaccion.nombre)} (${refaccion.cantidad} × ${formatearMoneda(refaccion.precioUnitario)}) — ${formatearMoneda(refaccion.importe)}`
+                );
+                const detalle = [
+                    `<strong>Solicitado:</strong> ${escaparHtml(cobro.servicioSolicitado)}`,
+                    `<strong>Realizado:</strong> ${escaparHtml(cobro.servicioRealizado)}`,
+                    `<strong>Mano de obra:</strong> ${formatearMoneda(cobro.manoObra)}`,
+                    Number(cobro.servicioExtraPrecio) > 0
+                        ? `<strong>Extra:</strong> ${escaparHtml(cobro.servicioExtraDescripcion)} — ${formatearMoneda(cobro.servicioExtraPrecio)}`
+                        : '',
+                    ...detalleRefacciones
+                ].filter(Boolean).join('<br>');
+                return `
+                    <tr>
+                        <td>${escaparHtml(new Date(cobro.fechaPago).toLocaleString('es-MX'))}</td>
+                        <td>${escaparHtml(cobro.folio)}</td>
+                        <td>${escaparHtml(cobro.cliente)}<br>${escaparHtml(cobro.motocicleta)} (${escaparHtml(cobro.placas)})</td>
+                        <td>${detalle}</td>
+                        <td>${escaparHtml(cobro.mecanico)}</td>
+                        <td>${formatearMoneda(cobro.subtotal)}<br>IVA: ${formatearMoneda(cobro.iva)}</td>
+                        <td><strong>${formatearMoneda(cobro.total)}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Cobros</h2>
+                    <p>Elige un periodo para consultar la caja. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                </div>
+                <div class="summary-box no-print">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="historialFechaInicio">Desde</label>
+                            <input type="date" id="historialFechaInicio" value="${escaparHtml(fechaInicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="historialFechaFin">Hasta</label>
+                            <input type="date" id="historialFechaFin" value="${escaparHtml(fechaFin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoHistorial('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoHistorial('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroHistorial()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" onclick="imprimirReporteCobros()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Cobros en el periodo<strong>${cobrosFiltrados.length}</strong></div>
+                    <div class="report-total-card">Total en caja<strong>${formatearMoneda(totalPeriodo)}</strong></div>
+                    <div class="report-total-card">Servicios y mano de obra<strong>${formatearMoneda(totalServicios)}</strong></div>
+                    <div class="report-total-card">Refacciones<strong>${formatearMoneda(totalRefacciones)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3>Resumen diario</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Día</th><th>Cobros</th><th>Total de caja</th></tr></thead>
+                            <tbody>${filasDiarias || '<tr><td colspan="3" style="text-align:center;">No hay cobros para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3>Detalle de servicios cobrados</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente / Motocicleta</th><th>Desglose</th><th>Mecánico</th><th>Subtotal / IVA</th><th>Total</th></tr></thead>
+                            <tbody>${filasCobros || '<tr><td colspan="7" style="text-align:center;">No hay cobros para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoHistorial(periodo) {
+            const hoy = new Date();
+            let inicio = new Date(hoy);
+            let fin = new Date(hoy);
+            if (periodo === 'semana') {
+                const diasDesdeLunes = (hoy.getDay() + 6) % 7;
+                inicio.setDate(hoy.getDate() - diasDesdeLunes);
+                fin.setDate(inicio.getDate() + 6);
+            }
+            mostrarHistorialCobros(fechaLocalISO(inicio), fechaLocalISO(fin));
+        }
+
+        function aplicarFiltroHistorial() {
+            const fechaInicio = document.getElementById('historialFechaInicio').value;
+            const fechaFin = document.getElementById('historialFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarHistorialCobros(fechaInicio, fechaFin);
+        }
+
+        function imprimirReporteCobros() {
+            document.body.classList.add('reporte-impresion');
+            window.print();
+            window.setTimeout(() => document.body.classList.remove('reporte-impresion'), 500);
+        }
+
+        function fechaLocalISO(fecha) {
+            const anio = fecha.getFullYear();
+            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            const dia = String(fecha.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function formatearMoneda(importe) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(Number(importe) || 0);
         }
 
         function seleccionarServicioParaCobrar(folio) {
@@ -1158,7 +1402,7 @@
             document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
-        function finalizarCobroMantenimiento() {
+        async function finalizarCobroMantenimiento(boton) {
             if (!servicioSeleccionadoParaCobro) return;
 
             const descripcionServicioRealizado = document.getElementById('cobroServicioDescInput').value.trim();
@@ -1190,6 +1434,47 @@
                 alert('No se encontró el servicio seleccionado. Actualiza la lista e inténtalo de nuevo.');
                 return;
             }
+            if (servicioActualizado.pagoRegistradoId) {
+                alert('Este servicio ya tiene un cobro registrado. Consulta el historial para ver el detalle.');
+                return;
+            }
+
+            if (boton) boton.disabled = true;
+            let cobroRegistrado;
+            try {
+                const respuesta = await fetch('/api/cobros', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        folio: servicioActualizado.folio,
+                        cliente: servicioActualizado.cliente || 'Cliente General',
+                        motocicleta: servicioActualizado.moto || 'Motocicleta ingresada',
+                        placas: servicioActualizado.placas || 'Sin placas',
+                        servicioSolicitado: servicioActualizado.servicio || 'Servicio general',
+                        servicioRealizado: descripcionServicioRealizado,
+                        mecanico: document.getElementById('cobroMecanicoSelect').value,
+                        manoObra: costoManoObra,
+                        servicioExtraDescripcion: servicioActualizado.servicioExtra?.descripcion || '',
+                        servicioExtraPrecio: servicioActualizado.servicioExtra?.precio || 0,
+                        refacciones: piezasyInsumosServicio.map(item => ({
+                            sku: item.sku,
+                            nombre: item.nombre,
+                            precioUnitario: item.precio,
+                            cantidad: item.cantidad
+                        }))
+                    })
+                });
+                if (!respuesta.ok) {
+                    const detalle = await respuesta.text();
+                    throw new Error(detalle || `El servidor respondió con estado ${respuesta.status}.`);
+                }
+                cobroRegistrado = await respuesta.json();
+            } catch (error) {
+                if (boton) boton.disabled = false;
+                console.error('No se pudo registrar el cobro en el servidor:', error);
+                alert(`No se registró el cobro en el historial. No se descontó el stock. ${error.message || 'Verifica la conexión e inténtalo de nuevo.'}`);
+                return;
+            }
             cantidadesPorRefaccion.forEach((cantidad, id) => {
                 const refaccion = catalogo.find(producto => producto.id === id);
                 refaccion.stock -= cantidad;
@@ -1198,6 +1483,7 @@
             servicioActualizado.servicioRealizado = descripcionServicioRealizado;
             servicioActualizado.costoManoObra = costoManoObra;
             servicioActualizado.mecanico = document.getElementById('cobroMecanicoSelect').value;
+            servicioActualizado.pagoRegistradoId = cobroRegistrado.id;
             servicioSeleccionadoParaCobro = servicioActualizado;
             guardarCitas();
 
