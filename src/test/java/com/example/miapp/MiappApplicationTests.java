@@ -16,7 +16,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:cobros-test;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = {
+		"spring.datasource.url=jdbc:h2:mem:cobros-test;DB_CLOSE_DELAY=-1",
+		"spring.datasource.driver-class-name=org.h2.Driver"
+})
 @AutoConfigureMockMvc
 class MiappApplicationTests {
 
