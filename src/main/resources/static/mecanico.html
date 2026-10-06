@@ -492,6 +492,21 @@
             border-color: var(--border);
         }
 
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 12px 0;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        .checkbox-group input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+        }
+
         table.data-table td {
             color: var(--text);
             border-bottom-color: var(--border);
@@ -586,16 +601,67 @@
     <script>
         const CLAVE_CATALOGO = 'mrx_catalogo_productos';
 
-        let contadorConsecutivoFolio = 105;
         let piezasyInsumosServicio = [];
+        let refaccionesMantenimientoForm = [];
         let servicioSeleccionadoParaCobro = null;
 
-        let listaCitas = [
+        const CLAVE_CITAS = 'mrx_citas';
+        const citasInicialesMecanico = [
             { folio: 'CITA-104', cliente: 'Carlos Mendoza', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
             { folio: 'CITA-103', cliente: 'Roberto Silva', mecanico: 'Carlos Mendoza', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
             { folio: 'CITA-102', cliente: 'Miguel Landa', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
             { folio: 'CITA-101', cliente: 'Ana Martínez', mecanico: 'Ramón Gómez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa' }
         ];
+        let listaCitas = JSON.parse(localStorage.getItem(CLAVE_CITAS)) || citasInicialesMecanico;
+
+        function guardarCitas() {
+            localStorage.setItem(CLAVE_CITAS, JSON.stringify(listaCitas));
+        }
+
+        function sincronizarCitas() {
+            listaCitas = JSON.parse(localStorage.getItem(CLAVE_CITAS)) || listaCitas;
+            return listaCitas;
+        }
+
+        function obtenerFechaHoraCita(cita) {
+            const coincidencia = String(cita.fechaHora || '').match(
+                /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i
+            );
+            if (!coincidencia) return null;
+
+            let hora = Number(coincidencia[4]);
+            const meridiano = coincidencia[6]?.toUpperCase();
+            if (meridiano === 'PM' && hora < 12) hora += 12;
+            if (meridiano === 'AM' && hora === 12) hora = 0;
+
+            const fecha = new Date(
+                Number(coincidencia[1]),
+                Number(coincidencia[2]) - 1,
+                Number(coincidencia[3]),
+                hora,
+                Number(coincidencia[5])
+            );
+            if (Number.isNaN(fecha.getTime())) return null;
+
+            return {
+                fecha,
+                fechaTexto: fecha.toLocaleDateString('es-MX'),
+                horaTexto: fecha.toLocaleTimeString('es-MX', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            };
+        }
+
+        function obtenerSiguienteFolio() {
+            const mayorFolio = listaCitas.reduce((mayor, cita) => {
+                const numero = Number((cita.folio || '').replace('CITA-', ''));
+                return Number.isFinite(numero) ? Math.max(mayor, numero) : mayor;
+            }, 100);
+            return mayorFolio + 1;
+        }
+
+        let contadorConsecutivoFolio = obtenerSiguienteFolio();
 
         function obtenerCatalogo() {
             const data = localStorage.getItem(CLAVE_CATALOGO);
@@ -634,8 +700,10 @@
         /* 1. MÓDULO ORIGINAL: REGISTRO DE MANTENIMIENTO */
         function renderizarFormularioMantenimientoOriginal() {
             const panel = document.getElementById('panel-contenido-mecanico');
+            sincronizarCitas();
+            refaccionesMantenimientoForm = [];
+            contadorConsecutivoFolio = Math.max(contadorConsecutivoFolio, obtenerSiguienteFolio());
             const siguienteFolio = 'CITA-' + contadorConsecutivoFolio;
-
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Nuevo Servicio / Mantenimiento</h2>
@@ -686,20 +754,26 @@
                         <textarea id="diagnostico" placeholder="Describa la revisión técnica realizada..." required></textarea>
                     </div>
 
-                    <div class="form-section-title">3. Refacciones Requeridas (Verificación de Stock)</div>
+                    <div class="form-section-title">3. Servicio Extra Imprevisto (Opcional)</div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Seleccionar Refacción / Insumo</label>
-                            <select id="refaccion">
-                                <option value="Balatas Delanteras Hunk 160R">Balatas Delanteras Hunk 160R (Stock Disponible)</option>
-                                <option value="Aceite Motul 10W40 1L">Aceite Motul 10W40 1L (Stock Disponible)</option>
-                                <option value="Bujía NGK Iridium">Bujía NGK Iridium (Stock Disponible)</option>
-                            </select>
+                            <label for="servicioExtraDescripcion">Descripción del servicio extra</label>
+                            <input type="text" id="servicioExtraDescripcion" placeholder="Ej. Reparación de cableado adicional">
                         </div>
                         <div class="input-group">
-                            <label>Cantidad Requerida</label>
-                            <input type="number" id="cantidadRefacion" value="1" min="1">
+                            <label for="servicioExtraPrecio">Cargo extra ($ MXN)</label>
+                            <input type="number" id="servicioExtraPrecio" min="0" step="0.01" placeholder="0.00">
                         </div>
+                    </div>
+
+                    <div class="form-section-title">4. Refacciones Requeridas (Verificación de Stock)</div>
+                    <label class="checkbox-group" for="requiereRefacciones">
+                        <input type="checkbox" id="requiereRefacciones" onchange="toggleRefaccionesMantenimiento()">
+                        ¿Se necesitan refacciones para este servicio?
+                    </label>
+                    <div id="camposRefaccionesMantenimiento" style="display: none;">
+                        <div id="listaRefaccionesMantenimiento"></div>
+                        <button type="button" class="btn-add-item" onclick="agregarRefaccionMantenimiento()">+ Agregar refacción</button>
                     </div>
 
                     <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
@@ -711,12 +785,78 @@
             `;
         }
 
+        function renderizarRefaccionesMantenimiento() {
+            const contenedor = document.getElementById('listaRefaccionesMantenimiento');
+            if (!contenedor) return;
+
+            const opcionesRefacciones = obtenerCatalogo().map(refaccion =>
+                `<option value="${refaccion.id}">[${refaccion.sku}] ${refaccion.nombre} (Stock: ${refaccion.stock})</option>`
+            ).join('');
+
+            contenedor.innerHTML = refaccionesMantenimientoForm.map((refaccion, indice) => `
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="refaccion-${indice}">Seleccionar Refacción / Insumo</label>
+                        <select id="refaccion-${indice}" onchange="actualizarRefaccionMantenimiento(${indice}, this.value)" required>
+                            <option value="">Selecciona una refacción</option>
+                            ${opcionesRefacciones}
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="cantidadRefaccion-${indice}">Cantidad Requerida</label>
+                        <div class="action-buttons">
+                            <input type="number" id="cantidadRefaccion-${indice}" value="${refaccion.cantidad}" min="1" step="1"
+                                onchange="actualizarCantidadRefaccionMantenimiento(${indice}, this.value)" required>
+                            <button type="button" class="btn-remove-item" onclick="quitarRefaccionMantenimiento(${indice})">Quitar</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            refaccionesMantenimientoForm.forEach((refaccion, indice) => {
+                const selector = document.getElementById(`refaccion-${indice}`);
+                if (selector) selector.value = refaccion.id || '';
+            });
+        }
+
+        function agregarRefaccionMantenimiento(refaccionInicial = null) {
+            refaccionesMantenimientoForm.push(refaccionInicial || { id: '', cantidad: 1 });
+            renderizarRefaccionesMantenimiento();
+        }
+
+        function actualizarRefaccionMantenimiento(indice, id) {
+            if (refaccionesMantenimientoForm[indice]) {
+                refaccionesMantenimientoForm[indice].id = id;
+            }
+        }
+
+        function actualizarCantidadRefaccionMantenimiento(indice, cantidad) {
+            if (refaccionesMantenimientoForm[indice]) {
+                refaccionesMantenimientoForm[indice].cantidad = Number(cantidad);
+            }
+        }
+
+        function quitarRefaccionMantenimiento(indice) {
+            refaccionesMantenimientoForm.splice(indice, 1);
+            renderizarRefaccionesMantenimiento();
+        }
+
         /* 2. MÓDULO ORIGINAL: CITAS Y REGISTRO DE CLIENTES */
         function renderizarTablaCitasOriginal() {
             const panel = document.getElementById('panel-contenido-mecanico');
+            sincronizarCitas();
 
-            let filasHTML = listaCitas.map(cita => {
+            const citasOrdenadas = [...listaCitas].sort((a, b) => {
+                const fechaA = obtenerFechaHoraCita(a)?.fecha.getTime();
+                const fechaB = obtenerFechaHoraCita(b)?.fecha.getTime();
+                if (fechaA === undefined) return fechaB === undefined ? 0 : 1;
+                if (fechaB === undefined) return -1;
+                return fechaA - fechaB;
+            });
+
+            let filasHTML = citasOrdenadas.map(cita => {
                 const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
+                const fechaHora = obtenerFechaHoraCita(cita);
                 return `
                     <tr>
                         <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
@@ -724,6 +864,8 @@
                         <td>${cita.moto}</td>
                         <td>${cita.placas}</td>
                         <td>${cita.servicio}</td>
+                        <td>${fechaHora ? fechaHora.fechaTexto : 'Sin fecha'}</td>
+                        <td>${fechaHora ? fechaHora.horaTexto : 'Sin horario'}</td>
                         <td><span class="${badgeClass}">${cita.modalidad}</span></td>
                         <td>
                             <div class="action-buttons">
@@ -750,6 +892,8 @@
                                 <th>Motocicleta</th>
                                 <th>Placas</th>
                                 <th>Servicio Solicitado</th>
+                                <th>Fecha</th>
+                                <th>Horario</th>
                                 <th>Modalidad</th>
                                 <th>Acciones</th>
                             </tr>
@@ -766,6 +910,7 @@
         function renderizarModuloCobroSeparado() {
             const panel = document.getElementById('panel-contenido-mecanico');
             const catalogo = obtenerCatalogo();
+            sincronizarCitas();
 
             let filasServicios = listaCitas.map(cita => `
                 <tr>
@@ -831,12 +976,12 @@
 
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Servicio Técnico Realizado</label>
-                            <input type="text" id="cobroServicioDescInput" value="${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.servicio : ''}">
+                            <label>Servicio realizado (editable)</label>
+                            <input type="text" id="cobroServicioDescInput" value="${servicioSeleccionadoParaCobro ? escaparHtml(servicioSeleccionadoParaCobro.servicioRealizado || servicioSeleccionadoParaCobro.servicio || '') : ''}" required>
                         </div>
                         <div class="input-group">
-                            <label>Costo de Mano de Obra ($ MXN)</label>
-                            <input type="number" id="cobroManoObraInput" value="300.00" step="0.01" oninput="actualizarTotalesCobroModulo()">
+                            <label>Precio del servicio / mano de obra ($ MXN)</label>
+                            <input type="number" id="cobroManoObraInput" value="${servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.costoManoObra !== undefined ? servicioSeleccionadoParaCobro.costoManoObra : '300.00'}" min="0" step="0.01" oninput="actualizarTotalesCobroModulo()" required>
                         </div>
                     </div>
 
@@ -861,6 +1006,12 @@
 
                         <div style="margin-top:15px; border-top:1px solid #262626; padding-top:10px;">
                             <div class="summary-row"><span>Mano de Obra / Servicio Técnico:</span><span id="lblCobroManoObra">$300.00 MXN</span></div>
+                            <div class="summary-row">
+                                <span>Servicio extra imprevisto${servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.servicioExtra && servicioSeleccionadoParaCobro.servicioExtra.descripcion
+                                    ? `: ${escaparHtml(servicioSeleccionadoParaCobro.servicioExtra.descripcion)}`
+                                    : ''}</span>
+                                <span id="lblCobroServicioExtra">$0.00 MXN</span>
+                            </div>
                             <div class="summary-row"><span>Subtotal General:</span><span id="lblCobroSubtotal">$300.00 MXN</span></div>
                             <div class="summary-row"><span>IVA (16%):</span><span id="lblCobroIva">$48.00 MXN</span></div>
                             <div class="summary-row total"><span>Total a Cobrar al Cliente:</span><span id="lblCobroTotal" style="color: #22c55e;">$348.00 MXN</span></div>
@@ -880,10 +1031,41 @@
                 servicioSeleccionadoParaCobro = servicio;
                 piezasyInsumosServicio = [];
                 renderizarModuloCobroSeparado();
+                cargarRefaccionesOrdenAlCobro(servicio);
                 if (servicio.mecanico) {
                     document.getElementById('cobroMecanicoSelect').value = servicio.mecanico;
                 }
             }
+        }
+
+        function cargarRefaccionesOrdenAlCobro(servicio) {
+            const catalogoServicio = obtenerCatalogo();
+            piezasyInsumosServicio = (servicio.refacciones || []).map(refaccionGuardada => {
+                const producto = catalogoServicio.find(refaccion =>
+                    refaccion.id === refaccionGuardada.id ||
+                    refaccion.sku === refaccionGuardada.sku ||
+                    refaccion.nombre === refaccionGuardada.nombre
+                );
+                if (!producto) return null;
+                return {
+                    id: producto.id,
+                    sku: producto.sku,
+                    nombre: producto.nombre,
+                    precio: producto.precio,
+                    cantidad: refaccionGuardada.cantidad
+                };
+            }).filter(Boolean);
+            actualizarTotalesCobroModulo();
+        }
+
+        function escaparHtml(valor) {
+            return String(valor).replace(/[&<>"']/g, caracter => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[caracter]);
         }
 
         function agregarPiezaAlCobroModulo() {
@@ -937,6 +1119,8 @@
             if (!contenedor) return;
 
             const manoObra = parseFloat(document.getElementById('cobroManoObraInput').value) || 0;
+            const servicioExtra = servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.servicioExtra;
+            const precioServicioExtra = servicioExtra ? Number(servicioExtra.precio) || 0 : 0;
             let subtotalRef = 0;
 
             if (piezasyInsumosServicio.length === 0) {
@@ -963,11 +1147,12 @@
                 }).join('');
             }
 
-            const subtotalGen = subtotalRef + manoObra;
+            const subtotalGen = subtotalRef + manoObra + precioServicioExtra;
             const iva = subtotalGen * 0.16;
             const total = subtotalGen + iva;
 
             document.getElementById('lblCobroManoObra').innerText = '$' + manoObra.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroServicioExtra').innerText = '$' + precioServicioExtra.toFixed(2) + ' MXN';
             document.getElementById('lblCobroSubtotal').innerText = '$' + subtotalGen.toFixed(2) + ' MXN';
             document.getElementById('lblCobroIva').innerText = '$' + iva.toFixed(2) + ' MXN';
             document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
@@ -976,13 +1161,45 @@
         function finalizarCobroMantenimiento() {
             if (!servicioSeleccionadoParaCobro) return;
 
-            // Descontar refacciones utilizadas del catálogo general
-            let catalogo = obtenerCatalogo();
+            const descripcionServicioRealizado = document.getElementById('cobroServicioDescInput').value.trim();
+            const costoManoObra = Number(document.getElementById('cobroManoObraInput').value);
+            if (!descripcionServicioRealizado || !Number.isFinite(costoManoObra) || costoManoObra < 0) {
+                alert('Indica el servicio realizado y un precio válido de mano de obra (mínimo $0.00).');
+                return;
+            }
+
+            const catalogo = obtenerCatalogo();
+            const cantidadesPorRefaccion = new Map();
             piezasyInsumosServicio.forEach(item => {
-                const ref = catalogo.find(p => p.id === item.id);
-                if (ref) ref.stock = Math.max(0, ref.stock - item.cantidad);
+                cantidadesPorRefaccion.set(
+                    item.id,
+                    (cantidadesPorRefaccion.get(item.id) || 0) + item.cantidad
+                );
+            });
+            for (const [id, cantidad] of cantidadesPorRefaccion) {
+                const refaccion = catalogo.find(producto => producto.id === id);
+                if (!refaccion || cantidad > refaccion.stock) {
+                    alert(`Stock insuficiente para ${refaccion ? refaccion.nombre : 'una refacción del servicio'}. Ajusta las cantidades antes de finalizar el cobro.`);
+                    return;
+                }
+            }
+            const servicioActualizado = listaCitas.find(cita =>
+                cita.folio === servicioSeleccionadoParaCobro.folio
+            );
+            if (!servicioActualizado) {
+                alert('No se encontró el servicio seleccionado. Actualiza la lista e inténtalo de nuevo.');
+                return;
+            }
+            cantidadesPorRefaccion.forEach((cantidad, id) => {
+                const refaccion = catalogo.find(producto => producto.id === id);
+                refaccion.stock -= cantidad;
             });
             guardarCatalogo(catalogo);
+            servicioActualizado.servicioRealizado = descripcionServicioRealizado;
+            servicioActualizado.costoManoObra = costoManoObra;
+            servicioActualizado.mecanico = document.getElementById('cobroMecanicoSelect').value;
+            servicioSeleccionadoParaCobro = servicioActualizado;
+            guardarCitas();
 
             const alerta = document.getElementById("alertaCobroExito");
             alerta.style.display = "block";
@@ -1010,13 +1227,47 @@
                     document.getElementById('estadoCita').value = citaEncontrada.modalidad;
                     document.getElementById('fallas').value = citaEncontrada.servicio;
                     document.getElementById('diagnostico').value = 'Revisión técnica en proceso para la motocicleta ' + citaEncontrada.moto + '.';
+                    document.getElementById('servicioExtraDescripcion').value =
+                        citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.descripcion || '' : '';
+                    document.getElementById('servicioExtraPrecio').value =
+                        citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.precio : '';
+                    const catalogo = obtenerCatalogo();
+                    refaccionesMantenimientoForm = (citaEncontrada.refacciones || []).map(refaccionGuardada => {
+                        const producto = catalogo.find(refaccion =>
+                            refaccion.id === refaccionGuardada.id ||
+                            refaccion.sku === refaccionGuardada.sku ||
+                            refaccion.nombre === refaccionGuardada.nombre
+                        );
+                        return producto
+                            ? { id: producto.id, cantidad: refaccionGuardada.cantidad }
+                            : null;
+                    }).filter(Boolean);
+                    document.getElementById('requiereRefacciones').checked =
+                        citaEncontrada.requiereRefacciones === true || refaccionesMantenimientoForm.length > 0;
+                    toggleRefaccionesMantenimiento();
+                    renderizarRefaccionesMantenimiento();
                 }
             }, 100);
         }
 
+        function toggleRefaccionesMantenimiento() {
+            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
+            const camposRefacciones = document.getElementById('camposRefaccionesMantenimiento');
+
+            camposRefacciones.style.display = requiereRefacciones ? 'block' : 'none';
+            if (requiereRefacciones && refaccionesMantenimientoForm.length === 0) {
+                agregarRefaccionMantenimiento();
+            } else if (!requiereRefacciones) {
+                refaccionesMantenimientoForm = [];
+                renderizarRefaccionesMantenimiento();
+            }
+        }
+
         function eliminarCita(folio) {
             if (confirm('¿Está seguro de eliminar la cita ' + folio + '?')) {
+                sincronizarCitas();
                 listaCitas = listaCitas.filter(c => c.folio !== folio);
+                guardarCitas();
                 const botonesNav = document.querySelectorAll('.nav-btn');
                 cambiarVistaMecanico('citas', botonesNav[1]);
             }
@@ -1024,12 +1275,72 @@
 
         function guardarMantenimientoOriginal(event) {
             event.preventDefault();
+            sincronizarCitas();
 
             const folioActual = document.getElementById('folioCita').value;
             const placasVal = document.getElementById('placasInput').value;
             const clienteVal = document.getElementById('clienteInput').value;
             const estadoCitaVal = document.getElementById('estadoCita').value;
             const fallasVal = document.getElementById('fallas').value;
+            const servicioExtraDescripcion = document.getElementById('servicioExtraDescripcion').value.trim();
+            const servicioExtraPrecioValor = document.getElementById('servicioExtraPrecio').value.trim();
+            const servicioExtraPrecio = Number(servicioExtraPrecioValor);
+            const tieneServicioExtra = Boolean(servicioExtraDescripcion || servicioExtraPrecioValor);
+            if (tieneServicioExtra && (
+                !servicioExtraDescripcion ||
+                !servicioExtraPrecioValor ||
+                !Number.isFinite(servicioExtraPrecio) ||
+                servicioExtraPrecio <= 0
+            )) {
+                alert('Para cobrar un servicio extra, agrega su descripción y un precio mayor a $0.00.');
+                return;
+            }
+            const servicioExtra = tieneServicioExtra
+                ? { descripcion: servicioExtraDescripcion, precio: servicioExtraPrecio }
+                : null;
+            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
+            if (requiereRefacciones && (
+                refaccionesMantenimientoForm.length === 0 ||
+                refaccionesMantenimientoForm.some(refaccion =>
+                    !refaccion.id || !Number.isInteger(refaccion.cantidad) || refaccion.cantidad < 1
+                )
+            )) {
+                alert('Agrega al menos una refacción y selecciona una cantidad válida para cada una.');
+                return;
+            }
+
+            const catalogo = obtenerCatalogo();
+            const refacciones = requiereRefacciones
+                ? refaccionesMantenimientoForm.map(refaccionForm => {
+                    const producto = catalogo.find(refaccion => refaccion.id === refaccionForm.id);
+                    if (!producto) return null;
+                    return {
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: refaccionForm.cantidad
+                    };
+                })
+                : [];
+            if (refacciones.some(refaccion => refaccion === null)) {
+                alert('Una de las refacciones seleccionadas ya no está disponible en el catálogo. Actualiza la selección e inténtalo de nuevo.');
+                return;
+            }
+            const cantidadesPorRefaccion = new Map();
+            refacciones.forEach(refaccion => {
+                cantidadesPorRefaccion.set(
+                    refaccion.id,
+                    (cantidadesPorRefaccion.get(refaccion.id) || 0) + refaccion.cantidad
+                );
+            });
+            for (const [id, cantidad] of cantidadesPorRefaccion) {
+                const producto = catalogo.find(refaccion => refaccion.id === id);
+                if (cantidad > producto.stock) {
+                    alert(`Stock insuficiente para ${producto.nombre}. Disponibles: ${producto.stock} pzas.`);
+                    return;
+                }
+            }
 
             const indiceExistente = listaCitas.findIndex(c => c.folio === folioActual);
 
@@ -1038,6 +1349,9 @@
                 listaCitas[indiceExistente].cliente = clienteVal;
                 listaCitas[indiceExistente].servicio = fallasVal;
                 listaCitas[indiceExistente].modalidad = estadoCitaVal;
+                listaCitas[indiceExistente].requiereRefacciones = requiereRefacciones;
+                listaCitas[indiceExistente].refacciones = refacciones;
+                listaCitas[indiceExistente].servicioExtra = servicioExtra;
             } else {
                 listaCitas.unshift({
                     folio: folioActual,
@@ -1046,10 +1360,14 @@
                     moto: 'Motocicleta Ingresada',
                     placas: placasVal.toUpperCase(),
                     servicio: fallasVal || 'Mantenimiento General',
-                    modalidad: estadoCitaVal
+                    modalidad: estadoCitaVal,
+                    requiereRefacciones,
+                    refacciones,
+                    servicioExtra
                 });
                 contadorConsecutivoFolio++;
             }
+            guardarCitas();
 
             const alerta = document.getElementById("alertaExito");
             alerta.style.display = "block";
