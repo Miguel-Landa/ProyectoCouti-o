@@ -9,6 +9,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --bg: #eaf3fb;
+            --panel: #f8fbff;
+            --panel-alt: #ebf4ff;
+            --panel-soft: #f4f9ff;
+            --border: #bfd6ef;
+            --border-soft: #9dbfe9;
+            --text: #16314d;
+            --muted: #476a8d;
+            --accent: #5b8ec9;
+            --accent-hover: #4d7fb8;
+            --button-text: #f7fbff;
+            --success: #4f9566;
+            --danger: #c76363;
+            --shadow: rgba(110, 145, 185, 0.18);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -402,6 +419,139 @@
         .btn-delete-cita:hover {
             background: #dc2626;
             color: #ffffff;
+        }
+
+        body {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+        }
+
+        .topbar, .sidebar-buttons, .main-panel, .modal-card {
+            background: var(--panel);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        .topbar h1, .panel-header h2, .summary-row.total,
+        .form-section-title {
+            color: var(--text);
+        }
+
+        .panel-header, .panel-header p, .sidebar-title,
+        .input-group label, .summary-row, .btn-secondary,
+        table.data-table th {
+            color: var(--muted);
+        }
+
+        .panel-header, .form-section-title, .summary-row,
+        .table-container, table.data-table th, table.data-table td {
+            border-color: var(--border);
+        }
+
+        .nav-btn, .btn-add-item, .qty-btn, .btn-select-cita,
+        .input-group input, .input-group select, .input-group textarea,
+        .summary-box, .table-container, table.data-table th,
+        .table-container .data-table td {
+            background: var(--panel-alt);
+            color: var(--text);
+            border-color: var(--border-soft);
+        }
+
+        .nav-btn:hover, .btn-add-item:hover, .qty-btn:hover,
+        .btn-select-cita:hover, .input-group input:focus,
+        .input-group select:focus, .input-group textarea:focus,
+        table.data-table tr:hover {
+            background: #dfeeff;
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .nav-btn.active, .btn-action {
+            background: var(--accent);
+            color: var(--button-text);
+            border-color: var(--accent);
+        }
+
+        .btn-action:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-logout {
+            color: var(--accent);
+            border-color: var(--border-soft);
+        }
+
+        .btn-logout:hover {
+            background: var(--accent);
+            color: var(--button-text);
+        }
+
+        .input-group input[readonly] {
+            background: var(--panel-alt);
+            color: var(--success);
+            border-color: var(--border);
+        }
+
+        table.data-table td {
+            color: var(--text);
+            border-bottom-color: var(--border);
+        }
+
+        .badge-previa {
+            background: #edf7ef;
+            color: var(--success);
+            border-color: #b9d9c1;
+        }
+
+        .badge-directa {
+            background: #fff8e7;
+            color: #9b762e;
+            border-color: #ead9a9;
+        }
+
+        .alert-box {
+            background: #f0f8f1;
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .btn-delete-cita {
+            background: #fff4f3;
+            color: var(--danger);
+            border-color: #e9b8b5;
+        }
+
+        .btn-delete-cita:hover {
+            background: var(--danger);
+            color: #ffffff;
+        }
+
+        [style*="color:#ffffff"], [style*="color: #ffffff"],
+        [style*="color:#e5e5e5"], [style*="color: #e5e5e5"] {
+            color: var(--text) !important;
+        }
+
+        [style*="color:#a3a3a3"], [style*="color: #a3a3a3"] {
+            color: var(--muted) !important;
+        }
+
+        [style*="background:#262626"], [style*="background: #262626"] {
+            background: var(--panel-alt) !important;
+        }
+
+        [style*="background:#22c55e"], [style*="background: #22c55e"] {
+            background: #dcefe1 !important;
+            color: var(--success) !important;
+            border-color: #b9d9c1 !important;
+        }
+
+        [style*="color:#60a5fa"], [style*="color: #60a5fa"] {
+            color: var(--accent) !important;
+        }
+
+        [style*="color:#22c55e"], [style*="color: #22c55e"],
+        [style*="color:#4ade80"], [style*="color: #4ade80"] {
+            color: var(--success) !important;
         }
     </style>
 </head>

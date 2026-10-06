@@ -11,6 +11,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --bg: #eaf3fb;
+            --panel: #f8fbff;
+            --panel-alt: #ebf4ff;
+            --panel-soft: #f4f9ff;
+            --border: #bfd6ef;
+            --border-soft: #9dbfe9;
+            --text: #16314d;
+            --muted: #476a8d;
+            --accent: #5b8ec9;
+            --accent-hover: #4d7fb8;
+            --button-text: #f7fbff;
+            --shadow: rgba(110, 145, 185, 0.18);
+            --danger: #d96b6b;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -23,7 +39,8 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #0d0d0d;
+            background: var(--bg) !important;
+            color: var(--text);
             padding: 20px;
         }
 
@@ -31,23 +48,23 @@
             display: flex;
             width: 100%;
             max-width: 900px;
-            background: #141414;
+            background: var(--panel);
             border-radius: 4px;
-            border: 1px solid #262626;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px var(--shadow);
             overflow: hidden;
         }
 
         /* Sección Lateral Izquierda (Con la Imagen/Logo centrada) */
         .login-image {
             flex: 1.1;
-            background: #0f0f0f;
+            background: var(--panel-alt);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 40px 30px;
-            border-right: 1px solid #262626;
+            border-right: 1px solid var(--border);
             text-align: center;
         }
 
@@ -62,14 +79,14 @@
         .login-image h2 {
             font-size: 1.5rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--text);
             margin-bottom: 8px;
             letter-spacing: 0.5px;
         }
 
         .login-image p {
             font-size: 0.85rem;
-            color: #a3a3a3;
+            color: var(--muted);
         }
 
         /* Formulario de Acceso (Derecha) */
@@ -79,13 +96,13 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            background: #141414;
+            background: var(--panel);
         }
 
         .card h2 {
             font-size: 1.4rem;
             font-weight: 600;
-            color: #ffffff;
+            color: var(--text);
             margin-bottom: 25px;
             text-align: center;
             letter-spacing: 0.5px;
@@ -98,7 +115,7 @@
         .input-group label {
             display: block;
             font-size: 0.8rem;
-            color: #a3a3a3;
+            color: var(--muted);
             margin-bottom: 6px;
             font-weight: 500;
             text-align: center;
@@ -107,29 +124,29 @@
         .input-group input {
             width: 100%;
             padding: 12px 14px;
-            background: #1f1f1f;
-            border: 1px solid #333333;
+            background: var(--panel-soft);
+            border: 1px solid var(--border-soft);
             border-radius: 4px;
             font-size: 0.9rem;
-            color: #ffffff;
+            color: var(--text);
             outline: none;
             transition: border-color 0.2s ease;
         }
 
         .input-group input::placeholder {
-            color: #666666;
+            color: #7892ad;
         }
 
         .input-group input:focus {
-            border-color: #ffffff;
-            background: #262626;
+            border-color: var(--accent);
+            background: var(--panel-alt);
         }
 
         button[type="submit"] {
             width: 100%;
             padding: 12px;
-            background: #ffffff;
-            color: #000000;
+            background: var(--accent);
+            color: var(--button-text);
             border: none;
             border-radius: 4px;
             font-size: 0.9rem;
@@ -140,20 +157,20 @@
         }
 
         button[type="submit"]:hover {
-            background: #e5e5e5;
+            background: var(--accent-hover);
         }
 
         /* Sección de Registro Cuadrada */
         .register-section {
             margin-top: 25px;
             padding-top: 20px;
-            border-top: 1px solid #262626;
+            border-top: 1px solid var(--border);
             text-align: center;
         }
 
         .register-section p {
             font-size: 0.82rem;
-            color: #888888;
+            color: var(--muted);
             margin-bottom: 12px;
         }
 
@@ -162,8 +179,8 @@
             width: 100%;
             padding: 11px;
             background: transparent;
-            color: #ffffff;
-            border: 1px solid #404040;
+            color: var(--accent);
+            border: 1px solid var(--border-soft);
             border-radius: 4px;
             font-size: 0.85rem;
             font-weight: 500;
@@ -174,8 +191,8 @@
         }
 
         .btn-register:hover {
-            border-color: #ffffff;
-            background: #1f1f1f;
+            border-color: var(--accent);
+            background: var(--panel-alt);
         }
 
         .mensaje {
@@ -183,6 +200,7 @@
             font-size: 0.85rem;
             text-align: center;
             font-weight: 500;
+            color: var(--muted);
         }
 
         @media (max-width: 768px) {
@@ -192,7 +210,7 @@
             .login-image {
                 padding: 30px 20px;
                 border-right: none;
-                border-bottom: 1px solid #262626;
+                border-bottom: 1px solid var(--border);
             }
             .card {
                 padding: 35px 25px;
@@ -246,7 +264,7 @@
             const userLower = usuario.toLowerCase();
             const mensajeElem = document.getElementById('mensaje');
 
-            mensajeElem.style.color = '#ffffff';
+            mensajeElem.style.color = 'var(--muted)';
             mensajeElem.innerText = 'Autenticando...';
 
             fetch('/api/login', {
@@ -273,7 +291,7 @@
                         }
                     }, 800);
                 } else {
-                    mensajeElem.style.color = '#f87171';
+                    mensajeElem.style.color = 'var(--danger)';
                     mensajeElem.innerText = data.message || 'Usuario o contraseña incorrectos.';
                 }
             })

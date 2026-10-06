@@ -9,6 +9,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --bg: #eaf3fb;
+            --panel: #f8fbff;
+            --panel-alt: #ebf4ff;
+            --panel-soft: #f4f9ff;
+            --border: #bfd6ef;
+            --border-soft: #9dbfe9;
+            --text: #16314d;
+            --muted: #476a8d;
+            --accent: #5b8ec9;
+            --accent-hover: #4d7fb8;
+            --button-text: #f7fbff;
+            --success: #4f9566;
+            --danger: #c76363;
+            --shadow: rgba(110, 145, 185, 0.18);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -225,6 +242,104 @@
         .tab-btn.active {
             color: #ffffff;
             border-bottom-color: #ffffff;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container, .card-box {
+            background: var(--panel);
+            border-color: var(--border);
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+
+        .header-title h2, .tab-btn.active, .time-slot.selected,
+        .input-group input, .input-group select {
+            color: var(--text);
+        }
+
+        .header-title p, .input-group label, .btn-secondary,
+        .register-section p, .tab-btn {
+            color: var(--muted);
+        }
+
+        .section-title, .tab-menu {
+            color: var(--muted);
+            border-color: var(--border);
+        }
+
+        .input-group input, .input-group select, .time-slot {
+            background: var(--panel-soft);
+            border-color: var(--border-soft);
+        }
+
+        .input-group input:focus, .input-group select:focus,
+        .time-slot:hover, .btn-secondary:hover {
+            background: var(--panel-alt);
+            border-color: var(--accent);
+        }
+
+        .btn-action, .time-slot.selected {
+            background: var(--accent);
+            color: var(--button-text);
+            border-color: var(--accent);
+        }
+
+        .btn-action:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-color: var(--border-soft);
+        }
+
+        .back-link, .back-link:hover {
+            color: var(--accent);
+        }
+
+        .time-slot {
+            color: var(--text);
+        }
+
+        .time-slot.disabled {
+            background: #e4edf6;
+            color: #8094a9;
+            border-color: var(--border);
+        }
+
+        .alert-success {
+            border-color: var(--success);
+            color: var(--success);
+            background: #f0f8f1;
+        }
+
+        .alert-danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: #fff4f3;
+        }
+
+        .header-title h2[style*="#4ade80"],
+        .card-box [style*="color: #ffffff"],
+        .card-box [style*="color:#ffffff"] {
+            color: var(--text) !important;
+        }
+
+        .card-box [style*="#a3a3a3"],
+        .card-box [style*="#e5e5e5"] {
+            color: var(--muted) !important;
+        }
+
+        .header-title h2[style*="#4ade80"],
+        .card-box h3[style*="#4ade80"] {
+            color: var(--success) !important;
+        }
+
+        .card-box h3[style*="#f87171"] {
+            color: var(--danger) !important;
         }
     </style>
 </head>
