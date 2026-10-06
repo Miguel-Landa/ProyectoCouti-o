@@ -18,7 +18,7 @@
             --panel-soft: #f4f9ff;
             --border: #bfd6ef;
             --border-soft: #9dbfe9;
-            --text: #16314d;
+            --text: #111827;
             --muted: #476a8d;
             --accent: #5b8ec9;
             --accent-hover: #4d7fb8;
@@ -201,6 +201,11 @@
             text-align: center;
             font-weight: 500;
             color: var(--muted);
+        }
+
+        [style*="color:#ffffff"], [style*="color: #ffffff"],
+        [style*="color:#fff"], [style*="color: #fff"] {
+            color: var(--text) !important;
         }
 
         @media (max-width: 768px) {

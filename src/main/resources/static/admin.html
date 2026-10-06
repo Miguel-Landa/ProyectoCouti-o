@@ -17,7 +17,7 @@
             --panel-strong: #dfeeff;
             --border: #bfd6ef;
             --border-soft: #9dbfe9;
-            --text: #16314d;
+            --text: #111827;
             --muted: #476a8d;
             --muted-strong: #254868;
             --accent: #5b8ec9;
@@ -368,6 +368,11 @@
         }
 
         .btn-close:hover { background: var(--panel-alt); color: var(--text); }
+
+        [style*="color:#ffffff"], [style*="color: #ffffff"],
+        [style*="color:#fff"], [style*="color: #fff"] {
+            color: var(--text) !important;
+        }
     </style>
 </head>
 <body>
