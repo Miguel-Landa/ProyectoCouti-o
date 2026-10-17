@@ -16,10 +16,5 @@ public record CobroRequest(
         BigDecimal servicioExtraPrecio,
         List<Refaccion> refacciones
 ) {
-    public record Refaccion(
-            String sku,
-            String nombre,
-            BigDecimal precioUnitario,
-            Integer cantidad
-    ) {}
+    public record Refaccion(String sku, String nombre, BigDecimal precioUnitario, Integer cantidad) {}
 }

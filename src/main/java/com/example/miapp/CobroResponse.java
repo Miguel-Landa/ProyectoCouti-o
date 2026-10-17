@@ -21,11 +21,5 @@ public record CobroResponse(
         BigDecimal total,
         List<Refaccion> refacciones
 ) {
-    public record Refaccion(
-            String sku,
-            String nombre,
-            BigDecimal precioUnitario,
-            int cantidad,
-            BigDecimal importe
-    ) {}
+    public record Refaccion(String sku, String nombre, BigDecimal precioUnitario, Integer cantidad, BigDecimal importe) {}
 }
