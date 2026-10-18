@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -160,6 +160,11 @@
             background: var(--accent-hover);
         }
 
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         /* Sección de Registro Cuadrada */
         .register-section {
             margin-top: 25px;
@@ -246,7 +251,7 @@
                     <label for="password">Contraseña</label>
                     <input type="password" id="password" placeholder="••••••••" required>
                 </div>
-                <button type="submit">Iniciar sesión</button>
+                <button type="submit" id="btnLogin">Iniciar sesión</button>
             </form>
 
             <p id="mensaje" class="mensaje"></p>
@@ -261,57 +266,39 @@
     </div>
 
     <script>
-        function iniciarSesion(event) {
+        async function iniciarSesion(event) {
             event.preventDefault();
 
             const usuario = document.getElementById('usuario').value.trim();
             const password = document.getElementById('password').value;
-            const userLower = usuario.toLowerCase();
             const mensajeElem = document.getElementById('mensaje');
+            const boton = document.getElementById('btnLogin');
 
             mensajeElem.style.color = 'var(--muted)';
-            mensajeElem.innerText = 'Autenticando...';
+            mensajeElem.innerText = 'Autenticando... (si el servidor estaba dormido puede tardar hasta un minuto)';
+            boton.disabled = true;
 
-            fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ usuario, password })
-            })
-            .then(res => res.json())
-            .then(data => {
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+                const data = await res.json();
+
                 if (data.success) {
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
-                    
-                    setTimeout(() => {
-                        if (userLower.includes('vendedor') || userLower.includes('caja') || userLower.includes('venta')) {
-                            window.location.href = 'vendedor.html';
-                        } else if (userLower.includes('mecanico') || userLower.includes('taller')) {
-                            window.location.href = 'mecanico.html';
-                        } else if (userLower.includes('admin')) {
-                            window.location.href = 'admin.html';
-                        } else if (data.redirectUrl && data.redirectUrl !== 'admin.html') {
-                            window.location.href = data.redirectUrl;
-                        } else {
-                            window.location.href = 'vendedor.html';
-                        }
-                    }, 800);
+                    setTimeout(() => { window.location.href = data.redirectUrl; }, 600);
                 } else {
                     mensajeElem.style.color = 'var(--danger)';
                     mensajeElem.innerText = data.message || 'Usuario o contraseña incorrectos.';
+                    boton.disabled = false;
                 }
-            })
-            .catch(() => {
-                mensajeElem.innerText = 'Redirigiendo...';
-                setTimeout(() => {
-                    if (userLower.includes('mecanico')) {
-                        window.location.href = 'mecanico.html';
-                    } else if (userLower.includes('admin')) {
-                        window.location.href = 'admin.html';
-                    } else {
-                        window.location.href = 'vendedor.html';
-                    }
-                }, 800);
-            });
+            } catch (e) {
+                mensajeElem.style.color = 'var(--danger)';
+                mensajeElem.innerText = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento.';
+                boton.disabled = false;
+            }
         }
     </script>
 </body>

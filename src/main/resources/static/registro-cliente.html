@@ -135,6 +135,11 @@
             background: #e5e5e5;
         }
 
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .btn-secondary {
             background: transparent;
             color: #a3a3a3;
@@ -432,7 +437,7 @@
                     </select>
                 </div>
 
-                <button type="button" class="btn-action" onclick="confirmarCitaCliente()">Confirmar y Agendar Cita</button>
+                <button type="button" class="btn-action" id="btnConfirmarCita" onclick="confirmarCitaCliente()">Confirmar y Agendar Cita</button>
                 <button type="button" class="btn-action btn-secondary" onclick="regresarAPaso1()">← Volver a Datos</button>
             </div>
 
@@ -480,23 +485,31 @@
     </div>
 
     <script>
-        // Citas persistidas y compartidas con el panel mecánico.
         let horarioSeleccionado = null;
         let datosClienteTemporal = {};
         let citaReagendandoFolio = null;
-
-        // Base inicial de citas
-        let citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || [
-            { folio: 'CITA-104', cliente: 'Carlos Mendoza', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa', fechaHora: '2026-09-26T10:00' },
-            { folio: 'CITA-103', cliente: 'Roberto Silva', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa', fechaHora: '2026-09-27T11:30' },
-            { folio: 'CITA-101', cliente: 'Ana Martínez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general', modalidad: 'Cita Previa', fechaHora: '2026-09-28T16:00' }
-        ];
-        let contadorFolio = Math.max(
-            105,
-            ...citasGlobales.map(cita => Number((cita.folio || '').replace('CITA-', '')) + 1 || 105)
-        );
+        let citaActual = null;
 
         const bloquesHorarios = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:30 PM', '05:00 PM'];
+
+        // ---------- Utilidades ----------
+        function escapar(texto) {
+            const d = document.createElement('div');
+            d.textContent = texto == null ? '' : String(texto);
+            return d.innerHTML;
+        }
+
+        async function api(url, opciones) {
+            const resp = await fetch(url, opciones);
+            let datos = null;
+            try { datos = await resp.json(); } catch (e) { /* sin cuerpo */ }
+            if (!resp.ok) {
+                const error = new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
+                error.status = resp.status;
+                throw error;
+            }
+            return datos;
+        }
 
         function obtenerFechaLocal() {
             const hoy = new Date();
@@ -532,21 +545,23 @@
             return `${fecha}|${String(hora24).padStart(2, '0')}:${coincidencia[2]}`;
         }
 
+        function claveADate(clave) {
+            if (!clave) return null;
+            const [fecha, hora] = clave.split('|');
+            const [anio, mes, dia] = fecha.split('-').map(Number);
+            const [h, m] = hora.split(':').map(Number);
+            return new Date(anio, mes - 1, dia, h, m);
+        }
+
         function horarioYaTranscurrio(fecha, hora) {
             const hoy = obtenerFechaLocal();
             if (fecha < hoy) return true;
             if (fecha > hoy) return false;
-
-            const clave = obtenerClaveHorario(fecha, hora);
-            if (!clave) return true;
-            const [fechaSeleccionada, horaSeleccionada24] = clave.split('|');
-            const [anio, mes, dia] = fechaSeleccionada.split('-').map(Number);
-            const [hora24, minutos] = horaSeleccionada24.split(':').map(Number);
-            const fechaHoraSeleccionada = new Date(anio, mes - 1, dia, hora24, minutos);
-            return fechaHoraSeleccionada <= new Date();
+            const fechaHora = claveADate(obtenerClaveHorario(fecha, hora));
+            return !fechaHora || fechaHora <= new Date();
         }
 
-        // Establecer fecha mínima como HOY
+        // ---------- Inicio ----------
         window.onload = function() {
             const hoy = obtenerFechaLocal();
             document.getElementById('fechaCita').min = hoy;
@@ -572,12 +587,12 @@
         function siguientePasoCita(event) {
             event.preventDefault();
             datosClienteTemporal = {
-                nombre: document.getElementById('regNombre').value,
-                telefono: document.getElementById('regTelefono').value,
-                correo: document.getElementById('regCorreo').value,
-                marca: document.getElementById('regMarca').value,
-                modelo: document.getElementById('regModelo').value,
-                placas: document.getElementById('regPlacas').value.toUpperCase()
+                nombre: document.getElementById('regNombre').value.trim(),
+                telefono: document.getElementById('regTelefono').value.trim(),
+                correo: document.getElementById('regCorreo').value.trim(),
+                marca: document.getElementById('regMarca').value.trim(),
+                modelo: document.getElementById('regModelo').value.trim(),
+                placas: document.getElementById('regPlacas').value.trim().toUpperCase()
             };
 
             document.getElementById('pasoRegistro').style.display = 'none';
@@ -589,20 +604,26 @@
             document.getElementById('pasoHorario').style.display = 'none';
         }
 
-        function cargarHorariosDisponibles(contenedorId = 'contenedorHorarios', ignorarFolio = null) {
+        // ---------- Horarios (leídos de la base de datos) ----------
+        async function cargarHorariosDisponibles(contenedorId = 'contenedorHorarios', ignorarFolio = null) {
             const contenedor = document.getElementById(contenedorId);
             const esReagendado = contenedorId === 'contenedorHorariosReagenda';
             const fecha = document.getElementById(esReagendado ? 'nuevaFechaInput' : 'fechaCita').value;
             contenedor.innerHTML = '';
             horarioSeleccionado = null;
 
-            citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || citasGlobales;
-            const horariosOcupados = new Set(
-                citasGlobales
-                    .filter(cita => cita.folio !== ignorarFolio)
-                    .map(cita => obtenerClaveFechaHora(cita.fechaHora))
-                    .filter(Boolean)
-            );
+            let horariosOcupados = new Set();
+            try {
+                const ocupados = await api('/api/citas/horarios');
+                horariosOcupados = new Set(ocupados.map(obtenerClaveFechaHora).filter(Boolean));
+                // Al reagendar, el horario actual de la propia cita no cuenta como ocupado
+                if (ignorarFolio && citaActual && citaActual.folio === ignorarFolio) {
+                    horariosOcupados.delete(obtenerClaveFechaHora(citaActual.fecha_hora));
+                }
+            } catch (e) {
+                contenedor.innerHTML = '<p style="grid-column: 1 / -1; color: #c76363;">No se pudieron cargar los horarios. Intenta de nuevo.</p>';
+                return;
+            }
 
             bloquesHorarios.forEach(hora => {
                 const slot = document.createElement('div');
@@ -629,7 +650,8 @@
             });
         }
 
-        function confirmarCitaCliente() {
+        // ---------- Agendar cita nueva ----------
+        async function confirmarCitaCliente() {
             const fechaVal = document.getElementById('fechaCita').value;
             if (!horarioSeleccionado) {
                 alert('Por favor selecciona un horario disponible de la lista.');
@@ -641,54 +663,64 @@
                 return;
             }
 
-            citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || citasGlobales;
-            const servicioVal = document.getElementById('regServicio').value;
-            contadorFolio = Math.max(
-                contadorFolio,
-                ...citasGlobales.map(cita => Number((cita.folio || '').replace('CITA-', '')) + 1 || 105)
-            );
-            const nuevoFolio = 'CITA-' + contadorFolio;
-            contadorFolio++;
-
-            const nuevaCita = {
-                folio: nuevoFolio,
+            const cuerpo = {
                 cliente: datosClienteTemporal.nombre,
-                moto: datosClienteTemporal.marca + ' ' + datosClienteTemporal.modelo,
+                telefono: datosClienteTemporal.telefono,
+                correo: datosClienteTemporal.correo,
+                moto: (datosClienteTemporal.marca + ' ' + datosClienteTemporal.modelo).trim(),
                 placas: datosClienteTemporal.placas,
-                servicio: servicioVal,
+                servicio: document.getElementById('regServicio').value,
                 modalidad: 'Cita Previa',
-                fechaHora: fechaVal + ' ' + horarioSeleccionado
+                fecha_hora: fechaVal + ' ' + horarioSeleccionado
             };
 
-            citasGlobales.unshift(nuevaCita);
-            localStorage.setItem('mrx_citas', JSON.stringify(citasGlobales));
+            const boton = document.getElementById('btnConfirmarCita');
+            boton.disabled = true;
+            try {
+                const cita = await api('/api/citas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cuerpo)
+                });
 
-            document.getElementById('lblFolioGenerado').innerText = nuevoFolio;
-            document.getElementById('lblDetallesCita').innerText = `Fecha: ${fechaVal} | Horario: ${horarioSeleccionado} | Vehículo: ${nuevaCita.moto} (${nuevaCita.placas})`;
-
-            document.getElementById('pasoHorario').style.display = 'none';
-            document.getElementById('pasoConfirmacion').style.display = 'block';
+                document.getElementById('lblFolioGenerado').innerText = cita.folio;
+                document.getElementById('lblDetallesCita').innerText =
+                    `Fecha: ${fechaVal} | Horario: ${horarioSeleccionado} | Vehículo: ${cuerpo.moto} (${cuerpo.placas})`;
+                document.getElementById('pasoHorario').style.display = 'none';
+                document.getElementById('pasoConfirmacion').style.display = 'block';
+            } catch (e) {
+                alert('No se pudo agendar la cita: ' + e.message);
+                cargarHorariosDisponibles();
+            } finally {
+                boton.disabled = false;
+            }
         }
 
-        function buscarCitaPorFolio() {
-            citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || citasGlobales;
+        // ---------- Consultar / reagendar ----------
+        async function buscarCitaPorFolio() {
             const folioInput = document.getElementById('busquedaFolio').value.trim().toUpperCase();
-            const cita = citasGlobales.find(c => c.folio === folioInput);
             const box = document.getElementById('boxDetalleModificacion');
             const resContainer = document.getElementById('resultadoBusqueda');
-
-            if (!cita) {
-                resContainer.style.display = 'block';
-                box.className = 'card-box alert-danger';
-                box.innerHTML = `<p>❌ No se encontró ninguna cita registrada con el folio <strong>${folioInput}</strong>.</p>`;
+            if (!folioInput) {
+                alert('Escribe tu folio de cita.');
                 return;
             }
 
-            // Validación del Límite de 8 Horas
-            // Simulación de cálculo de diferencia de horas
-            const ahora = new Date();
-            const fechaCitaObj = new Date(cita.fechaHora.includes('T') ? cita.fechaHora : ahora.getTime() + (10 * 3600 * 1000)); 
-            const diferenciaHoras = (fechaCitaObj - ahora) / (1000 * 60 * 60);
+            let cita;
+            try {
+                cita = await api('/api/citas/folio/' + encodeURIComponent(folioInput));
+            } catch (e) {
+                resContainer.style.display = 'block';
+                box.className = 'card-box alert-danger';
+                box.innerHTML = e.status === 404
+                    ? `<p>❌ No se encontró ninguna cita registrada con el folio <strong>${escapar(folioInput)}</strong>.</p>`
+                    : `<p>❌ No se pudo consultar la cita: ${escapar(e.message)}</p>`;
+                return;
+            }
+
+            citaActual = cita;
+            const fechaCitaObj = claveADate(obtenerClaveFechaHora(cita.fecha_hora));
+            const diferenciaHoras = fechaCitaObj ? (fechaCitaObj - new Date()) / (1000 * 60 * 60) : -1;
 
             resContainer.style.display = 'block';
 
@@ -697,7 +729,7 @@
                 box.innerHTML = `
                     <h3 style="color:#f87171; font-size:1rem; margin-bottom:8px;">⚠️ Cambio no permitido (< 8 horas)</h3>
                     <p style="font-size:0.85rem; color:#e5e5e5;">
-                        Tu cita <strong>${cita.folio}</strong> (${cita.servicio}) está programada para <strong>${cita.fechaHora}</strong>.
+                        Tu cita <strong>${escapar(cita.folio)}</strong> (${escapar(cita.servicio)}) está programada para <strong>${escapar(cita.fecha_hora)}</strong>.
                     </p>
                     <p style="font-size:0.8rem; color:#a3a3a3; margin-top:8px;">
                         De acuerdo con las políticas del taller, no es posible modificar o cancelar citas con menos de 8 horas de anticipación. Por favor comunícate directamente al taller.
@@ -706,14 +738,14 @@
             } else {
                 box.className = 'card-box alert-success';
                 box.innerHTML = `
-                    <h3 style="color:#4ade80; font-size:1rem; margin-bottom:8px;">✓ Cita Localizada: ${cita.folio}</h3>
+                    <h3 style="color:#4ade80; font-size:1rem; margin-bottom:8px;">✓ Cita Localizada: ${escapar(cita.folio)}</h3>
                     <p style="font-size:0.85rem; color:#ffffff; margin-bottom:12px;">
-                        Cliente: <strong>${cita.cliente}</strong> | Moto: <strong>${cita.moto}</strong> (${cita.placas})<br>
-                        Fecha Actual: <strong>${cita.fechaHora}</strong>
+                        Cliente: <strong>${escapar(cita.cliente)}</strong> | Moto: <strong>${escapar(cita.moto)}</strong> (${escapar(cita.placas)})<br>
+                        Fecha Actual: <strong>${escapar(cita.fecha_hora)}</strong>
                     </p>
                     <div class="input-group">
                         <label>Nueva Fecha de Cita</label>
-                        <input type="date" id="nuevaFechaInput" min="${obtenerFechaLocal()}" onchange="cargarHorariosDisponibles('contenedorHorariosReagenda', '${cita.folio}')">
+                        <input type="date" id="nuevaFechaInput" min="${obtenerFechaLocal()}" onchange="cargarHorariosDisponibles('contenedorHorariosReagenda', '${escapar(cita.folio)}')">
                     </div>
                     <div class="section-title">Nuevo Horario</div>
                     <div class="time-grid" id="contenedorHorariosReagenda"></div>
@@ -721,18 +753,18 @@
                         <label>Servicio / Motivo de Revisión</label>
                         <select id="servicioReagenda">
                             ${Array.from(document.getElementById('regServicio').options).map(opcion =>
-                                `<option value="${opcion.value}" ${opcion.value === cita.servicio ? 'selected' : ''}>${opcion.textContent}</option>`
+                                `<option value="${escapar(opcion.value)}" ${opcion.value === cita.servicio ? 'selected' : ''}>${escapar(opcion.textContent)}</option>`
                             ).join('')}
                         </select>
                     </div>
-                    <button class="btn-action" onclick="guardarReagendado('${cita.folio}')">Reagendar Cita</button>
+                    <button class="btn-action" onclick="guardarReagendado('${escapar(cita.folio)}')">Reagendar Cita</button>
                 `;
                 citaReagendandoFolio = cita.folio;
                 horarioSeleccionado = null;
             }
         }
 
-        function guardarReagendado(folio) {
+        async function guardarReagendado(folio) {
             const nuevaFecha = document.getElementById('nuevaFechaInput').value;
             const nuevoServicio = document.getElementById('servicioReagenda').value;
             if (!nuevaFecha || !horarioSeleccionado) {
@@ -744,31 +776,28 @@
                 cargarHorariosDisponibles('contenedorHorariosReagenda', folio);
                 return;
             }
-
-            citasGlobales = JSON.parse(localStorage.getItem('mrx_citas')) || citasGlobales;
-            const cita = citasGlobales.find(c => c.folio === folio);
-            if (!cita || citaReagendandoFolio !== folio) {
+            if (citaReagendandoFolio !== folio) {
                 alert('No se encontró la cita para reagendar. Búscala nuevamente por su folio.');
                 return;
             }
 
-            const nuevoHorarioKey = obtenerClaveHorario(nuevaFecha, horarioSeleccionado);
-            const yaOcupado = citasGlobales.some(otraCita =>
-                otraCita.folio !== folio &&
-                obtenerClaveFechaHora(otraCita.fechaHora) === nuevoHorarioKey
-            );
-            if (yaOcupado) {
-                alert('Ese horario acaba de ser ocupado. Selecciona otro horario disponible.');
+            const horario = horarioSeleccionado;
+            try {
+                await api('/api/citas/folio/' + encodeURIComponent(folio), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fecha_hora: `${nuevaFecha} ${horario}`,
+                        servicio: nuevoServicio
+                    })
+                });
+                horarioSeleccionado = null;
+                document.getElementById('resultadoBusqueda').style.display = 'none';
+                alert(`✓ Tu cita ${folio} se reagendó para ${nuevaFecha} a las ${horario}.`);
+            } catch (e) {
+                alert('No se pudo reagendar: ' + e.message);
                 cargarHorariosDisponibles('contenedorHorariosReagenda', folio);
-                return;
             }
-
-            cita.fechaHora = `${nuevaFecha} ${horarioSeleccionado}`;
-            cita.servicio = nuevoServicio;
-            localStorage.setItem('mrx_citas', JSON.stringify(citasGlobales));
-            horarioSeleccionado = null;
-            document.getElementById('resultadoBusqueda').style.display = 'none';
-            alert(`✓ Tu cita ${folio} se reagendó para ${nuevaFecha} a las ${cita.fechaHora.split(' ').slice(1).join(' ')}.`);
         }
     </script>
 </body>
