@@ -81,6 +81,11 @@ CREATE TABLE IF NOT EXISTS citas (
     pago_registrado_id VARCHAR(36)
 );
 
+-- Columnas para las órdenes de servicio del mecánico
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS kilometraje INTEGER;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS diagnostico TEXT;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS detalle_orden TEXT;
+
 -- 7. TABLA: COBROS (Mantenimiento de Taller)
 CREATE TABLE IF NOT EXISTS cobros (
     id VARCHAR(36) PRIMARY KEY,
@@ -133,4 +138,4 @@ CREATE TABLE IF NOT EXISTS venta_detalle (
     cantidad INTEGER NOT NULL,
     precio DECIMAL(12, 2) NOT NULL,
     importe DECIMAL(12, 2) NOT NULL
-);
+); 
