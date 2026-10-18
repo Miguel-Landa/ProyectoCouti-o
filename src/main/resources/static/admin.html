@@ -418,98 +418,108 @@
     </div>
 
     <script>
-        const CLAVE_CATALOGO = 'mrx_catalogo_productos';
-        const CLAVE_PROVEEDORES = 'mrx_proveedores';
-        const CLAVE_HISTORIAL_COMPRAS = 'mrx_historial_compras';
+        // ================= Utilidades de Comunicación con Base de Datos / Backend =================
+        function escaparHtml(valor) {
+            return String(valor == null ? '' : valor).replace(/[&<>"']/g, caracter => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[caracter]);
+        }
 
-        const catalogoInicial = [
-            { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, costoCompra: 140.00, stock: 15 },
-            { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, costoCompra: 520.00, stock: 8 },
-            { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, costoCompra: 110.00, stock: 20 },
-            { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, costoCompra: 410.00, stock: 5 }
-        ];
-
-        const proveedoresIniciales = [
-            { id: '1', nombre: 'Refacciones Hero México S.A. de C.V.', rfc: 'RHM900101XYZ', telefono: '2288123456', email: 'ventas@heromexico.com' },
-            { id: '2', nombre: 'Distribuidora Motul Veracruz', rfc: 'DMV880202ABC', telefono: '2299876543', email: 'contacto@motulver.com' },
-            { id: '3', nombre: 'Comercializadora de Autopartes Italika', rfc: 'CAI950303DEF', telefono: '2281112233', email: 'pedidos@italikaxalapa.com' }
-        ];
-
-        const historialComprasInicial = [
-            {
-                id: '1',
-                factura: 'FAC-2026-88',
-                proveedor: 'Refacciones Hero México S.A. de C.V.',
-                fecha: '25/09/2026',
-                items: [
-                    { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', costo: 140.00, cantidad: 10 }
-                ],
-                subtotal: 1400.00,
-                iva: 224.00,
-                total: 1624.00
+        async function api(url, opciones) {
+            const resp = await fetch(url, opciones);
+            let datos = null;
+            try { datos = await resp.json(); } catch (e) { /* respuesta sin cuerpo */ }
+            if (!resp.ok) {
+                throw new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
             }
-        ];
-
-        function obtenerCatalogo() {
-            const data = localStorage.getItem(CLAVE_CATALOGO);
-            if (!data) {
-                localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(catalogoInicial));
-                return catalogoInicial;
-            }
-            return JSON.parse(data);
+            return datos;
         }
 
-        function guardarCatalogo(catalogo) {
-            localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(catalogo));
+        function enviar(metodo, url, cuerpo) {
+            return api(url, {
+                method: metodo,
+                headers: { 'Content-Type': 'application/json' },
+                body: cuerpo ? JSON.stringify(cuerpo) : undefined
+            });
         }
 
-        function obtenerProveedores() {
-            const data = localStorage.getItem(CLAVE_PROVEEDORES);
-            if (!data) {
-                localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(proveedoresIniciales));
-                return proveedoresIniciales;
-            }
-            return JSON.parse(data);
+        // ================= Caché Local de Datos del Servidor =================
+        let catalogoCache = [];
+        let proveedoresCache = [];
+        let historialComprasCache = [];
+
+        async function cargarDatosServidor() {
+            const [productos, provs, compras] = await Promise.all([
+                api('/api/productos'),
+                api('/api/proveedores'),
+                api('/api/compras')
+            ]);
+
+            catalogoCache = productos.map(p => ({
+                id: String(p.id),
+                sku: p.sku,
+                nombre: p.nombre,
+                precio: Number(p.precio),
+                costoCompra: Number(p.costo_compra || p.costoCompra || 0),
+                stock: Number(p.stock)
+            }));
+
+            proveedoresCache = provs.map(p => ({
+                id: String(p.id),
+                nombre: p.nombre,
+                rfc: p.rfc,
+                telefono: p.telefono,
+                email: p.email
+            }));
+
+            historialComprasCache = compras.map(c => ({
+                id: String(c.id),
+                factura: c.factura,
+                proveedor: c.proveedor,
+                fecha: c.fecha,
+                items: typeof c.items === 'string' ? JSON.parse(c.items) : (c.items || []),
+                subtotal: Number(c.subtotal),
+                iva: Number(c.iva),
+                total: Number(c.total)
+            }));
         }
 
-        function guardarProveedores(provs) {
-            localStorage.setItem(CLAVE_PROVEEDORES, JSON.stringify(provs));
-        }
-
-        function obtenerHistorialCompras() {
-            const data = localStorage.getItem(CLAVE_HISTORIAL_COMPRAS);
-            if (!data) {
-                localStorage.setItem(CLAVE_HISTORIAL_COMPRAS, JSON.stringify(historialComprasInicial));
-                return historialComprasInicial;
-            }
-            return JSON.parse(data);
-        }
-
-        function guardarHistorialCompras(historial) {
-            localStorage.setItem(CLAVE_HISTORIAL_COMPRAS, JSON.stringify(historial));
-        }
+        function obtenerCatalogo() { return catalogoCache; }
+        function obtenerProveedores() { return proveedoresCache; }
+        function obtenerHistorialCompras() { return historialComprasCache; }
 
         let itemsCompraActual = [];
         let idProveedorEditando = null;
         let idProductoEditando = null;
 
-        function cambiarVistaAdmin(vista, boton) {
+        async function cambiarVistaAdmin(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 boton.classList.add('active');
             }
 
             const panel = document.getElementById('panel-contenido-admin');
+            panel.innerHTML = '<div class="summary-box">Cargando datos desde la base de datos...</div>';
 
-            if (vista === 'compras') {
-                itemsCompraActual = [];
-                renderizarModuloCompras();
-            } else if (vista === 'proveedores') {
-                idProveedorEditando = null;
-                renderizarModuloProveedores();
-            } else if (vista === 'articulos') {
-                idProductoEditando = null;
-                renderizarModuloArticulos();
+            try {
+                await cargarDatosServidor();
+
+                if (vista === 'compras') {
+                    itemsCompraActual = [];
+                    renderizarModuloCompras();
+                } else if (vista === 'proveedores') {
+                    idProveedorEditando = null;
+                    renderizarModuloProveedores();
+                } else if (vista === 'articulos') {
+                    idProductoEditando = null;
+                    renderizarModuloArticulos();
+                }
+            } catch (e) {
+                panel.innerHTML = `
+                    <div class="summary-box">
+                        <p>No fue posible conectar con la base de datos: ${escaparHtml(e.message)}</p>
+                        <button class="btn-action" onclick="cambiarVistaAdmin('${vista}')">Reintentar Conexión</button>
+                    </div>`;
             }
         }
 
@@ -520,14 +530,14 @@
             const catalogo = obtenerCatalogo();
             const historial = obtenerHistorialCompras();
 
-            let opcionesProveedores = proveedores.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
-            let opcionesArticulos = catalogo.map(a => `<option value="${a.id}">[${a.sku}] ${a.nombre} - Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
+            let opcionesProveedores = proveedores.map(p => `<option value="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`).join('');
+            let opcionesArticulos = catalogo.map(a => `<option value="${a.id}">[${escaparHtml(a.sku)}] ${escaparHtml(a.nombre)} Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
 
             let filasHistorial = historial.map(c => `
                 <tr>
-                    <td><strong style="color:#ffffff;">${c.factura}</strong></td>
-                    <td>${c.proveedor}</td>
-                    <td>${c.fecha}</td>
+                    <td><strong style="color:#ffffff;">${escaparHtml(c.factura)}</strong></td>
+                    <td>${escaparHtml(c.proveedor)}</td>
+                    <td>${escaparHtml(c.fecha)}</td>
                     <td><strong style="color:#22c55e;">$${c.total.toFixed(2)} MXN</strong></td>
                     <td>
                         <button class="btn-edit-item" onclick="verDetalleCompra('${c.id}')">🔍 Detalle</button>
@@ -577,8 +587,8 @@
                     </div>
                 </div>
 
-                <button class="btn-action" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
-                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock ha sido incrementado.</div>
+                <button class="btn-action" id="btnGuardarCompra" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
+                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente en la base de datos. El stock ha sido incrementado.</div>
 
                 <div class="summary-box" style="margin-top:30px;">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">📑 Historial de Compras Realizadas a Proveedores</h3>
@@ -657,8 +667,8 @@
                 return `
                     <div class="summary-row">
                         <div>
-                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
-                            <strong style="color:#ffffff;">${item.nombre}</strong> 
+                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${escaparHtml(item.sku)}</span>
+                            <strong style="color:#ffffff;">${escaparHtml(item.nombre)}</strong> 
                             <span style="margin-left:8px;">
                                 <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', -1)">-</button>
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
@@ -680,46 +690,45 @@
             document.getElementById('lblTotalCompra').innerText = '$' + total.toFixed(2) + ' MXN';
         }
 
-        function guardarCompraMercancia() {
+        async function guardarCompraMercancia() {
             const factura = document.getElementById('compraFacturaInput').value;
             const proveedor = document.getElementById('compraProveedorSelect').value;
 
             if (!factura) { alert('Ingresa el número de factura o remisión.'); return; }
             if (itemsCompraActual.length === 0) { alert('Agrega al menos un artículo.'); return; }
 
-            let catalogo = obtenerCatalogo();
             let subtotal = 0;
-
-            itemsCompraActual.forEach(item => {
-                subtotal += (item.costo * item.cantidad);
-                const artReal = catalogo.find(a => a.id === item.id);
-                if (artReal) artReal.stock += item.cantidad;
-            });
-            guardarCatalogo(catalogo);
-
+            itemsCompraActual.forEach(item => { subtotal += (item.costo * item.cantidad); });
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
 
-            let historial = obtenerHistorialCompras();
-            historial.unshift({
-                id: Date.now().toString(),
+            const cuerpoCompra = {
                 factura: factura,
                 proveedor: proveedor,
-                fecha: new Date().toLocaleDateString(),
-                items: [...itemsCompraActual],
+                fecha: new Date().toLocaleDateString('es-MX'),
+                items: itemsCompraActual,
                 subtotal: subtotal,
                 iva: iva,
                 total: total
-            });
-            guardarHistorialCompras(historial);
+            };
 
-            const alerta = document.getElementById('alertaCompra');
-            alerta.style.display = 'block';
-            setTimeout(() => {
-                alerta.style.display = 'none';
-                itemsCompraActual = [];
-                renderizarModuloCompras();
-            }, 1800);
+            const boton = document.getElementById('btnGuardarCompra');
+            if (boton) boton.disabled = true;
+
+            try {
+                await enviar('POST', '/api/compras', cuerpoCompra);
+
+                const alerta = document.getElementById('alertaCompra');
+                alerta.style.display = 'block';
+                setTimeout(async () => {
+                    alerta.style.display = 'none';
+                    itemsCompraActual = [];
+                    await cambiarVistaAdmin('compras');
+                }, 1800);
+            } catch (e) {
+                if (boton) boton.disabled = false;
+                alert('Error al guardar la compra en la base de datos: ' + e.message);
+            }
         }
 
         function verDetalleCompra(id) {
@@ -732,8 +741,8 @@
 
             let itemsHTML = compra.items.map(it => `
                 <div class="summary-row">
-                    <span>${it.nombre} (${it.sku}) - x${it.cantidad}</span>
-                    <span>$${(it.costo * it.cantidad).toFixed(2)} MXN</span>
+                    <span>${escaparHtml(it.nombre)} (${escaparHtml(it.sku)}) - x${it.cantidad}</span>
+                    <span>$${((Number(it.costo) || 0) * (Number(it.cantidad) || 0)).toFixed(2)} MXN</span>
                 </div>
             `).join('');
 
@@ -757,21 +766,17 @@
             document.getElementById('modalDetalleCompra').style.display = 'none';
         }
 
-        function eliminarCompra(id) {
-            let historial = obtenerHistorialCompras();
+        async function eliminarCompra(id) {
+            const historial = obtenerHistorialCompras();
             const compra = historial.find(c => c.id === id);
 
             if (compra && confirm(`¿Desea eliminar la compra ${compra.factura}? El stock de estos artículos será descontado.`)) {
-                let catalogo = obtenerCatalogo();
-                compra.items.forEach(it => {
-                    const artReal = catalogo.find(a => a.id === it.id);
-                    if (artReal) artReal.stock = Math.max(0, artReal.stock - it.cantidad);
-                });
-                guardarCatalogo(catalogo);
-
-                historial = historial.filter(c => c.id !== id);
-                guardarHistorialCompras(historial);
-                renderizarModuloCompras();
+                try {
+                    await enviar('DELETE', '/api/compras/' + id);
+                    await cambiarVistaAdmin('compras');
+                } catch (e) {
+                    alert('No se pudo eliminar la compra de la base de datos: ' + e.message);
+                }
             }
         }
 
@@ -782,10 +787,10 @@
 
             let filasHTML = proveedores.map(p => `
                 <tr>
-                    <td><strong style="color:#ffffff;">${p.nombre}</strong></td>
-                    <td>${p.rfc}</td>
-                    <td>${p.telefono}</td>
-                    <td>${p.email}</td>
+                    <td><strong style="color:#ffffff;">${escaparHtml(p.nombre)}</strong></td>
+                    <td>${escaparHtml(p.rfc)}</td>
+                    <td>${escaparHtml(p.telefono)}</td>
+                    <td>${escaparHtml(p.email)}</td>
                     <td>
                         <button class="btn-edit-item" onclick="prepararEdicionProveedor('${p.id}')">✏️ Editar</button>
                         <button class="btn-remove-item" onclick="eliminarProveedor('${p.id}')">🗑️ Eliminar</button>
@@ -834,7 +839,7 @@
                     </div>
                 </form>
 
-                <div id="alertaProv" class="alert-box">✓ Directorio de proveedores actualizado.</div>
+                <div id="alertaProv" class="alert-box">✓ Directorio de proveedores actualizado en la base de datos.</div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🏭 Directorio de Proveedores Registrados</h3>
@@ -856,31 +861,32 @@
             `;
         }
 
-        function guardarOActualizarProveedor(event) {
+        async function guardarOActualizarProveedor(event) {
             event.preventDefault();
-            let proveedores = obtenerProveedores();
             const nombre = document.getElementById('provNombreInput').value;
             const rfc = document.getElementById('provRfcInput').value;
             const tel = document.getElementById('provTelInput').value;
             const email = document.getElementById('provEmailInput').value;
 
-            if (idProveedorEditando) {
-                const prov = proveedores.find(p => p.id === idProveedorEditando);
-                if (prov) {
-                    prov.nombre = nombre; prov.rfc = rfc; prov.telefono = tel; prov.email = email;
-                }
-                idProveedorEditando = null;
-            } else {
-                proveedores.push({ id: Date.now().toString(), nombre: nombre, rfc: rfc, telefono: tel, email: email });
-            }
+            const cuerpo = { nombre, rfc, telefono: tel, email };
 
-            guardarProveedores(proveedores);
-            const alerta = document.getElementById('alertaProv');
-            alerta.style.display = 'block';
-            setTimeout(() => {
-                alerta.style.display = 'none';
-                renderizarModuloProveedores();
-            }, 1200);
+            try {
+                if (idProveedorEditando) {
+                    await enviar('PUT', '/api/proveedores/' + idProveedorEditando, cuerpo);
+                    idProveedorEditando = null;
+                } else {
+                    await enviar('POST', '/api/proveedores', cuerpo);
+                }
+
+                const alerta = document.getElementById('alertaProv');
+                alerta.style.display = 'block';
+                setTimeout(async () => {
+                    alerta.style.display = 'none';
+                    await cambiarVistaAdmin('proveedores');
+                }, 1200);
+            } catch (e) {
+                alert('No se pudo guardar el proveedor: ' + e.message);
+            }
         }
 
         function prepararEdicionProveedor(id) {
@@ -901,12 +907,14 @@
             renderizarModuloProveedores();
         }
 
-        function eliminarProveedor(id) {
-            let proveedores = obtenerProveedores();
+        async function eliminarProveedor(id) {
             if (confirm('¿Desea eliminar este proveedor del directorio?')) {
-                proveedores = proveedores.filter(p => p.id !== id);
-                guardarProveedores(proveedores);
-                renderizarModuloProveedores();
+                try {
+                    await enviar('DELETE', '/api/proveedores/' + id);
+                    await cambiarVistaAdmin('proveedores');
+                } catch (e) {
+                    alert('No se pudo eliminar el proveedor: ' + e.message);
+                }
             }
         }
 
@@ -917,8 +925,8 @@
 
             let filasHTML = catalogo.map(a => `
                 <tr>
-                    <td><span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-weight:700;">${a.sku}</span></td>
-                    <td><strong style="color:#ffffff;">${a.nombre}</strong></td>
+                    <td><span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-weight:700;">${escaparHtml(a.sku)}</span></td>
+                    <td><strong style="color:#ffffff;">${escaparHtml(a.nombre)}</strong></td>
                     <td>$${a.costoCompra.toFixed(2)} MXN</td>
                     <td>$${a.precio.toFixed(2)} MXN</td>
                     <td><strong style="color:${a.stock < 5 ? '#ef4444' : '#4ade80'};">${a.stock} pzas</strong></td>
@@ -975,7 +983,7 @@
                     </div>
                 </form>
 
-                <div id="alertaArt" class="alert-box">✓ Catálogo de productos actualizado correctamente.</div>
+                <div id="alertaArt" class="alert-box">✓ Catálogo de productos actualizado en la base de datos.</div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🔧 Inventario General de Productos</h3>
@@ -998,32 +1006,33 @@
             `;
         }
 
-        function guardarOActualizarArticulo(event) {
+        async function guardarOActualizarArticulo(event) {
             event.preventDefault();
-            let catalogo = obtenerCatalogo();
             const sku = document.getElementById('artSkuInput').value.toUpperCase();
             const nombre = document.getElementById('artNombreInput').value;
             const costo = parseFloat(document.getElementById('artCostoInput').value) || 0;
             const precio = parseFloat(document.getElementById('artPrecioInput').value) || 0;
             const stock = parseInt(document.getElementById('artStockInput').value) || 0;
 
-            if (idProductoEditando) {
-                const art = catalogo.find(a => a.id === idProductoEditando);
-                if (art) {
-                    art.sku = sku; art.nombre = nombre; art.costoCompra = costo; art.precio = precio; art.stock = stock;
-                }
-                idProductoEditando = null;
-            } else {
-                catalogo.push({ id: Date.now().toString(), sku: sku, nombre: nombre, costoCompra: costo, precio: precio, stock: stock });
-            }
+            const cuerpo = { sku, nombre, costo_compra: costo, precio, stock };
 
-            guardarCatalogo(catalogo);
-            const alerta = document.getElementById('alertaArt');
-            alerta.style.display = 'block';
-            setTimeout(() => {
-                alerta.style.display = 'none';
-                renderizarModuloArticulos();
-            }, 1200);
+            try {
+                if (idProductoEditando) {
+                    await enviar('PUT', '/api/productos/' + idProductoEditando, cuerpo);
+                    idProductoEditando = null;
+                } else {
+                    await enviar('POST', '/api/productos', cuerpo);
+                }
+
+                const alerta = document.getElementById('alertaArt');
+                alerta.style.display = 'block';
+                setTimeout(async () => {
+                    alerta.style.display = 'none';
+                    await cambiarVistaAdmin('articulos');
+                }, 1200);
+            } catch (e) {
+                alert('No se pudo guardar el producto en la base de datos: ' + e.message);
+            }
         }
 
         function prepararEdicionArticulo(id) {
@@ -1045,12 +1054,14 @@
             renderizarModuloArticulos();
         }
 
-        function eliminarArticulo(id) {
-            let catalogo = obtenerCatalogo();
+        async function eliminarArticulo(id) {
             if (confirm('¿Desea eliminar permanentemente este producto del catálogo?')) {
-                catalogo = catalogo.filter(a => a.id !== id);
-                guardarCatalogo(catalogo);
-                renderizarModuloArticulos();
+                try {
+                    await enviar('DELETE', '/api/productos/' + id);
+                    await cambiarVistaAdmin('articulos');
+                } catch (e) {
+                    alert('No se pudo eliminar el producto: ' + e.message);
+                }
             }
         }
 
