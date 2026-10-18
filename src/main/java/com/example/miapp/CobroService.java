@@ -93,7 +93,19 @@ public class CobroService {
                     id, refaccion.sku(), refaccion.nombre(),
                     refaccion.precioUnitario(), refaccion.cantidad(), refaccion.importe()
             );
+
+            int filas = jdbcTemplate.update(
+                    "UPDATE productos SET stock = stock - ? WHERE sku = ? AND stock >= ?",
+                    refaccion.cantidad(), refaccion.sku(), refaccion.cantidad()
+            );
+            if (filas == 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Stock insuficiente o producto inexistente: " + refaccion.sku());
+            }
         }
+
+        jdbcTemplate.update("UPDATE citas SET pago_registrado_id = ? WHERE folio = ?",
+                id, solicitud.folio().trim());
 
         return new CobroResponse(
                 id, solicitud.folio().trim(), solicitud.cliente().trim(),

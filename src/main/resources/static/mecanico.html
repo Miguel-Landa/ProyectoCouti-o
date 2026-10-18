@@ -1,4 +1,4 @@
-﻿<<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -234,6 +234,22 @@
             background: #e5e5e5;
         }
 
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         .btn-add-item {
             background: #262626;
             color: #ffffff;
@@ -438,7 +454,7 @@
         }
 
         .panel-header, .panel-header p, .sidebar-title,
-        .input-group label, .summary-row, .btn-secondary,
+        .input-group label, .summary-row,
         table.data-table th {
             color: var(--muted);
         }
@@ -448,7 +464,7 @@
             border-color: var(--border);
         }
 
-        .nav-btn, .btn-add-item, .qty-btn, .btn-select-cita,
+        .nav-btn, .btn-add-item, .btn-secondary, .qty-btn, .btn-select-cita,
         .input-group input, .input-group select, .input-group textarea,
         .summary-box, .table-container, table.data-table th,
         .table-container .data-table td {
@@ -457,7 +473,7 @@
             border-color: var(--border-soft);
         }
 
-        .nav-btn:hover, .btn-add-item:hover, .qty-btn:hover,
+        .nav-btn:hover, .btn-add-item:hover, .btn-secondary:hover, .qty-btn:hover,
         .btn-select-cita:hover, .input-group input:focus,
         .input-group select:focus, .input-group textarea:focus,
         table.data-table tr:hover {
@@ -667,30 +683,90 @@
     </div>
 
     <script>
-        const CLAVE_CATALOGO = 'mrx_catalogo_productos';
+        // ================= Utilidades =================
+        function escaparHtml(valor) {
+            return String(valor == null ? '' : valor).replace(/[&<>"']/g, caracter => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[caracter]);
+        }
 
+        async function api(url, opciones) {
+            const resp = await fetch(url, opciones);
+            let datos = null;
+            try { datos = await resp.json(); } catch (e) { /* respuesta sin cuerpo */ }
+            if (!resp.ok) {
+                throw new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
+            }
+            return datos;
+        }
+
+        function enviar(metodo, url, cuerpo) {
+            return api(url, {
+                method: metodo,
+                headers: { 'Content-Type': 'application/json' },
+                body: cuerpo ? JSON.stringify(cuerpo) : undefined
+            });
+        }
+
+        function fechaLocalISO(fecha) {
+            const anio = fecha.getFullYear();
+            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            const dia = String(fecha.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function formatearMoneda(importe) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(Number(importe) || 0);
+        }
+
+        // ================= Estado (datos que vienen de la base de datos) =================
+        let catalogoCache = [];
+        let listaCitas = [];
         let piezasyInsumosServicio = [];
         let refaccionesMantenimientoForm = [];
         let servicioSeleccionadoParaCobro = null;
         let historialCobros = [];
 
-        const CLAVE_CITAS = 'mrx_citas';
-        const citasInicialesMecanico = [
-            { folio: 'CITA-104', cliente: 'Carlos Mendoza', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '12ABC3', servicio: 'Afinación y cambio de balatas', modalidad: 'Cita Previa' },
-            { folio: 'CITA-103', cliente: 'Roberto Silva', mecanico: 'Carlos Mendoza', moto: 'Italika FT150', placas: '98XYZ1', servicio: 'Revisión del sistema eléctrico', modalidad: 'Cita Previa' },
-            { folio: 'CITA-102', cliente: 'Miguel Landa', mecanico: 'Miguel Landa', moto: 'Hero Hunk 160R 4V', placas: '45DEF6', servicio: 'Cambio de aceite expres', modalidad: 'Sin Cita (Directa)' },
-            { folio: 'CITA-101', cliente: 'Ana Martínez', mecanico: 'Ramón Gómez', moto: 'Yamaha FZ25', placas: '77GHI8', servicio: 'Mantenimiento general (10k km)', modalidad: 'Cita Previa' }
-        ];
-        let listaCitas = JSON.parse(localStorage.getItem(CLAVE_CITAS)) || citasInicialesMecanico;
-
-        function guardarCitas() {
-            localStorage.setItem(CLAVE_CITAS, JSON.stringify(listaCitas));
+        function normalizarCita(r) {
+            let d = {};
+            try { d = r.detalle_orden ? JSON.parse(r.detalle_orden) : {}; } catch (e) { d = {}; }
+            return {
+                id: r.id,
+                folio: r.folio,
+                cliente: r.cliente,
+                mecanico: r.mecanico || '',
+                moto: r.moto,
+                placas: r.placas,
+                servicio: r.servicio,
+                modalidad: r.modalidad || '',
+                fechaHora: r.fecha_hora,
+                pagoRegistradoId: r.pago_registrado_id,
+                kilometraje: r.kilometraje,
+                diagnostico: r.diagnostico,
+                requiereRefacciones: d.requiereRefacciones === true,
+                refacciones: d.refacciones || [],
+                servicioExtra: d.servicioExtra || null
+            };
         }
 
-        function sincronizarCitas() {
-            listaCitas = JSON.parse(localStorage.getItem(CLAVE_CITAS)) || listaCitas;
-            return listaCitas;
+        async function cargarDatos() {
+            const [citas, productos] = await Promise.all([api('/api/citas'), api('/api/productos')]);
+            listaCitas = citas.map(normalizarCita);
+            catalogoCache = productos.map(p => ({
+                id: String(p.id),
+                sku: p.sku,
+                nombre: p.nombre,
+                precio: Number(p.precio),
+                stock: Number(p.stock)
+            }));
         }
+
+        function obtenerCatalogo() { return catalogoCache; }
+
+        function panelMecanico() { return document.getElementById('panel-contenido-mecanico'); }
 
         function obtenerFechaHoraCita(cita) {
             const coincidencia = String(cita.fechaHora || '').match(
@@ -715,67 +791,51 @@
             return {
                 fecha,
                 fechaTexto: fecha.toLocaleDateString('es-MX'),
-                horaTexto: fecha.toLocaleTimeString('es-MX', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
+                horaTexto: fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
             };
         }
 
-        function obtenerSiguienteFolio() {
-            const mayorFolio = listaCitas.reduce((mayor, cita) => {
-                const numero = Number((cita.folio || '').replace('CITA-', ''));
-                return Number.isFinite(numero) ? Math.max(mayor, numero) : mayor;
-            }, 100);
-            return mayorFolio + 1;
-        }
-
-        let contadorConsecutivoFolio = obtenerSiguienteFolio();
-
-        function obtenerCatalogo() {
-            const data = localStorage.getItem(CLAVE_CATALOGO);
-            if (data) return JSON.parse(data);
-            return [
-                { id: '1', sku: 'REF-101', nombre: 'Aceite Motul 10W40 1L', precio: 220.00, stock: 15 },
-                { id: '2', sku: 'REF-102', nombre: 'Batería Hero Hunk 160R (12V 7Ah)', precio: 850.00, stock: 8 },
-                { id: '3', sku: 'REF-103', nombre: 'Balatas Delanteras Hunk 160R', precio: 180.00, stock: 20 },
-                { id: '4', sku: 'REF-104', nombre: 'Kit Arrastre Piñón y Cadena 428H', precio: 650.00, stock: 5 }
-            ];
-        }
-
-        function guardarCatalogo(cat) {
-            localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(cat));
-        }
-
-        function cambiarVistaMecanico(vista, boton) {
+        // ================= Navegación =================
+        async function cambiarVistaMecanico(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 boton.classList.add('active');
             }
 
-            const panel = document.getElementById('panel-contenido-mecanico');
+            panelMecanico().innerHTML = '<div class="summary-box">Cargando...</div>';
 
-            if (vista === 'mantenimiento') {
-                renderizarFormularioMantenimientoOriginal();
-            } else if (vista === 'citas') {
-                renderizarTablaCitasOriginal();
-            } else if (vista === 'cobro') {
-                servicioSeleccionadoParaCobro = null;
-                piezasyInsumosServicio = [];
-                renderizarModuloCobroSeparado();
-            } else if (vista === 'historial') {
-                renderizarHistorialCobros();
+            try {
+                if (vista === 'historial') {
+                    await renderizarHistorialCobros();
+                    return;
+                }
+                await cargarDatos();
+
+                if (vista === 'mantenimiento') {
+                    await renderizarFormularioMantenimientoOriginal();
+                } else if (vista === 'citas') {
+                    renderizarTablaCitasOriginal();
+                } else if (vista === 'cobro') {
+                    servicioSeleccionadoParaCobro = null;
+                    piezasyInsumosServicio = [];
+                    renderizarModuloCobroSeparado();
+                }
+            } catch (e) {
+                panelMecanico().innerHTML = `
+                    <div class="summary-box">
+                        <p>No fue posible conectar con el servidor: ${escaparHtml(e.message)}</p>
+                        <p style="margin-top:8px;">Si el servidor estaba dormido, espera un minuto e inténtalo de nuevo.</p>
+                        <button class="btn-action" onclick="cambiarVistaMecanico('${vista}')">Reintentar</button>
+                    </div>`;
             }
         }
 
-        /* 1. MÓDULO ORIGINAL: REGISTRO DE MANTENIMIENTO */
-        function renderizarFormularioMantenimientoOriginal() {
-            const panel = document.getElementById('panel-contenido-mecanico');
-            sincronizarCitas();
+        /* 1. REGISTRO DE MANTENIMIENTO */
+        async function renderizarFormularioMantenimientoOriginal() {
             refaccionesMantenimientoForm = [];
-            contadorConsecutivoFolio = Math.max(contadorConsecutivoFolio, obtenerSiguienteFolio());
-            const siguienteFolio = 'CITA-' + contadorConsecutivoFolio;
-            panel.innerHTML = `
+            const { folio } = await api('/api/citas/siguiente-folio');
+
+            panelMecanico().innerHTML = `
                 <div class="panel-header">
                     <h2>Nuevo Servicio / Mantenimiento</h2>
                     <p>Registro de ingreso de motocicleta, diagnóstico inicial y asignación de refacciones.</p>
@@ -786,7 +846,7 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Folio de Cita Consecutivo Único</label>
-                            <input type="text" id="folioCita" value="${siguienteFolio}" readonly>
+                            <input type="text" id="folioCita" value="${escaparHtml(folio)}" readonly>
                         </div>
                         <div class="input-group">
                             <label>Placas o Identificador de Motocicleta</label>
@@ -812,7 +872,7 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Kilometraje Actual (km)</label>
-                            <input type="number" id="kilometraje" placeholder="Ej. 12500" required>
+                            <input type="number" id="kilometraje" min="0" placeholder="Ej. 12500" required>
                         </div>
                         <div class="input-group">
                             <label>Fallas Reportadas / Servicio Solicitado</label>
@@ -847,7 +907,7 @@
                         <button type="button" class="btn-add-item" onclick="agregarRefaccionMantenimiento()">+ Agregar refacción</button>
                     </div>
 
-                    <button type="submit" class="btn-action">Guardar Orden de Servicio</button>
+                    <button type="submit" class="btn-action" id="btnGuardarOrden">Guardar Orden de Servicio</button>
                 </form>
 
                 <div id="alertaExito" class="alert-box">
@@ -861,7 +921,7 @@
             if (!contenedor) return;
 
             const opcionesRefacciones = obtenerCatalogo().map(refaccion =>
-                `<option value="${refaccion.id}">[${refaccion.sku}] ${refaccion.nombre} (Stock: ${refaccion.stock})</option>`
+                `<option value="${refaccion.id}">[${escaparHtml(refaccion.sku)}] ${escaparHtml(refaccion.nombre)} (Stock: ${refaccion.stock})</option>`
             ).join('');
 
             contenedor.innerHTML = refaccionesMantenimientoForm.map((refaccion, indice) => `
@@ -912,11 +972,121 @@
             renderizarRefaccionesMantenimiento();
         }
 
-        /* 2. MÓDULO ORIGINAL: CITAS Y REGISTRO DE CLIENTES */
-        function renderizarTablaCitasOriginal() {
-            const panel = document.getElementById('panel-contenido-mecanico');
-            sincronizarCitas();
+        function toggleRefaccionesMantenimiento() {
+            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
+            const camposRefacciones = document.getElementById('camposRefaccionesMantenimiento');
 
+            camposRefacciones.style.display = requiereRefacciones ? 'block' : 'none';
+            if (requiereRefacciones && refaccionesMantenimientoForm.length === 0) {
+                agregarRefaccionMantenimiento();
+            } else if (!requiereRefacciones) {
+                refaccionesMantenimientoForm = [];
+                renderizarRefaccionesMantenimiento();
+            }
+        }
+
+        async function guardarMantenimientoOriginal(event) {
+            event.preventDefault();
+
+            const folioActual = document.getElementById('folioCita').value;
+            const placasVal = document.getElementById('placasInput').value.trim();
+            const clienteVal = document.getElementById('clienteInput').value.trim();
+            const estadoCitaVal = document.getElementById('estadoCita').value;
+            const fallasVal = document.getElementById('fallas').value.trim();
+            const kilometrajeVal = document.getElementById('kilometraje').value;
+            const diagnosticoVal = document.getElementById('diagnostico').value.trim();
+
+            const servicioExtraDescripcion = document.getElementById('servicioExtraDescripcion').value.trim();
+            const servicioExtraPrecioValor = document.getElementById('servicioExtraPrecio').value.trim();
+            const servicioExtraPrecio = Number(servicioExtraPrecioValor);
+            const tieneServicioExtra = Boolean(servicioExtraDescripcion || servicioExtraPrecioValor);
+            if (tieneServicioExtra && (
+                !servicioExtraDescripcion ||
+                !servicioExtraPrecioValor ||
+                !Number.isFinite(servicioExtraPrecio) ||
+                servicioExtraPrecio <= 0
+            )) {
+                alert('Para cobrar un servicio extra, agrega su descripción y un precio mayor a $0.00.');
+                return;
+            }
+            const servicioExtra = tieneServicioExtra
+                ? { descripcion: servicioExtraDescripcion, precio: servicioExtraPrecio }
+                : null;
+
+            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
+            if (requiereRefacciones && (
+                refaccionesMantenimientoForm.length === 0 ||
+                refaccionesMantenimientoForm.some(refaccion =>
+                    !refaccion.id || !Number.isInteger(refaccion.cantidad) || refaccion.cantidad < 1
+                )
+            )) {
+                alert('Agrega al menos una refacción y selecciona una cantidad válida para cada una.');
+                return;
+            }
+
+            const catalogo = obtenerCatalogo();
+            const refacciones = requiereRefacciones
+                ? refaccionesMantenimientoForm.map(refaccionForm => {
+                    const producto = catalogo.find(refaccion => refaccion.id === String(refaccionForm.id));
+                    if (!producto) return null;
+                    return {
+                        id: producto.id,
+                        sku: producto.sku,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: refaccionForm.cantidad
+                    };
+                })
+                : [];
+            if (refacciones.some(refaccion => refaccion === null)) {
+                alert('Una de las refacciones seleccionadas ya no está disponible en el catálogo. Actualiza la selección e inténtalo de nuevo.');
+                return;
+            }
+
+            const cantidadesPorRefaccion = new Map();
+            refacciones.forEach(refaccion => {
+                cantidadesPorRefaccion.set(
+                    refaccion.id,
+                    (cantidadesPorRefaccion.get(refaccion.id) || 0) + refaccion.cantidad
+                );
+            });
+            for (const [id, cantidad] of cantidadesPorRefaccion) {
+                const producto = catalogo.find(refaccion => refaccion.id === id);
+                if (cantidad > producto.stock) {
+                    alert(`Stock insuficiente para ${producto.nombre}. Disponibles: ${producto.stock} pzas.`);
+                    return;
+                }
+            }
+
+            const existente = listaCitas.find(c => c.folio === folioActual);
+            const cuerpo = {
+                folio: folioActual,
+                cliente: clienteVal || 'Cliente General',
+                placas: placasVal.toUpperCase(),
+                servicio: fallasVal || 'Mantenimiento General',
+                modalidad: estadoCitaVal,
+                kilometraje: kilometrajeVal,
+                diagnostico: diagnosticoVal,
+                moto: existente ? existente.moto : 'Motocicleta ingresada',
+                detalle_orden: JSON.stringify({ requiereRefacciones, refacciones, servicioExtra })
+            };
+
+            const boton = document.getElementById('btnGuardarOrden');
+            if (boton) boton.disabled = true;
+            try {
+                await enviar('POST', '/api/citas/orden', cuerpo);
+                document.getElementById('alertaExito').style.display = 'block';
+                setTimeout(() => {
+                    cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
+                }, 1800);
+            } catch (e) {
+                if (boton) boton.disabled = false;
+                alert('No se pudo guardar la orden: ' + e.message);
+            }
+        }
+
+        /* 2. CITAS Y REGISTRO DE CLIENTES */
+        function renderizarTablaCitasOriginal() {
             const citasOrdenadas = [...listaCitas].sort((a, b) => {
                 const fechaA = obtenerFechaHoraCita(a)?.fecha.getTime();
                 const fechaB = obtenerFechaHoraCita(b)?.fecha.getTime();
@@ -925,30 +1095,30 @@
                 return fechaA - fechaB;
             });
 
-            let filasHTML = citasOrdenadas.map(cita => {
+            const filasHTML = citasOrdenadas.map(cita => {
                 const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
                 const fechaHora = obtenerFechaHoraCita(cita);
                 return `
                     <tr>
-                        <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
-                        <td>${cita.cliente}</td>
-                        <td>${cita.moto}</td>
-                        <td>${cita.placas}</td>
-                        <td>${cita.servicio}</td>
+                        <td style="font-weight:600; color:#ffffff;">${escaparHtml(cita.folio)}</td>
+                        <td>${escaparHtml(cita.cliente)}</td>
+                        <td>${escaparHtml(cita.moto)}</td>
+                        <td>${escaparHtml(cita.placas)}</td>
+                        <td>${escaparHtml(cita.servicio)}</td>
                         <td>${fechaHora ? fechaHora.fechaTexto : 'Sin fecha'}</td>
                         <td>${fechaHora ? fechaHora.horaTexto : 'Sin horario'}</td>
-                        <td><span class="${badgeClass}">${cita.modalidad}</span></td>
+                        <td><span class="${badgeClass}">${escaparHtml(cita.modalidad)}</span></td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-delete-cita" onclick="eliminarCita('${cita.folio}')">Eliminar</button>
-                                <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${cita.folio}')">Atender</button>
+                                <button class="btn-delete-cita" onclick="eliminarCita('${escaparHtml(cita.folio)}')">Eliminar</button>
+                                <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${escaparHtml(cita.folio)}')">Atender</button>
                             </div>
                         </td>
                     </tr>
                 `;
             }).join('');
 
-            panel.innerHTML = `
+            panelMecanico().innerHTML = `
                 <div class="panel-header">
                     <h2>Desglose de Citas y Registros de Clientes</h2>
                     <p>Visualización de citas agendadas desde la web y registros directos en caja.</p>
@@ -970,39 +1140,92 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasHTML}
+                            ${filasHTML || '<tr><td colspan="9" style="text-align:center;">No hay citas registradas.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
             `;
         }
 
-        /* 3. NUEVO MÓDULO INDEPENDIENTE: COBRO DE MANTENIMIENTO / SERVICIO */
-        function renderizarModuloCobroSeparado() {
-            const panel = document.getElementById('panel-contenido-mecanico');
-            const catalogo = obtenerCatalogo();
-            sincronizarCitas();
+        async function cargarCitaEnFormulario(folio) {
+            await cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
 
-            let filasServicios = listaCitas.map(cita => `
+            const citaEncontrada = listaCitas.find(c => c.folio === folio);
+            if (!citaEncontrada || !document.getElementById('folioCita')) return;
+
+            document.getElementById('folioCita').value = citaEncontrada.folio;
+            document.getElementById('placasInput').value = citaEncontrada.placas || '';
+            document.getElementById('clienteInput').value = citaEncontrada.cliente || '';
+
+            const selectEstado = document.getElementById('estadoCita');
+            if (Array.from(selectEstado.options).some(o => o.value === citaEncontrada.modalidad)) {
+                selectEstado.value = citaEncontrada.modalidad;
+            }
+
+            document.getElementById('kilometraje').value =
+                citaEncontrada.kilometraje != null ? citaEncontrada.kilometraje : '';
+            document.getElementById('fallas').value = citaEncontrada.servicio || '';
+            document.getElementById('diagnostico').value = citaEncontrada.diagnostico
+                || ('Revisión técnica en proceso para la motocicleta ' + citaEncontrada.moto + '.');
+            document.getElementById('servicioExtraDescripcion').value =
+                citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.descripcion || '' : '';
+            document.getElementById('servicioExtraPrecio').value =
+                citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.precio : '';
+
+            const catalogo = obtenerCatalogo();
+            refaccionesMantenimientoForm = (citaEncontrada.refacciones || []).map(refaccionGuardada => {
+                const producto = catalogo.find(refaccion =>
+                    refaccion.id === String(refaccionGuardada.id) ||
+                    refaccion.sku === refaccionGuardada.sku ||
+                    refaccion.nombre === refaccionGuardada.nombre
+                );
+                return producto
+                    ? { id: producto.id, cantidad: refaccionGuardada.cantidad }
+                    : null;
+            }).filter(Boolean);
+
+            document.getElementById('requiereRefacciones').checked =
+                citaEncontrada.requiereRefacciones === true || refaccionesMantenimientoForm.length > 0;
+            toggleRefaccionesMantenimiento();
+            renderizarRefaccionesMantenimiento();
+        }
+
+        async function eliminarCita(folio) {
+            const cita = listaCitas.find(c => c.folio === folio);
+            if (!cita) return;
+            if (!confirm('¿Está seguro de eliminar la cita ' + folio + '?')) return;
+            try {
+                await enviar('DELETE', '/api/citas/' + cita.id);
+                cambiarVistaMecanico('citas', document.querySelectorAll('.nav-btn')[1]);
+            } catch (e) {
+                alert('No se pudo eliminar la cita: ' + e.message);
+            }
+        }
+
+        /* 3. COBRO DE MANTENIMIENTO / SERVICIO */
+        function renderizarModuloCobroSeparado() {
+            const catalogo = obtenerCatalogo();
+
+            const filasServicios = listaCitas.map(cita => `
                 <tr>
-                    <td style="font-weight:600; color:#ffffff;">${cita.folio}</td>
-                    <td><strong>${cita.cliente}</strong></td>
-                    <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:600;">${cita.mecanico || 'Miguel Landa'}</span></td>
-                    <td>${cita.moto} (${cita.placas})</td>
-                    <td>${cita.servicio}</td>
+                    <td style="font-weight:600; color:#ffffff;">${escaparHtml(cita.folio)}</td>
+                    <td><strong>${escaparHtml(cita.cliente)}</strong></td>
+                    <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:600;">${escaparHtml(cita.mecanico || 'Miguel Landa')}</span></td>
+                    <td>${escaparHtml(cita.moto)} (${escaparHtml(cita.placas)})</td>
+                    <td>${escaparHtml(cita.servicio)}</td>
                     <td>
                         ${cita.pagoRegistradoId
                             ? '<button class="btn-select-cita" disabled>✓ Cobrado</button>'
-                            : `<button class="btn-select-cita" style="background:#22c55e; color:#000;" onclick="seleccionarServicioParaCobrar('${cita.folio}')">💳 Generar Cobro / Ticket</button>`}
+                            : `<button class="btn-select-cita" style="background:#22c55e; color:#000;" onclick="seleccionarServicioParaCobrar('${escaparHtml(cita.folio)}')">💳 Generar Cobro / Ticket</button>`}
                     </td>
                 </tr>
             `).join('');
 
-            let opcionesRefacciones = catalogo.map(p => 
-                `<option value="${p.id}">[${p.sku}] ${p.nombre} - $${p.precio.toFixed(2)} (Stock: ${p.stock})</option>`
+            const opcionesRefacciones = catalogo.map(p =>
+                `<option value="${p.id}">[${escaparHtml(p.sku)}] ${escaparHtml(p.nombre)} - $${p.precio.toFixed(2)} (Stock: ${p.stock})</option>`
             ).join('');
 
-            panel.innerHTML = `
+            panelMecanico().innerHTML = `
                 <div class="panel-header">
                     <h2>Cobro de Mantenimiento / Servicio Técnico</h2>
                     <p>Selección de servicios concluidos, asignación de mecánico, refacciones utilizadas y emisión de ticket.</p>
@@ -1030,12 +1253,12 @@
                 </div>
 
                 <div id="formularioCobroDetalle" style="display: ${servicioSeleccionadoParaCobro ? 'block' : 'none'};">
-                    <div class="form-section-title">Detalles de Facturación y Cobro (${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.folio : ''})</div>
-                    
+                    <div class="form-section-title">Detalles de Facturación y Cobro (${servicioSeleccionadoParaCobro ? escaparHtml(servicioSeleccionadoParaCobro.folio) : ''})</div>
+
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Cliente</label>
-                            <input type="text" id="cobroClienteInput" value="${servicioSeleccionadoParaCobro ? servicioSeleccionadoParaCobro.cliente : ''}" readonly>
+                            <input type="text" id="cobroClienteInput" value="${servicioSeleccionadoParaCobro ? escaparHtml(servicioSeleccionadoParaCobro.cliente) : ''}" readonly>
                         </div>
                         <div class="input-group">
                             <label>Mecánico que Realizó el Mantenimiento</label>
@@ -1050,11 +1273,11 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Servicio realizado (editable)</label>
-                            <input type="text" id="cobroServicioDescInput" value="${servicioSeleccionadoParaCobro ? escaparHtml(servicioSeleccionadoParaCobro.servicioRealizado || servicioSeleccionadoParaCobro.servicio || '') : ''}" required>
+                            <input type="text" id="cobroServicioDescInput" value="${servicioSeleccionadoParaCobro ? escaparHtml(servicioSeleccionadoParaCobro.servicio || '') : ''}" required>
                         </div>
                         <div class="input-group">
                             <label>Precio del servicio / mano de obra ($ MXN)</label>
-                            <input type="number" id="cobroManoObraInput" value="${servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.costoManoObra !== undefined ? servicioSeleccionadoParaCobro.costoManoObra : '300.00'}" min="0" step="0.01" oninput="actualizarTotalesCobroModulo()" required>
+                            <input type="number" id="cobroManoObraInput" value="300.00" min="0" step="0.01" oninput="actualizarTotalesCobroModulo()" required>
                         </div>
                     </div>
 
@@ -1098,9 +1321,205 @@
             if (servicioSeleccionadoParaCobro) actualizarTotalesCobroModulo();
         }
 
+        function seleccionarServicioParaCobrar(folio) {
+            const servicio = listaCitas.find(c => c.folio === folio);
+            if (!servicio) return;
+
+            servicioSeleccionadoParaCobro = servicio;
+            piezasyInsumosServicio = [];
+            renderizarModuloCobroSeparado();
+            cargarRefaccionesOrdenAlCobro(servicio);
+
+            const selectMecanico = document.getElementById('cobroMecanicoSelect');
+            if (servicio.mecanico && selectMecanico &&
+                Array.from(selectMecanico.options).some(o => o.value === servicio.mecanico)) {
+                selectMecanico.value = servicio.mecanico;
+            }
+
+            const formulario = document.getElementById('formularioCobroDetalle');
+            if (formulario) formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cargarRefaccionesOrdenAlCobro(servicio) {
+            const catalogoServicio = obtenerCatalogo();
+            piezasyInsumosServicio = (servicio.refacciones || []).map(refaccionGuardada => {
+                const producto = catalogoServicio.find(refaccion =>
+                    refaccion.id === String(refaccionGuardada.id) ||
+                    refaccion.sku === refaccionGuardada.sku ||
+                    refaccion.nombre === refaccionGuardada.nombre
+                );
+                if (!producto) return null;
+                return {
+                    id: producto.id,
+                    sku: producto.sku,
+                    nombre: producto.nombre,
+                    precio: producto.precio,
+                    cantidad: refaccionGuardada.cantidad
+                };
+            }).filter(Boolean);
+            actualizarTotalesCobroModulo();
+        }
+
+        function agregarPiezaAlCobroModulo() {
+            const selector = document.getElementById('selectRefaccionCobro');
+            if (!selector || !selector.value) return;
+
+            const refId = selector.value;
+            const cant = parseInt(document.getElementById('cantRefaccionCobro').value) || 1;
+            const ref = obtenerCatalogo().find(p => p.id === refId);
+
+            if (ref) {
+                if (cant > ref.stock) {
+                    alert(`⚠️ Stock insuficiente. Quedan ${ref.stock} pzas de ${ref.nombre}.`);
+                    return;
+                }
+                const existe = piezasyInsumosServicio.find(i => i.id === refId);
+                if (existe) {
+                    if ((existe.cantidad + cant) > ref.stock) {
+                        alert(`⚠️ Supera el stock disponible (${ref.stock} pzas).`);
+                        return;
+                    }
+                    existe.cantidad += cant;
+                } else {
+                    piezasyInsumosServicio.push({ id: ref.id, sku: ref.sku, nombre: ref.nombre, precio: ref.precio, cantidad: cant });
+                }
+                actualizarTotalesCobroModulo();
+            }
+        }
+
+        function modificarCantidadPiezaModulo(id, delta) {
+            const item = piezasyInsumosServicio.find(i => i.id === id);
+            const ref = obtenerCatalogo().find(p => p.id === id);
+
+            if (item && ref) {
+                if (delta > 0 && (item.cantidad + delta) > ref.stock) {
+                    alert(`⚠️ No puedes agregar más del stock disponible (${ref.stock} pzas).`);
+                    return;
+                }
+                item.cantidad += delta;
+                if (item.cantidad <= 0) piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
+                actualizarTotalesCobroModulo();
+            }
+        }
+
+        function removerPiezaCobroModulo(id) {
+            piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
+            actualizarTotalesCobroModulo();
+        }
+
+        function actualizarTotalesCobroModulo() {
+            const contenedor = document.getElementById('listaPiezasCobroModulo');
+            if (!contenedor) return;
+
+            const manoObra = parseFloat(document.getElementById('cobroManoObraInput').value) || 0;
+            const servicioExtra = servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.servicioExtra;
+            const precioServicioExtra = servicioExtra ? Number(servicioExtra.precio) || 0 : 0;
+            let subtotalRef = 0;
+
+            if (piezasyInsumosServicio.length === 0) {
+                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado refacciones al ticket de cobro.</p>';
+            } else {
+                contenedor.innerHTML = piezasyInsumosServicio.map(item => {
+                    const importe = item.precio * item.cantidad;
+                    subtotalRef += importe;
+                    return `
+                        <div class="summary-row">
+                            <div>
+                                <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${escaparHtml(item.sku)}</span>
+                                <strong style="color:#ffffff;">${escaparHtml(item.nombre)}</strong>
+                                <span style="margin-left:8px;">
+                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', -1)">-</button>
+                                    <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
+                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', 1)">+</button>
+                                </span>
+                                <button class="btn-remove-item" onclick="removerPiezaCobroModulo('${item.id}')">Quitar</button>
+                            </div>
+                            <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const subtotalGen = subtotalRef + manoObra + precioServicioExtra;
+            const iva = subtotalGen * 0.16;
+            const total = subtotalGen + iva;
+
+            document.getElementById('lblCobroManoObra').innerText = '$' + manoObra.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroServicioExtra').innerText = '$' + precioServicioExtra.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroSubtotal').innerText = '$' + subtotalGen.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroIva').innerText = '$' + iva.toFixed(2) + ' MXN';
+            document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
+        }
+
+        async function finalizarCobroMantenimiento(boton) {
+            if (!servicioSeleccionadoParaCobro) return;
+
+            const descripcionServicioRealizado = document.getElementById('cobroServicioDescInput').value.trim();
+            const costoManoObra = Number(document.getElementById('cobroManoObraInput').value);
+            if (!descripcionServicioRealizado || !Number.isFinite(costoManoObra) || costoManoObra < 0) {
+                alert('Indica el servicio realizado y un precio válido de mano de obra (mínimo $0.00).');
+                return;
+            }
+
+            const catalogo = obtenerCatalogo();
+            const cantidadesPorRefaccion = new Map();
+            piezasyInsumosServicio.forEach(item => {
+                cantidadesPorRefaccion.set(item.id, (cantidadesPorRefaccion.get(item.id) || 0) + item.cantidad);
+            });
+            for (const [id, cantidad] of cantidadesPorRefaccion) {
+                const refaccion = catalogo.find(producto => producto.id === id);
+                if (!refaccion || cantidad > refaccion.stock) {
+                    alert(`Stock insuficiente para ${refaccion ? refaccion.nombre : 'una refacción del servicio'}. Ajusta las cantidades antes de finalizar el cobro.`);
+                    return;
+                }
+            }
+
+            const servicioActualizado = listaCitas.find(cita => cita.folio === servicioSeleccionadoParaCobro.folio);
+            if (!servicioActualizado) {
+                alert('No se encontró el servicio seleccionado. Actualiza la lista e inténtalo de nuevo.');
+                return;
+            }
+            if (servicioActualizado.pagoRegistradoId) {
+                alert('Este servicio ya tiene un cobro registrado. Consulta el historial para ver el detalle.');
+                return;
+            }
+
+            if (boton) boton.disabled = true;
+            try {
+                await enviar('POST', '/api/cobros', {
+                    folio: servicioActualizado.folio,
+                    cliente: servicioActualizado.cliente || 'Cliente General',
+                    motocicleta: servicioActualizado.moto || 'Motocicleta ingresada',
+                    placas: servicioActualizado.placas || 'Sin placas',
+                    servicioSolicitado: servicioActualizado.servicio || 'Servicio general',
+                    servicioRealizado: descripcionServicioRealizado,
+                    mecanico: document.getElementById('cobroMecanicoSelect').value,
+                    manoObra: costoManoObra,
+                    servicioExtraDescripcion: servicioActualizado.servicioExtra?.descripcion || '',
+                    servicioExtraPrecio: servicioActualizado.servicioExtra?.precio || 0,
+                    refacciones: piezasyInsumosServicio.map(item => ({
+                        sku: item.sku,
+                        nombre: item.nombre,
+                        precioUnitario: item.precio,
+                        cantidad: item.cantidad
+                    }))
+                });
+            } catch (error) {
+                if (boton) boton.disabled = false;
+                alert(`No se registró el cobro. No se descontó el stock. ${error.message || 'Verifica la conexión e inténtalo de nuevo.'}`);
+                return;
+            }
+
+            // El servidor ya descontó el stock y marcó la cita como cobrada
+            document.getElementById('alertaCobroExito').style.display = 'block';
+            setTimeout(() => {
+                cambiarVistaMecanico('cobro', document.querySelectorAll('.nav-btn')[2]);
+            }, 1800);
+        }
+
+        /* 4. HISTORIAL DE COBROS */
         async function renderizarHistorialCobros() {
-            const panel = document.getElementById('panel-contenido-mecanico');
-            panel.innerHTML = `
+            panelMecanico().innerHTML = `
                 <div class="panel-header">
                     <h2>Historial de Cobros</h2>
                     <p>Consulta servicios cobrados y totales de caja por día o semana.</p>
@@ -1108,13 +1527,10 @@
                 <div class="summary-box">Cargando historial...</div>
             `;
             try {
-                const respuesta = await fetch('/api/cobros');
-                if (!respuesta.ok) throw new Error(`El servidor respondió con estado ${respuesta.status}.`);
-                historialCobros = await respuesta.json();
+                historialCobros = await api('/api/cobros');
                 mostrarHistorialCobros();
             } catch (error) {
-                console.error('No se pudo cargar el historial de cobros:', error);
-                panel.innerHTML = `
+                panelMecanico().innerHTML = `
                     <div class="panel-header"><h2>Historial de Cobros</h2></div>
                     <div class="summary-box">
                         <p>No fue posible conectar con el servidor: ${escaparHtml(error.message || 'Error de conexión.')}</p>
@@ -1125,7 +1541,6 @@
         }
 
         function mostrarHistorialCobros(fechaInicio = fechaLocalISO(new Date()), fechaFin = fechaLocalISO(new Date())) {
-            const panel = document.getElementById('panel-contenido-mecanico');
             const cobrosFiltrados = historialCobros.filter(cobro => {
                 const fechaPago = fechaLocalISO(new Date(cobro.fechaPago));
                 return fechaPago >= fechaInicio && fechaPago <= fechaFin;
@@ -1153,6 +1568,7 @@
                         <td>${formatearMoneda(registro.total)}</td>
                     </tr>
                 `).join('');
+
             const filasCobros = cobrosFiltrados.map(cobro => {
                 const detalleRefacciones = (cobro.refacciones || []).map(refaccion =>
                     `${escaparHtml(refaccion.nombre)} (${refaccion.cantidad} × ${formatearMoneda(refaccion.precioUnitario)}) — ${formatearMoneda(refaccion.importe)}`
@@ -1179,7 +1595,7 @@
                 `;
             }).join('');
 
-            panel.innerHTML = `
+            panelMecanico().innerHTML = `
                 <div class="panel-header">
                     <h2>Historial de Cobros</h2>
                     <p>Elige un periodo para consultar la caja. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
@@ -1197,7 +1613,7 @@
                         <button type="button" class="btn-secondary" onclick="seleccionarPeriodoHistorial('hoy')">Hoy</button>
                         <button type="button" class="btn-secondary" onclick="seleccionarPeriodoHistorial('semana')">Esta semana</button>
                         <button type="button" class="btn-secondary" onclick="aplicarFiltroHistorial()">Aplicar fechas</button>
-                        <button type="button" class="btn-action" onclick="imprimirReporteCobros()">Imprimir / Guardar PDF</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporteCobros()">Imprimir / Guardar PDF</button>
                     </div>
                 </div>
                 <div class="report-summary-grid">
@@ -1253,415 +1669,6 @@
             document.body.classList.add('reporte-impresion');
             window.print();
             window.setTimeout(() => document.body.classList.remove('reporte-impresion'), 500);
-        }
-
-        function fechaLocalISO(fecha) {
-            const anio = fecha.getFullYear();
-            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-            const dia = String(fecha.getDate()).padStart(2, '0');
-            return `${anio}-${mes}-${dia}`;
-        }
-
-        function formatearMoneda(importe) {
-            return new Intl.NumberFormat('es-MX', {
-                style: 'currency',
-                currency: 'MXN'
-            }).format(Number(importe) || 0);
-        }
-
-        function seleccionarServicioParaCobrar(folio) {
-            const servicio = listaCitas.find(c => c.folio === folio);
-            if (servicio) {
-                servicioSeleccionadoParaCobro = servicio;
-                piezasyInsumosServicio = [];
-                renderizarModuloCobroSeparado();
-                cargarRefaccionesOrdenAlCobro(servicio);
-                if (servicio.mecanico) {
-                    document.getElementById('cobroMecanicoSelect').value = servicio.mecanico;
-                }
-            }
-        }
-
-        function cargarRefaccionesOrdenAlCobro(servicio) {
-            const catalogoServicio = obtenerCatalogo();
-            piezasyInsumosServicio = (servicio.refacciones || []).map(refaccionGuardada => {
-                const producto = catalogoServicio.find(refaccion =>
-                    refaccion.id === refaccionGuardada.id ||
-                    refaccion.sku === refaccionGuardada.sku ||
-                    refaccion.nombre === refaccionGuardada.nombre
-                );
-                if (!producto) return null;
-                return {
-                    id: producto.id,
-                    sku: producto.sku,
-                    nombre: producto.nombre,
-                    precio: producto.precio,
-                    cantidad: refaccionGuardada.cantidad
-                };
-            }).filter(Boolean);
-            actualizarTotalesCobroModulo();
-        }
-
-        function escaparHtml(valor) {
-            return String(valor).replace(/[&<>"']/g, caracter => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            })[caracter]);
-        }
-
-        function agregarPiezaAlCobroModulo() {
-            const refId = document.getElementById('selectRefaccionCobro').value;
-            const cant = parseInt(document.getElementById('cantRefaccionCobro').value) || 1;
-            const catalogo = obtenerCatalogo();
-            const ref = catalogo.find(p => p.id === refId);
-
-            if (ref) {
-                if (cant > ref.stock) {
-                    alert(`⚠️ Stock insuficiente. Quedan ${ref.stock} pzas de ${ref.nombre}.`);
-                    return;
-                }
-                const existe = piezasyInsumosServicio.find(i => i.id === refId);
-                if (existe) {
-                    if ((existe.cantidad + cant) > ref.stock) {
-                        alert(`⚠️ Supera el stock disponible (${ref.stock} pzas).`);
-                        return;
-                    }
-                    existe.cantidad += cant;
-                } else {
-                    piezasyInsumosServicio.push({ id: ref.id, sku: ref.sku, nombre: ref.nombre, precio: ref.precio, cantidad: cant });
-                }
-                actualizarTotalesCobroModulo();
-            }
-        }
-
-        function modificarCantidadPiezaModulo(id, delta) {
-            const item = piezasyInsumosServicio.find(i => i.id === id);
-            const catalogo = obtenerCatalogo();
-            const ref = catalogo.find(p => p.id === id);
-
-            if (item && ref) {
-                if (delta > 0 && (item.cantidad + delta) > ref.stock) {
-                    alert(`⚠️ No puedes agregar más del stock disponible (${ref.stock} pzas).`);
-                    return;
-                }
-                item.cantidad += delta;
-                if (item.cantidad <= 0) piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
-                actualizarTotalesCobroModulo();
-            }
-        }
-
-        function removerPiezaCobroModulo(id) {
-            piezasyInsumosServicio = piezasyInsumosServicio.filter(i => i.id !== id);
-            actualizarTotalesCobroModulo();
-        }
-
-        function actualizarTotalesCobroModulo() {
-            const contenedor = document.getElementById('listaPiezasCobroModulo');
-            if (!contenedor) return;
-
-            const manoObra = parseFloat(document.getElementById('cobroManoObraInput').value) || 0;
-            const servicioExtra = servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.servicioExtra;
-            const precioServicioExtra = servicioExtra ? Number(servicioExtra.precio) || 0 : 0;
-            let subtotalRef = 0;
-
-            if (piezasyInsumosServicio.length === 0) {
-                contenedor.innerHTML = '<p style="color:#a3a3a3; text-align:center; padding:10px 0;">No se han agregado refacciones al ticket de cobro.</p>';
-            } else {
-                contenedor.innerHTML = piezasyInsumosServicio.map(item => {
-                    const importe = item.precio * item.cantidad;
-                    subtotalRef += importe;
-                    return `
-                        <div class="summary-row">
-                            <div>
-                                <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${item.sku}</span>
-                                <strong style="color:#ffffff;">${item.nombre}</strong> 
-                                <span style="margin-left:8px;">
-                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', -1)">-</button>
-                                    <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                    <button class="qty-btn" onclick="modificarCantidadPiezaModulo('${item.id}', 1)">+</button>
-                                </span>
-                                <button class="btn-remove-item" onclick="removerPiezaCobroModulo('${item.id}')">Quitar</button>
-                            </div>
-                            <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            const subtotalGen = subtotalRef + manoObra + precioServicioExtra;
-            const iva = subtotalGen * 0.16;
-            const total = subtotalGen + iva;
-
-            document.getElementById('lblCobroManoObra').innerText = '$' + manoObra.toFixed(2) + ' MXN';
-            document.getElementById('lblCobroServicioExtra').innerText = '$' + precioServicioExtra.toFixed(2) + ' MXN';
-            document.getElementById('lblCobroSubtotal').innerText = '$' + subtotalGen.toFixed(2) + ' MXN';
-            document.getElementById('lblCobroIva').innerText = '$' + iva.toFixed(2) + ' MXN';
-            document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
-        }
-
-        async function finalizarCobroMantenimiento(boton) {
-            if (!servicioSeleccionadoParaCobro) return;
-
-            const descripcionServicioRealizado = document.getElementById('cobroServicioDescInput').value.trim();
-            const costoManoObra = Number(document.getElementById('cobroManoObraInput').value);
-            if (!descripcionServicioRealizado || !Number.isFinite(costoManoObra) || costoManoObra < 0) {
-                alert('Indica el servicio realizado y un precio válido de mano de obra (mínimo $0.00).');
-                return;
-            }
-
-            const catalogo = obtenerCatalogo();
-            const cantidadesPorRefaccion = new Map();
-            piezasyInsumosServicio.forEach(item => {
-                cantidadesPorRefaccion.set(
-                    item.id,
-                    (cantidadesPorRefaccion.get(item.id) || 0) + item.cantidad
-                );
-            });
-            for (const [id, cantidad] of cantidadesPorRefaccion) {
-                const refaccion = catalogo.find(producto => producto.id === id);
-                if (!refaccion || cantidad > refaccion.stock) {
-                    alert(`Stock insuficiente para ${refaccion ? refaccion.nombre : 'una refacción del servicio'}. Ajusta las cantidades antes de finalizar el cobro.`);
-                    return;
-                }
-            }
-            const servicioActualizado = listaCitas.find(cita =>
-                cita.folio === servicioSeleccionadoParaCobro.folio
-            );
-            if (!servicioActualizado) {
-                alert('No se encontró el servicio seleccionado. Actualiza la lista e inténtalo de nuevo.');
-                return;
-            }
-            if (servicioActualizado.pagoRegistradoId) {
-                alert('Este servicio ya tiene un cobro registrado. Consulta el historial para ver el detalle.');
-                return;
-            }
-
-            if (boton) boton.disabled = true;
-            let cobroRegistrado;
-            try {
-                const respuesta = await fetch('/api/cobros', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        folio: servicioActualizado.folio,
-                        cliente: servicioActualizado.cliente || 'Cliente General',
-                        motocicleta: servicioActualizado.moto || 'Motocicleta ingresada',
-                        placas: servicioActualizado.placas || 'Sin placas',
-                        servicioSolicitado: servicioActualizado.servicio || 'Servicio general',
-                        servicioRealizado: descripcionServicioRealizado,
-                        mecanico: document.getElementById('cobroMecanicoSelect').value,
-                        manoObra: costoManoObra,
-                        servicioExtraDescripcion: servicioActualizado.servicioExtra?.descripcion || '',
-                        servicioExtraPrecio: servicioActualizado.servicioExtra?.precio || 0,
-                        refacciones: piezasyInsumosServicio.map(item => ({
-                            sku: item.sku,
-                            nombre: item.nombre,
-                            precioUnitario: item.precio,
-                            cantidad: item.cantidad
-                        }))
-                    })
-                });
-                if (!respuesta.ok) {
-                    const detalle = await respuesta.text();
-                    throw new Error(detalle || `El servidor respondió con estado ${respuesta.status}.`);
-                }
-                cobroRegistrado = await respuesta.json();
-            } catch (error) {
-                if (boton) boton.disabled = false;
-                console.error('No se pudo registrar el cobro en el servidor:', error);
-                alert(`No se registró el cobro en el historial. No se descontó el stock. ${error.message || 'Verifica la conexión e inténtalo de nuevo.'}`);
-                return;
-            }
-            cantidadesPorRefaccion.forEach((cantidad, id) => {
-                const refaccion = catalogo.find(producto => producto.id === id);
-                refaccion.stock -= cantidad;
-            });
-            guardarCatalogo(catalogo);
-            servicioActualizado.servicioRealizado = descripcionServicioRealizado;
-            servicioActualizado.costoManoObra = costoManoObra;
-            servicioActualizado.mecanico = document.getElementById('cobroMecanicoSelect').value;
-            servicioActualizado.pagoRegistradoId = cobroRegistrado.id;
-            servicioSeleccionadoParaCobro = servicioActualizado;
-            guardarCitas();
-
-            const alerta = document.getElementById("alertaCobroExito");
-            alerta.style.display = "block";
-
-            setTimeout(() => {
-                alerta.style.display = "none";
-                servicioSeleccionadoParaCobro = null;
-                piezasyInsumosServicio = [];
-                renderizarModuloCobroSeparado();
-            }, 1800);
-        }
-
-        /* FUNCIONES AUXILIARES DE MANTENIMIENTO Y CITAS */
-        function cargarCitaEnFormulario(folio) {
-            const citaEncontrada = listaCitas.find(c => c.folio === folio);
-            const botonesNav = document.querySelectorAll('.nav-btn');
-            
-            cambiarVistaMecanico('mantenimiento', botonesNav[0]);
-
-            setTimeout(() => {
-                if (citaEncontrada) {
-                    document.getElementById('folioCita').value = citaEncontrada.folio;
-                    document.getElementById('placasInput').value = citaEncontrada.placas;
-                    document.getElementById('clienteInput').value = citaEncontrada.cliente;
-                    document.getElementById('estadoCita').value = citaEncontrada.modalidad;
-                    document.getElementById('fallas').value = citaEncontrada.servicio;
-                    document.getElementById('diagnostico').value = 'Revisión técnica en proceso para la motocicleta ' + citaEncontrada.moto + '.';
-                    document.getElementById('servicioExtraDescripcion').value =
-                        citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.descripcion || '' : '';
-                    document.getElementById('servicioExtraPrecio').value =
-                        citaEncontrada.servicioExtra ? citaEncontrada.servicioExtra.precio : '';
-                    const catalogo = obtenerCatalogo();
-                    refaccionesMantenimientoForm = (citaEncontrada.refacciones || []).map(refaccionGuardada => {
-                        const producto = catalogo.find(refaccion =>
-                            refaccion.id === refaccionGuardada.id ||
-                            refaccion.sku === refaccionGuardada.sku ||
-                            refaccion.nombre === refaccionGuardada.nombre
-                        );
-                        return producto
-                            ? { id: producto.id, cantidad: refaccionGuardada.cantidad }
-                            : null;
-                    }).filter(Boolean);
-                    document.getElementById('requiereRefacciones').checked =
-                        citaEncontrada.requiereRefacciones === true || refaccionesMantenimientoForm.length > 0;
-                    toggleRefaccionesMantenimiento();
-                    renderizarRefaccionesMantenimiento();
-                }
-            }, 100);
-        }
-
-        function toggleRefaccionesMantenimiento() {
-            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
-            const camposRefacciones = document.getElementById('camposRefaccionesMantenimiento');
-
-            camposRefacciones.style.display = requiereRefacciones ? 'block' : 'none';
-            if (requiereRefacciones && refaccionesMantenimientoForm.length === 0) {
-                agregarRefaccionMantenimiento();
-            } else if (!requiereRefacciones) {
-                refaccionesMantenimientoForm = [];
-                renderizarRefaccionesMantenimiento();
-            }
-        }
-
-        function eliminarCita(folio) {
-            if (confirm('¿Está seguro de eliminar la cita ' + folio + '?')) {
-                sincronizarCitas();
-                listaCitas = listaCitas.filter(c => c.folio !== folio);
-                guardarCitas();
-                const botonesNav = document.querySelectorAll('.nav-btn');
-                cambiarVistaMecanico('citas', botonesNav[1]);
-            }
-        }
-
-        function guardarMantenimientoOriginal(event) {
-            event.preventDefault();
-            sincronizarCitas();
-
-            const folioActual = document.getElementById('folioCita').value;
-            const placasVal = document.getElementById('placasInput').value;
-            const clienteVal = document.getElementById('clienteInput').value;
-            const estadoCitaVal = document.getElementById('estadoCita').value;
-            const fallasVal = document.getElementById('fallas').value;
-            const servicioExtraDescripcion = document.getElementById('servicioExtraDescripcion').value.trim();
-            const servicioExtraPrecioValor = document.getElementById('servicioExtraPrecio').value.trim();
-            const servicioExtraPrecio = Number(servicioExtraPrecioValor);
-            const tieneServicioExtra = Boolean(servicioExtraDescripcion || servicioExtraPrecioValor);
-            if (tieneServicioExtra && (
-                !servicioExtraDescripcion ||
-                !servicioExtraPrecioValor ||
-                !Number.isFinite(servicioExtraPrecio) ||
-                servicioExtraPrecio <= 0
-            )) {
-                alert('Para cobrar un servicio extra, agrega su descripción y un precio mayor a $0.00.');
-                return;
-            }
-            const servicioExtra = tieneServicioExtra
-                ? { descripcion: servicioExtraDescripcion, precio: servicioExtraPrecio }
-                : null;
-            const requiereRefacciones = document.getElementById('requiereRefacciones').checked;
-            if (requiereRefacciones && (
-                refaccionesMantenimientoForm.length === 0 ||
-                refaccionesMantenimientoForm.some(refaccion =>
-                    !refaccion.id || !Number.isInteger(refaccion.cantidad) || refaccion.cantidad < 1
-                )
-            )) {
-                alert('Agrega al menos una refacción y selecciona una cantidad válida para cada una.');
-                return;
-            }
-
-            const catalogo = obtenerCatalogo();
-            const refacciones = requiereRefacciones
-                ? refaccionesMantenimientoForm.map(refaccionForm => {
-                    const producto = catalogo.find(refaccion => refaccion.id === refaccionForm.id);
-                    if (!producto) return null;
-                    return {
-                        id: producto.id,
-                        sku: producto.sku,
-                        nombre: producto.nombre,
-                        precio: producto.precio,
-                        cantidad: refaccionForm.cantidad
-                    };
-                })
-                : [];
-            if (refacciones.some(refaccion => refaccion === null)) {
-                alert('Una de las refacciones seleccionadas ya no está disponible en el catálogo. Actualiza la selección e inténtalo de nuevo.');
-                return;
-            }
-            const cantidadesPorRefaccion = new Map();
-            refacciones.forEach(refaccion => {
-                cantidadesPorRefaccion.set(
-                    refaccion.id,
-                    (cantidadesPorRefaccion.get(refaccion.id) || 0) + refaccion.cantidad
-                );
-            });
-            for (const [id, cantidad] of cantidadesPorRefaccion) {
-                const producto = catalogo.find(refaccion => refaccion.id === id);
-                if (cantidad > producto.stock) {
-                    alert(`Stock insuficiente para ${producto.nombre}. Disponibles: ${producto.stock} pzas.`);
-                    return;
-                }
-            }
-
-            const indiceExistente = listaCitas.findIndex(c => c.folio === folioActual);
-
-            if (indiceExistente !== -1) {
-                listaCitas[indiceExistente].placas = placasVal;
-                listaCitas[indiceExistente].cliente = clienteVal;
-                listaCitas[indiceExistente].servicio = fallasVal;
-                listaCitas[indiceExistente].modalidad = estadoCitaVal;
-                listaCitas[indiceExistente].requiereRefacciones = requiereRefacciones;
-                listaCitas[indiceExistente].refacciones = refacciones;
-                listaCitas[indiceExistente].servicioExtra = servicioExtra;
-            } else {
-                listaCitas.unshift({
-                    folio: folioActual,
-                    cliente: clienteVal || 'Cliente General',
-                    mecanico: 'Miguel Landa',
-                    moto: 'Motocicleta Ingresada',
-                    placas: placasVal.toUpperCase(),
-                    servicio: fallasVal || 'Mantenimiento General',
-                    modalidad: estadoCitaVal,
-                    requiereRefacciones,
-                    refacciones,
-                    servicioExtra
-                });
-                contadorConsecutivoFolio++;
-            }
-            guardarCitas();
-
-            const alerta = document.getElementById("alertaExito");
-            alerta.style.display = "block";
-
-            setTimeout(() => { 
-                alerta.style.display = "none"; 
-                cambiarVistaMecanico('mantenimiento', document.querySelectorAll('.nav-btn')[0]);
-            }, 2000);
         }
 
         window.onload = function() {
