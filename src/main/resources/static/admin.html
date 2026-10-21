@@ -243,6 +243,11 @@
             background: var(--muted-strong);
         }
 
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .btn-add-item {
             background: var(--panel-strong);
             color: var(--text);
@@ -305,6 +310,28 @@
 
         .btn-edit-item:hover { text-decoration: underline; }
 
+        .badge-activo {
+            background: #edf7ef;
+            color: var(--success);
+            border: 1px solid #b9d9c1;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-inactivo {
+            background: #fff4f3;
+            color: var(--danger);
+            border: 1px solid #e9b8b5;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
         .alert-box {
             display: none;
             padding: 14px;
@@ -316,6 +343,11 @@
             font-weight: 500;
             text-align: center;
             margin-top: 15px;
+        }
+
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
         }
 
         .data-table {
@@ -395,6 +427,9 @@
                 <button class="nav-btn" onclick="cambiarVistaAdmin('articulos', this)">
                     🔧 Gestión del Catálogo de Artículos
                 </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('mecanicos', this)">
+                    👷 Registro de Mecánicos
+                </button>
             </div>
 
             <div class="main-panel" id="panel-contenido-admin">
@@ -417,12 +452,41 @@
         </div>
     </div>
 
+    <!-- Modal Emergente de Detalle de Mecánico -->
+    <div class="modal-overlay" id="modalDetalleMecanico">
+        <div class="modal-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h2 id="modalMecanicoTitulo">Detalle del Mecánico</h2>
+                <p id="modalMecanicoInfo">Especialidad</p>
+            </div>
+            <div class="summary-box" id="modalMecanicoContenido" style="margin-top:0;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn-close" onclick="cerrarModalMecanico()">Cerrar Ventana</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // ================= Utilidades de Comunicación con Base de Datos / Backend =================
-        function escaparHtml(valor) {
-            return String(valor == null ? '' : valor).replace(/[&<>"']/g, caracter => ({
+        // ================= Utilidades =================
+        function esc(valor) {
+            return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            })[caracter]);
+            })[c]);
+        }
+        function dinero(n) { return Number(n || 0).toFixed(2); }
+        function mismoId(a, b) { return String(a) === String(b); }
+        function redondear(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+
+        function hoyISO() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function formatoFecha(f) {
+            if (!f) return '—';
+            const d = new Date(`${f}T12:00:00`);
+            return isNaN(d.getTime()) ? esc(f) : d.toLocaleDateString('es-MX');
         }
 
         async function api(url, opciones) {
@@ -443,110 +507,86 @@
             });
         }
 
-        // ================= Caché Local de Datos del Servidor =================
+        // ================= Estado =================
         let catalogoCache = [];
         let proveedoresCache = [];
-        let historialComprasCache = [];
-
-        async function cargarDatosServidor() {
-            const [productos, provs, compras] = await Promise.all([
-                api('/api/productos'),
-                api('/api/proveedores'),
-                api('/api/compras')
-            ]);
-
-            catalogoCache = productos.map(p => ({
-                id: String(p.id),
-                sku: p.sku,
-                nombre: p.nombre,
-                precio: Number(p.precio),
-                costoCompra: Number(p.costo_compra || p.costoCompra || 0),
-                stock: Number(p.stock)
-            }));
-
-            proveedoresCache = provs.map(p => ({
-                id: String(p.id),
-                nombre: p.nombre,
-                rfc: p.rfc,
-                telefono: p.telefono,
-                email: p.email
-            }));
-
-            historialComprasCache = compras.map(c => ({
-                id: String(c.id),
-                factura: c.factura,
-                proveedor: c.proveedor,
-                fecha: c.fecha,
-                items: typeof c.items === 'string' ? JSON.parse(c.items) : (c.items || []),
-                subtotal: Number(c.subtotal),
-                iva: Number(c.iva),
-                total: Number(c.total)
-            }));
-        }
-
-        function obtenerCatalogo() { return catalogoCache; }
-        function obtenerProveedores() { return proveedoresCache; }
-        function obtenerHistorialCompras() { return historialComprasCache; }
-
+        let comprasCache = [];
+        let mecanicosCache = [];
+        let cobrosCache = [];
         let itemsCompraActual = [];
         let idProveedorEditando = null;
         let idProductoEditando = null;
+        let idMecanicoEditando = null;
+        let filtroMecanicos = '';
+
+        function panelAdmin() { return document.getElementById('panel-contenido-admin'); }
+
+        function mostrarCargando() {
+            panelAdmin().innerHTML = '<div class="summary-box">Cargando datos desde la base de datos...</div>';
+        }
+
+        function mostrarErrorCarga(error, vista) {
+            panelAdmin().innerHTML = `
+                <div class="summary-box">
+                    <p>No fue posible conectar con el servidor: ${esc(error.message)}</p>
+                    <p style="margin-top:8px;">Si el servidor estaba dormido, espera un minuto e inténtalo de nuevo.</p>
+                    <button class="btn-action" onclick="cambiarVistaAdmin('${vista}')">Reintentar</button>
+                </div>`;
+        }
 
         async function cambiarVistaAdmin(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
                 boton.classList.add('active');
             }
-
-            const panel = document.getElementById('panel-contenido-admin');
-            panel.innerHTML = '<div class="summary-box">Cargando datos desde la base de datos...</div>';
-
+            mostrarCargando();
             try {
-                await cargarDatosServidor();
-
                 if (vista === 'compras') {
                     itemsCompraActual = [];
+                    [proveedoresCache, catalogoCache, comprasCache] = await Promise.all([
+                        api('/api/proveedores'), api('/api/productos'), api('/api/compras')
+                    ]);
                     renderizarModuloCompras();
                 } else if (vista === 'proveedores') {
                     idProveedorEditando = null;
+                    proveedoresCache = await api('/api/proveedores');
                     renderizarModuloProveedores();
                 } else if (vista === 'articulos') {
                     idProductoEditando = null;
+                    catalogoCache = await api('/api/productos');
                     renderizarModuloArticulos();
+                } else if (vista === 'mecanicos') {
+                    idMecanicoEditando = null;
+                    mecanicosCache = await api('/api/mecanicos');
+                    try { cobrosCache = await api('/api/cobros'); } catch (e) { cobrosCache = []; }
+                    renderizarModuloMecanicos();
                 }
             } catch (e) {
-                panel.innerHTML = `
-                    <div class="summary-box">
-                        <p>No fue posible conectar con la base de datos: ${escaparHtml(e.message)}</p>
-                        <button class="btn-action" onclick="cambiarVistaAdmin('${vista}')">Reintentar Conexión</button>
-                    </div>`;
+                mostrarErrorCarga(e, vista);
             }
         }
 
-        /* ================= 1. MÓDULO DE COMPRAS CON HISTORIAL Y DETALLES ================= */
+        /* ================= 1. COMPRAS ================= */
         function renderizarModuloCompras() {
-            const panel = document.getElementById('panel-contenido-admin');
-            const proveedores = obtenerProveedores();
-            const catalogo = obtenerCatalogo();
-            const historial = obtenerHistorialCompras();
+            const opcionesProveedores = proveedoresCache.map(p =>
+                `<option value="${esc(p.nombre)}">${esc(p.nombre)}</option>`).join('');
+            const opcionesArticulos = catalogoCache.map(a =>
+                `<option value="${a.id}">[${esc(a.sku)}] ${esc(a.nombre)} - Costo: $${dinero(a.costo_compra)} (Stock: ${a.stock})</option>`).join('');
 
-            let opcionesProveedores = proveedores.map(p => `<option value="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`).join('');
-            let opcionesArticulos = catalogo.map(a => `<option value="${a.id}">[${escaparHtml(a.sku)}] ${escaparHtml(a.nombre)} Costo: $${a.costoCompra.toFixed(2)} (Stock: ${a.stock})</option>`).join('');
-
-            let filasHistorial = historial.map(c => `
+            const filasHistorial = comprasCache.map(c => `
                 <tr>
-                    <td><strong style="color:#ffffff;">${escaparHtml(c.factura)}</strong></td>
-                    <td>${escaparHtml(c.proveedor)}</td>
-                    <td>${escaparHtml(c.fecha)}</td>
-                    <td><strong style="color:#22c55e;">$${c.total.toFixed(2)} MXN</strong></td>
+                    <td><strong style="color:#ffffff;">${esc(c.factura)}</strong></td>
+                    <td>${esc(c.proveedor)}</td>
+                    <td>${esc(c.fecha)}</td>
+                    <td><strong style="color:#22c55e;">$${dinero(c.total)} MXN</strong></td>
                     <td>
-                        <button class="btn-edit-item" onclick="verDetalleCompra('${c.id}')">🔍 Detalle</button>
-                        <button class="btn-remove-item" onclick="eliminarCompra('${c.id}')">🗑️ Eliminar</button>
+                        <button class="btn-edit-item" onclick="verDetalleCompra(${c.id})">🔍 Detalle</button>
+                        <button class="btn-remove-item" onclick="eliminarCompra(${c.id})">🗑️ Eliminar</button>
                     </td>
                 </tr>
             `).join('');
 
-            panel.innerHTML = `
+            panelAdmin().innerHTML = `
                 <div class="panel-header">
                     <h2>Registrar Compra de Mercancía</h2>
                     <p>Ingreso de facturas de compra y surtido dinámico de stock a almacén.</p>
@@ -555,7 +595,7 @@
                 <div class="form-grid">
                     <div class="input-group">
                         <label>Seleccionar Proveedor Registrado</label>
-                        <select id="compraProveedorSelect">${opcionesProveedores}</select>
+                        <select id="compraProveedorSelect">${opcionesProveedores || '<option value="">Primero registra un proveedor</option>'}</select>
                     </div>
                     <div class="input-group">
                         <label>Número de Factura / Remisión</label>
@@ -566,7 +606,7 @@
                 <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                     <div class="input-group" style="margin-bottom:0; flex:2;">
                         <label>Artículo Surtido</label>
-                        <select id="selectCompraArticulo">${opcionesArticulos}</select>
+                        <select id="selectCompraArticulo">${opcionesArticulos || '<option value="">Primero registra artículos en el catálogo</option>'}</select>
                     </div>
                     <div class="input-group" style="margin-bottom:0; flex:1;">
                         <label>Cantidad Comprada</label>
@@ -588,10 +628,11 @@
                 </div>
 
                 <button class="btn-action" id="btnGuardarCompra" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
-                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente en la base de datos. El stock ha sido incrementado.</div>
+                <div id="alertaCompra" class="alert-box">✓ Compra registrada correctamente. El stock ha sido incrementado.</div>
 
                 <div class="summary-box" style="margin-top:30px;">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">📑 Historial de Compras Realizadas a Proveedores</h3>
+                    <div class="table-scroll">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -606,36 +647,36 @@
                             ${filasHistorial.length > 0 ? filasHistorial : '<tr><td colspan="5" style="text-align:center;">No hay compras registradas en el historial.</td></tr>'}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             `;
             actualizarTablaCompra();
         }
 
         function agregarArticuloACompra() {
-            const artId = document.getElementById('selectCompraArticulo').value;
+            const sel = document.getElementById('selectCompraArticulo');
+            if (!sel || !sel.value) return;
             const cantidad = parseInt(document.getElementById('compraCantidadInput').value) || 1;
-            const catalogo = obtenerCatalogo();
-            const articulo = catalogo.find(a => a.id === artId);
+            const articulo = catalogoCache.find(a => mismoId(a.id, sel.value));
+            if (!articulo) return;
 
-            if (articulo) {
-                const existe = itemsCompraActual.find(item => item.id === artId);
-                if (existe) {
-                    existe.cantidad += cantidad;
-                } else {
-                    itemsCompraActual.push({
-                        id: articulo.id,
-                        sku: articulo.sku,
-                        nombre: articulo.nombre,
-                        costo: articulo.costoCompra,
-                        cantidad: cantidad
-                    });
-                }
-                actualizarTablaCompra();
+            const existe = itemsCompraActual.find(item => mismoId(item.id, articulo.id));
+            if (existe) {
+                existe.cantidad += cantidad;
+            } else {
+                itemsCompraActual.push({
+                    id: articulo.id,
+                    sku: articulo.sku,
+                    nombre: articulo.nombre,
+                    costo: Number(articulo.costo_compra),
+                    cantidad: cantidad
+                });
             }
+            actualizarTablaCompra();
         }
 
         function modificarCantidadCompra(id, delta) {
-            const item = itemsCompraActual.find(i => i.id === id);
+            const item = itemsCompraActual.find(i => mismoId(i.id, id));
             if (item) {
                 item.cantidad += delta;
                 if (item.cantidad <= 0) removerArticuloCompra(id);
@@ -644,7 +685,7 @@
         }
 
         function removerArticuloCompra(id) {
-            itemsCompraActual = itemsCompraActual.filter(i => i.id !== id);
+            itemsCompraActual = itemsCompraActual.filter(i => !mismoId(i.id, id));
             actualizarTablaCompra();
         }
 
@@ -661,88 +702,85 @@
             }
 
             let subtotal = 0;
-            let html = itemsCompraActual.map(item => {
+            contenedor.innerHTML = itemsCompraActual.map(item => {
                 const importe = item.costo * item.cantidad;
                 subtotal += importe;
                 return `
                     <div class="summary-row">
                         <div>
-                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${escaparHtml(item.sku)}</span>
-                            <strong style="color:#ffffff;">${escaparHtml(item.nombre)}</strong> 
+                            <span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:700; margin-right:6px;">${esc(item.sku)}</span>
+                            <strong style="color:#ffffff;">${esc(item.nombre)}</strong>
                             <span style="margin-left:8px;">
-                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', -1)">-</button>
+                                <button class="qty-btn" onclick="modificarCantidadCompra(${item.id}, -1)">-</button>
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
-                                <button class="qty-btn" onclick="modificarCantidadCompra('${item.id}', 1)">+</button>
+                                <button class="qty-btn" onclick="modificarCantidadCompra(${item.id}, 1)">+</button>
                             </span>
-                            <button class="btn-remove-item" onclick="removerArticuloCompra('${item.id}')">Quitar</button>
+                            <button class="btn-remove-item" onclick="removerArticuloCompra(${item.id})">Quitar</button>
                         </div>
-                        <span style="color:#ffffff;">$${importe.toFixed(2)} MXN</span>
+                        <span style="color:#ffffff;">$${dinero(importe)} MXN</span>
                     </div>
                 `;
             }).join('');
 
             const iva = subtotal * 0.16;
             const total = subtotal + iva;
-
-            contenedor.innerHTML = html;
-            document.getElementById('lblSubtotalCompra').innerText = '$' + subtotal.toFixed(2) + ' MXN';
-            document.getElementById('lblIvaCompra').innerText = '$' + iva.toFixed(2) + ' MXN';
-            document.getElementById('lblTotalCompra').innerText = '$' + total.toFixed(2) + ' MXN';
+            document.getElementById('lblSubtotalCompra').innerText = '$' + dinero(subtotal) + ' MXN';
+            document.getElementById('lblIvaCompra').innerText = '$' + dinero(iva) + ' MXN';
+            document.getElementById('lblTotalCompra').innerText = '$' + dinero(total) + ' MXN';
         }
 
         async function guardarCompraMercancia() {
-            const factura = document.getElementById('compraFacturaInput').value;
+            const factura = document.getElementById('compraFacturaInput').value.trim();
             const proveedor = document.getElementById('compraProveedorSelect').value;
 
             if (!factura) { alert('Ingresa el número de factura o remisión.'); return; }
+            if (!proveedor) { alert('Registra y selecciona un proveedor.'); return; }
             if (itemsCompraActual.length === 0) { alert('Agrega al menos un artículo.'); return; }
 
             let subtotal = 0;
-            itemsCompraActual.forEach(item => { subtotal += (item.costo * item.cantidad); });
-            const iva = subtotal * 0.16;
-            const total = subtotal + iva;
-
-            const cuerpoCompra = {
-                factura: factura,
-                proveedor: proveedor,
-                fecha: new Date().toLocaleDateString('es-MX'),
-                items: itemsCompraActual,
-                subtotal: subtotal,
-                iva: iva,
-                total: total
-            };
+            const detalle = itemsCompraActual.map(item => {
+                const importe = redondear(item.costo * item.cantidad);
+                subtotal += importe;
+                return {
+                    producto_id: String(item.id),
+                    sku: item.sku,
+                    nombre: item.nombre,
+                    costo: item.costo,
+                    cantidad: item.cantidad,
+                    importe: importe
+                };
+            });
+            subtotal = redondear(subtotal);
+            const iva = redondear(subtotal * 0.16);
+            const total = redondear(subtotal + iva);
 
             const boton = document.getElementById('btnGuardarCompra');
             if (boton) boton.disabled = true;
-
             try {
-                await enviar('POST', '/api/compras', cuerpoCompra);
-
-                const alerta = document.getElementById('alertaCompra');
-                alerta.style.display = 'block';
-                setTimeout(async () => {
-                    alerta.style.display = 'none';
-                    itemsCompraActual = [];
-                    await cambiarVistaAdmin('compras');
-                }, 1800);
+                await enviar('POST', '/api/compras', {
+                    factura, proveedor,
+                    fecha: new Date().toLocaleDateString('es-MX'),
+                    subtotal, iva, total, detalle
+                });
+                document.getElementById('alertaCompra').style.display = 'block';
+                setTimeout(() => cambiarVistaAdmin('compras'), 1500);
             } catch (e) {
                 if (boton) boton.disabled = false;
-                alert('Error al guardar la compra en la base de datos: ' + e.message);
+                alert('No se pudo guardar la compra: ' + e.message);
             }
         }
 
         function verDetalleCompra(id) {
-            const historial = obtenerHistorialCompras();
-            const compra = historial.find(c => c.id === id);
+            const compra = comprasCache.find(c => mismoId(c.id, id));
             if (!compra) return;
 
             document.getElementById('modalCompraTitulo').innerText = `Factura / Remisión: ${compra.factura}`;
             document.getElementById('modalCompraInfo').innerText = `Proveedor: ${compra.proveedor} | Fecha: ${compra.fecha}`;
 
-            let itemsHTML = compra.items.map(it => `
+            const itemsHTML = (compra.detalle || []).map(it => `
                 <div class="summary-row">
-                    <span>${escaparHtml(it.nombre)} (${escaparHtml(it.sku)}) - x${it.cantidad}</span>
-                    <span>$${((Number(it.costo) || 0) * (Number(it.cantidad) || 0)).toFixed(2)} MXN</span>
+                    <span>${esc(it.nombre)} (${esc(it.sku)}) - x${it.cantidad}</span>
+                    <span>$${dinero(it.importe)} MXN</span>
                 </div>
             `).join('');
 
@@ -750,15 +788,14 @@
                 <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Artículos Adquiridos:</h4>
                 ${itemsHTML}
                 <div class="summary-row" style="margin-top:10px; border-top:1px solid #262626; padding-top:8px;">
-                    <span>Subtotal:</span><span>$${compra.subtotal.toFixed(2)} MXN</span>
+                    <span>Subtotal:</span><span>$${dinero(compra.subtotal)} MXN</span>
                 </div>
-                <div class="summary-row"><span>IVA (16%):</span><span>$${compra.iva.toFixed(2)} MXN</span></div>
+                <div class="summary-row"><span>IVA (16%):</span><span>$${dinero(compra.iva)} MXN</span></div>
                 <div class="summary-row total">
                     <span>Total Factura:</span>
-                    <span style="color:#22c55e;">$${compra.total.toFixed(2)} MXN</span>
+                    <span style="color:#22c55e;">$${dinero(compra.total)} MXN</span>
                 </div>
             `;
-
             document.getElementById('modalDetalleCompra').style.display = 'flex';
         }
 
@@ -767,38 +804,33 @@
         }
 
         async function eliminarCompra(id) {
-            const historial = obtenerHistorialCompras();
-            const compra = historial.find(c => c.id === id);
-
-            if (compra && confirm(`¿Desea eliminar la compra ${compra.factura}? El stock de estos artículos será descontado.`)) {
-                try {
-                    await enviar('DELETE', '/api/compras/' + id);
-                    await cambiarVistaAdmin('compras');
-                } catch (e) {
-                    alert('No se pudo eliminar la compra de la base de datos: ' + e.message);
-                }
+            const compra = comprasCache.find(c => mismoId(c.id, id));
+            if (!compra) return;
+            if (!confirm(`¿Desea eliminar la compra ${compra.factura}? El stock de estos artículos será descontado.`)) return;
+            try {
+                await enviar('DELETE', '/api/compras/' + id);
+                cambiarVistaAdmin('compras');
+            } catch (e) {
+                alert('No se pudo eliminar: ' + e.message);
             }
         }
 
-        /* ================= 2. MÓDULO DE PROVEEDORES ================= */
+        /* ================= 2. PROVEEDORES ================= */
         function renderizarModuloProveedores() {
-            const panel = document.getElementById('panel-contenido-admin');
-            const proveedores = obtenerProveedores();
-
-            let filasHTML = proveedores.map(p => `
+            const filasHTML = proveedoresCache.map(p => `
                 <tr>
-                    <td><strong style="color:#ffffff;">${escaparHtml(p.nombre)}</strong></td>
-                    <td>${escaparHtml(p.rfc)}</td>
-                    <td>${escaparHtml(p.telefono)}</td>
-                    <td>${escaparHtml(p.email)}</td>
+                    <td><strong style="color:#ffffff;">${esc(p.nombre)}</strong></td>
+                    <td>${esc(p.rfc)}</td>
+                    <td>${esc(p.telefono)}</td>
+                    <td>${esc(p.email)}</td>
                     <td>
-                        <button class="btn-edit-item" onclick="prepararEdicionProveedor('${p.id}')">✏️ Editar</button>
-                        <button class="btn-remove-item" onclick="eliminarProveedor('${p.id}')">🗑️ Eliminar</button>
+                        <button class="btn-edit-item" onclick="prepararEdicionProveedor(${p.id})">✏️ Editar</button>
+                        <button class="btn-remove-item" onclick="eliminarProveedor(${p.id})">🗑️ Eliminar</button>
                     </td>
                 </tr>
             `).join('');
 
-            panel.innerHTML = `
+            panelAdmin().innerHTML = `
                 <div class="panel-header">
                     <h2>Gestión de Proveedores</h2>
                     <p>Gestiona y actualiza las empresas proveedoras en una sola pantalla.</p>
@@ -808,7 +840,7 @@
                     <h3 style="font-size:0.95rem; color:#ffffff; margin-bottom:12px;">
                         ${idProveedorEditando ? '✏️ Modificar Datos del Proveedor' : '➕ Registrar Nuevo Proveedor'}
                     </h3>
-                    
+
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Nombre / Razón Social</label>
@@ -839,67 +871,55 @@
                     </div>
                 </form>
 
-                <div id="alertaProv" class="alert-box">✓ Directorio de proveedores actualizado en la base de datos.</div>
+                <div id="alertaProv" class="alert-box">✓ Directorio de proveedores actualizado.</div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🏭 Directorio de Proveedores Registrados</h3>
+                    <div class="table-scroll">
                     <table class="data-table">
                         <thead>
-                            <tr>
-                                <th>Empresa</th>
-                                <th>RFC</th>
-                                <th>Teléfono</th>
-                                <th>Email</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>Empresa</th><th>RFC</th><th>Teléfono</th><th>Email</th><th>Acciones</th></tr>
                         </thead>
                         <tbody>
                             ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="5" style="text-align:center;">No hay proveedores registrados.</td></tr>'}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             `;
         }
 
         async function guardarOActualizarProveedor(event) {
             event.preventDefault();
-            const nombre = document.getElementById('provNombreInput').value;
-            const rfc = document.getElementById('provRfcInput').value;
-            const tel = document.getElementById('provTelInput').value;
-            const email = document.getElementById('provEmailInput').value;
-
-            const cuerpo = { nombre, rfc, telefono: tel, email };
-
+            const cuerpo = {
+                nombre: document.getElementById('provNombreInput').value.trim(),
+                rfc: document.getElementById('provRfcInput').value.trim().toUpperCase(),
+                telefono: document.getElementById('provTelInput').value.trim(),
+                email: document.getElementById('provEmailInput').value.trim()
+            };
             try {
                 if (idProveedorEditando) {
                     await enviar('PUT', '/api/proveedores/' + idProveedorEditando, cuerpo);
-                    idProveedorEditando = null;
                 } else {
                     await enviar('POST', '/api/proveedores', cuerpo);
                 }
-
-                const alerta = document.getElementById('alertaProv');
-                alerta.style.display = 'block';
-                setTimeout(async () => {
-                    alerta.style.display = 'none';
-                    await cambiarVistaAdmin('proveedores');
-                }, 1200);
+                idProveedorEditando = null;
+                document.getElementById('alertaProv').style.display = 'block';
+                setTimeout(() => cambiarVistaAdmin('proveedores'), 1000);
             } catch (e) {
                 alert('No se pudo guardar el proveedor: ' + e.message);
             }
         }
 
         function prepararEdicionProveedor(id) {
-            const proveedores = obtenerProveedores();
-            const prov = proveedores.find(p => p.id === id);
-            if (prov) {
-                idProveedorEditando = id;
-                renderizarModuloProveedores();
-                document.getElementById('provNombreInput').value = prov.nombre;
-                document.getElementById('provRfcInput').value = prov.rfc;
-                document.getElementById('provTelInput').value = prov.telefono;
-                document.getElementById('provEmailInput').value = prov.email;
-            }
+            const prov = proveedoresCache.find(p => mismoId(p.id, id));
+            if (!prov) return;
+            idProveedorEditando = id;
+            renderizarModuloProveedores();
+            document.getElementById('provNombreInput').value = prov.nombre || '';
+            document.getElementById('provRfcInput').value = prov.rfc || '';
+            document.getElementById('provTelInput').value = prov.telefono || '';
+            document.getElementById('provEmailInput').value = prov.email || '';
         }
 
         function cancelarEdicionProv() {
@@ -908,36 +928,32 @@
         }
 
         async function eliminarProveedor(id) {
-            if (confirm('¿Desea eliminar este proveedor del directorio?')) {
-                try {
-                    await enviar('DELETE', '/api/proveedores/' + id);
-                    await cambiarVistaAdmin('proveedores');
-                } catch (e) {
-                    alert('No se pudo eliminar el proveedor: ' + e.message);
-                }
+            if (!confirm('¿Desea eliminar este proveedor del directorio?')) return;
+            try {
+                await enviar('DELETE', '/api/proveedores/' + id);
+                cambiarVistaAdmin('proveedores');
+            } catch (e) {
+                alert('No se pudo eliminar: ' + e.message);
             }
         }
 
-        /* ================= 3. MÓDULO DE ARTÍCULOS ================= */
+        /* ================= 3. ARTÍCULOS ================= */
         function renderizarModuloArticulos() {
-            const panel = document.getElementById('panel-contenido-admin');
-            const catalogo = obtenerCatalogo();
-
-            let filasHTML = catalogo.map(a => `
+            const filasHTML = catalogoCache.map(a => `
                 <tr>
-                    <td><span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-weight:700;">${escaparHtml(a.sku)}</span></td>
-                    <td><strong style="color:#ffffff;">${escaparHtml(a.nombre)}</strong></td>
-                    <td>$${a.costoCompra.toFixed(2)} MXN</td>
-                    <td>$${a.precio.toFixed(2)} MXN</td>
+                    <td><span style="background:#262626; color:#e5e5e5; padding:2px 6px; border-radius:3px; font-weight:700;">${esc(a.sku)}</span></td>
+                    <td><strong style="color:#ffffff;">${esc(a.nombre)}</strong></td>
+                    <td>$${dinero(a.costo_compra)} MXN</td>
+                    <td>$${dinero(a.precio)} MXN</td>
                     <td><strong style="color:${a.stock < 5 ? '#ef4444' : '#4ade80'};">${a.stock} pzas</strong></td>
                     <td>
-                        <button class="btn-edit-item" onclick="prepararEdicionArticulo('${a.id}')">✏️ Editar</button>
-                        <button class="btn-remove-item" onclick="eliminarArticulo('${a.id}')">🗑️ Eliminar</button>
+                        <button class="btn-edit-item" onclick="prepararEdicionArticulo(${a.id})">✏️ Editar</button>
+                        <button class="btn-remove-item" onclick="eliminarArticulo(${a.id})">🗑️ Eliminar</button>
                     </td>
                 </tr>
             `).join('');
 
-            panel.innerHTML = `
+            panelAdmin().innerHTML = `
                 <div class="panel-header">
                     <h2>Gestión del Catálogo de Artículos</h2>
                     <p>Alta de nuevos productos, ajuste de precios, costos y stock global en un solo lugar.</p>
@@ -962,11 +978,11 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Costo de Compra ($ MXN)</label>
-                            <input type="number" id="artCostoInput" step="0.01" placeholder="Ej. 120.00" required>
+                            <input type="number" id="artCostoInput" step="0.01" min="0" placeholder="Ej. 120.00" required>
                         </div>
                         <div class="input-group">
                             <label>Precio de Venta ($ MXN)</label>
-                            <input type="number" id="artPrecioInput" step="0.01" placeholder="Ej. 180.00" required>
+                            <input type="number" id="artPrecioInput" step="0.01" min="0" placeholder="Ej. 180.00" required>
                         </div>
                     </div>
 
@@ -983,70 +999,59 @@
                     </div>
                 </form>
 
-                <div id="alertaArt" class="alert-box">✓ Catálogo de productos actualizado en la base de datos.</div>
+                <div id="alertaArt" class="alert-box">✓ Catálogo de productos actualizado correctamente.</div>
 
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">🔧 Inventario General de Productos</h3>
+                    <div class="table-scroll">
                     <table class="data-table">
                         <thead>
-                            <tr>
-                                <th>SKU</th>
-                                <th>Producto</th>
-                                <th>Costo Compra</th>
-                                <th>Precio Venta</th>
-                                <th>Stock</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>SKU</th><th>Producto</th><th>Costo Compra</th><th>Precio Venta</th><th>Stock</th><th>Acciones</th></tr>
                         </thead>
                         <tbody>
                             ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="6" style="text-align:center;">No hay artículos registrados.</td></tr>'}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             `;
         }
 
         async function guardarOActualizarArticulo(event) {
             event.preventDefault();
-            const sku = document.getElementById('artSkuInput').value.toUpperCase();
-            const nombre = document.getElementById('artNombreInput').value;
-            const costo = parseFloat(document.getElementById('artCostoInput').value) || 0;
-            const precio = parseFloat(document.getElementById('artPrecioInput').value) || 0;
-            const stock = parseInt(document.getElementById('artStockInput').value) || 0;
-
-            const cuerpo = { sku, nombre, costo_compra: costo, precio, stock };
-
+            const cuerpo = {
+                sku: document.getElementById('artSkuInput').value.trim().toUpperCase(),
+                nombre: document.getElementById('artNombreInput').value.trim(),
+                costo_compra: parseFloat(document.getElementById('artCostoInput').value) || 0,
+                precio: parseFloat(document.getElementById('artPrecioInput').value) || 0,
+                stock: parseInt(document.getElementById('artStockInput').value) || 0
+            };
             try {
                 if (idProductoEditando) {
+                    const actual = catalogoCache.find(a => mismoId(a.id, idProductoEditando));
+                    cuerpo.proveedor_id = actual ? actual.proveedor_id : null;
                     await enviar('PUT', '/api/productos/' + idProductoEditando, cuerpo);
-                    idProductoEditando = null;
                 } else {
                     await enviar('POST', '/api/productos', cuerpo);
                 }
-
-                const alerta = document.getElementById('alertaArt');
-                alerta.style.display = 'block';
-                setTimeout(async () => {
-                    alerta.style.display = 'none';
-                    await cambiarVistaAdmin('articulos');
-                }, 1200);
+                idProductoEditando = null;
+                document.getElementById('alertaArt').style.display = 'block';
+                setTimeout(() => cambiarVistaAdmin('articulos'), 1000);
             } catch (e) {
-                alert('No se pudo guardar el producto en la base de datos: ' + e.message);
+                alert('No se pudo guardar el producto: ' + e.message);
             }
         }
 
         function prepararEdicionArticulo(id) {
-            const catalogo = obtenerCatalogo();
-            const art = catalogo.find(a => a.id === id);
-            if (art) {
-                idProductoEditando = id;
-                renderizarModuloArticulos();
-                document.getElementById('artSkuInput').value = art.sku;
-                document.getElementById('artNombreInput').value = art.nombre;
-                document.getElementById('artCostoInput').value = art.costoCompra;
-                document.getElementById('artPrecioInput').value = art.precio;
-                document.getElementById('artStockInput').value = art.stock;
-            }
+            const art = catalogoCache.find(a => mismoId(a.id, id));
+            if (!art) return;
+            idProductoEditando = id;
+            renderizarModuloArticulos();
+            document.getElementById('artSkuInput').value = art.sku;
+            document.getElementById('artNombreInput').value = art.nombre;
+            document.getElementById('artCostoInput').value = art.costo_compra;
+            document.getElementById('artPrecioInput').value = art.precio;
+            document.getElementById('artStockInput').value = art.stock;
         }
 
         function cancelarEdicionArt() {
@@ -1055,17 +1060,268 @@
         }
 
         async function eliminarArticulo(id) {
-            if (confirm('¿Desea eliminar permanentemente este producto del catálogo?')) {
-                try {
-                    await enviar('DELETE', '/api/productos/' + id);
-                    await cambiarVistaAdmin('articulos');
-                } catch (e) {
-                    alert('No se pudo eliminar el producto: ' + e.message);
-                }
+            if (!confirm('¿Desea eliminar permanentemente este producto del catálogo?')) return;
+            try {
+                await enviar('DELETE', '/api/productos/' + id);
+                cambiarVistaAdmin('articulos');
+            } catch (e) {
+                alert('No se pudo eliminar: ' + e.message);
             }
         }
 
-        window.onload = function() {
+        /* ================= 4. REGISTRO DE MECÁNICOS ================= */
+        function resumenMecanico(nombre) {
+            const suyos = cobrosCache.filter(c => c.mecanico === nombre);
+            return {
+                servicios: suyos.length,
+                total: suyos.reduce((suma, c) => suma + Number(c.total || 0), 0)
+            };
+        }
+
+        function filasMecanicos() {
+            const q = filtroMecanicos.toLowerCase().trim();
+            const lista = mecanicosCache.filter(m =>
+                !q ||
+                (m.nombre || '').toLowerCase().includes(q) ||
+                (m.especialidad || '').toLowerCase().includes(q));
+
+            if (lista.length === 0) {
+                return '<tr><td colspan="7" style="text-align:center;">No hay mecánicos registrados.</td></tr>';
+            }
+
+            return lista.map(m => `
+                <tr>
+                    <td><strong style="color:#ffffff;">${esc(m.nombre)}</strong></td>
+                    <td>${esc(m.especialidad || '—')}</td>
+                    <td>${esc(m.telefono || '—')}</td>
+                    <td>${esc(m.email || '—')}</td>
+                    <td>${formatoFecha(m.fecha_ingreso)}</td>
+                    <td><span class="${m.activo ? 'badge-activo' : 'badge-inactivo'}">${m.activo ? 'Activo' : 'Inactivo'}</span></td>
+                    <td>
+                        <button class="btn-edit-item" onclick="verDetalleMecanico(${m.id})">🔍 Detalle</button>
+                        <button class="btn-edit-item" onclick="prepararEdicionMecanico(${m.id})">✏️ Editar</button>
+                        <button class="btn-edit-item" onclick="cambiarEstadoMecanico(${m.id})">${m.activo ? '⏸️ Desactivar' : '▶️ Activar'}</button>
+                        <button class="btn-remove-item" onclick="eliminarMecanico(${m.id})">🗑️ Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderizarModuloMecanicos() {
+            const activos = mecanicosCache.filter(m => m.activo).length;
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Registro de Mecánicos</h2>
+                    <p>Alta, consulta, modificación y baja del personal de taller. Los mecánicos activos aparecen al cobrar un servicio.</p>
+                </div>
+
+                <form onsubmit="guardarOActualizarMecanico(event)">
+                    <h3 style="font-size:0.95rem; color:#ffffff; margin-bottom:12px;">
+                        ${idMecanicoEditando ? '✏️ Modificar Datos del Mecánico' : '➕ Registrar Nuevo Mecánico'}
+                    </h3>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nombre Completo</label>
+                            <input type="text" id="mecNombreInput" placeholder="Ej. Miguel Landa" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Especialidad</label>
+                            <input type="text" id="mecEspecialidadInput" list="listaEspecialidades" placeholder="Ej. Sistema eléctrico">
+                            <datalist id="listaEspecialidades">
+                                <option value="Mecánica general">
+                                <option value="Sistema eléctrico">
+                                <option value="Frenos y suspensión">
+                                <option value="Motor y transmisión">
+                                <option value="Afinación y mantenimiento">
+                                <option value="Diagnóstico computarizado">
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Teléfono / WhatsApp</label>
+                            <input type="tel" id="mecTelefonoInput" placeholder="Ej. 2288123456" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" id="mecEmailInput" placeholder="mecanico@correo.com">
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Fecha de Ingreso</label>
+                            <input type="date" id="mecFechaInput" value="${hoyISO()}">
+                        </div>
+                        <div class="input-group">
+                            <label>Estado</label>
+                            <select id="mecActivoSelect">
+                                <option value="true">Activo</option>
+                                <option value="false">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Notas / Observaciones (opcional)</label>
+                        <input type="text" id="mecNotasInput" maxlength="500" placeholder="Ej. Turno matutino, certificado en motores 4T">
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="submit" class="btn-action" id="btnGuardarMecanico" style="margin-top:10px;">
+                            ${idMecanicoEditando ? 'Actualizar Mecánico' : 'Registrar Mecánico'}
+                        </button>
+                        ${idMecanicoEditando ? `<button type="button" class="btn-action" style="margin-top:10px; background:#404040; color:#fff;" onclick="cancelarEdicionMecanico()">Cancelar</button>` : ''}
+                    </div>
+                </form>
+
+                <div id="alertaMec" class="alert-box">✓ Registro de mecánicos actualizado correctamente.</div>
+
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
+                        👷 Directorio de Mecánicos (${mecanicosCache.length} registrados · ${activos} activos)
+                    </h3>
+                    <div class="input-group" style="margin-bottom:8px;">
+                        <label>Buscar por nombre o especialidad</label>
+                        <input type="text" id="buscarMecanico" value="${esc(filtroMecanicos)}" placeholder="Ej. Miguel o eléctrico..." oninput="filtrarMecanicos(this.value)">
+                    </div>
+                    <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Especialidad</th>
+                                <th>Teléfono</th>
+                                <th>Correo</th>
+                                <th>Ingreso</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyMecanicos">${filasMecanicos()}</tbody>
+                    </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function filtrarMecanicos(valor) {
+            filtroMecanicos = valor || '';
+            const cuerpoTabla = document.getElementById('tbodyMecanicos');
+            if (cuerpoTabla) cuerpoTabla.innerHTML = filasMecanicos();
+        }
+
+        async function guardarOActualizarMecanico(event) {
+            event.preventDefault();
+            const cuerpo = {
+                nombre: document.getElementById('mecNombreInput').value.trim(),
+                especialidad: document.getElementById('mecEspecialidadInput').value.trim(),
+                telefono: document.getElementById('mecTelefonoInput').value.trim(),
+                email: document.getElementById('mecEmailInput').value.trim(),
+                fecha_ingreso: document.getElementById('mecFechaInput').value,
+                activo: document.getElementById('mecActivoSelect').value === 'true',
+                notas: document.getElementById('mecNotasInput').value.trim()
+            };
+
+            const boton = document.getElementById('btnGuardarMecanico');
+            if (boton) boton.disabled = true;
+            try {
+                if (idMecanicoEditando) {
+                    await enviar('PUT', '/api/mecanicos/' + idMecanicoEditando, cuerpo);
+                } else {
+                    await enviar('POST', '/api/mecanicos', cuerpo);
+                }
+                idMecanicoEditando = null;
+                document.getElementById('alertaMec').style.display = 'block';
+                setTimeout(() => cambiarVistaAdmin('mecanicos'), 1000);
+            } catch (e) {
+                if (boton) boton.disabled = false;
+                alert('No se pudo guardar el mecánico: ' + e.message);
+            }
+        }
+
+        function prepararEdicionMecanico(id) {
+            const m = mecanicosCache.find(x => mismoId(x.id, id));
+            if (!m) return;
+            idMecanicoEditando = id;
+            renderizarModuloMecanicos();
+            document.getElementById('mecNombreInput').value = m.nombre || '';
+            document.getElementById('mecEspecialidadInput').value = m.especialidad || '';
+            document.getElementById('mecTelefonoInput').value = m.telefono || '';
+            document.getElementById('mecEmailInput').value = m.email || '';
+            document.getElementById('mecFechaInput').value = m.fecha_ingreso || '';
+            document.getElementById('mecActivoSelect').value = m.activo ? 'true' : 'false';
+            document.getElementById('mecNotasInput').value = m.notas || '';
+            panelAdmin().scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cancelarEdicionMecanico() {
+            idMecanicoEditando = null;
+            renderizarModuloMecanicos();
+        }
+
+        async function cambiarEstadoMecanico(id) {
+            const m = mecanicosCache.find(x => mismoId(x.id, id));
+            if (!m) return;
+            try {
+                await enviar('PUT', '/api/mecanicos/' + id, {
+                    nombre: m.nombre,
+                    especialidad: m.especialidad,
+                    telefono: m.telefono,
+                    email: m.email,
+                    fecha_ingreso: m.fecha_ingreso,
+                    notas: m.notas,
+                    activo: !m.activo
+                });
+                cambiarVistaAdmin('mecanicos');
+            } catch (e) {
+                alert('No se pudo cambiar el estado: ' + e.message);
+            }
+        }
+
+        async function eliminarMecanico(id) {
+            const m = mecanicosCache.find(x => mismoId(x.id, id));
+            if (!m) return;
+            if (!confirm(`¿Desea eliminar al mecánico ${m.nombre}? Los cobros anteriores conservarán su nombre.`)) return;
+            try {
+                await enviar('DELETE', '/api/mecanicos/' + id);
+                cambiarVistaAdmin('mecanicos');
+            } catch (e) {
+                alert('No se pudo eliminar: ' + e.message);
+            }
+        }
+
+        function verDetalleMecanico(id) {
+            const m = mecanicosCache.find(x => mismoId(x.id, id));
+            if (!m) return;
+            const resumen = resumenMecanico(m.nombre);
+
+            document.getElementById('modalMecanicoTitulo').innerText = m.nombre;
+            document.getElementById('modalMecanicoInfo').innerText = m.especialidad || 'Sin especialidad registrada';
+
+            document.getElementById('modalMecanicoContenido').innerHTML = `
+                <div class="summary-row"><span>Teléfono / WhatsApp</span><span>${esc(m.telefono || '—')}</span></div>
+                <div class="summary-row"><span>Correo electrónico</span><span>${esc(m.email || '—')}</span></div>
+                <div class="summary-row"><span>Fecha de ingreso</span><span>${formatoFecha(m.fecha_ingreso)}</span></div>
+                <div class="summary-row"><span>Estado</span><span class="${m.activo ? 'badge-activo' : 'badge-inactivo'}">${m.activo ? 'Activo' : 'Inactivo'}</span></div>
+                <div class="summary-row"><span>Notas</span><span>${esc(m.notas || '—')}</span></div>
+                <div class="summary-row"><span>Servicios cobrados</span><span>${resumen.servicios}</span></div>
+                <div class="summary-row total">
+                    <span>Total generado en cobros</span>
+                    <span style="color:#22c55e;">$${dinero(resumen.total)} MXN</span>
+                </div>
+            `;
+            document.getElementById('modalDetalleMecanico').style.display = 'flex';
+        }
+
+        function cerrarModalMecanico() {
+            document.getElementById('modalDetalleMecanico').style.display = 'none';
+        }
+
+        window.onload = function () {
             cambiarVistaAdmin('compras', document.querySelector('.nav-btn'));
         };
     </script>

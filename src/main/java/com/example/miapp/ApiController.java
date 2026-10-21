@@ -58,6 +58,11 @@ public class ApiController {
         return (prov == null || prov.toString().isBlank()) ? null : Long.valueOf(prov.toString());
     }
 
+    private boolean activoDe(Map<String, Object> b) {
+        Object v = b.get("activo");
+        return v == null || Boolean.parseBoolean(v.toString());
+    }
+
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> lista(Map<String, Object> m, String k) {
         Object v = m.get(k);
@@ -365,6 +370,46 @@ public class ApiController {
     @DeleteMapping("/citas/{id}")
     public void borrarCita(@PathVariable long id) {
         db.update("DELETE FROM citas WHERE id = ?", id);
+    }
+
+    // ================= MECANICOS =================
+    @GetMapping("/mecanicos")
+    public List<Map<String, Object>> mecanicos() {
+        return db.queryForList("SELECT * FROM mecanicos ORDER BY nombre");
+    }
+
+    @PostMapping("/mecanicos")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, Object> crearMecanico(@RequestBody Map<String, Object> b) {
+        try {
+            return db.queryForMap(
+                    "INSERT INTO mecanicos (nombre, telefono, email, especialidad, fecha_ingreso, activo, notas) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                    req(b, "nombre"), s(b, "telefono"), s(b, "email"), s(b, "especialidad"),
+                    s(b, "fecha_ingreso"), activoDe(b), s(b, "notas"));
+        } catch (DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un mecánico con ese nombre");
+        }
+    }
+
+    @PutMapping("/mecanicos/{id}")
+    public Map<String, Object> editarMecanico(@PathVariable long id, @RequestBody Map<String, Object> b) {
+        try {
+            List<Map<String, Object>> r = db.queryForList(
+                    "UPDATE mecanicos SET nombre = ?, telefono = ?, email = ?, especialidad = ?, "
+                            + "fecha_ingreso = ?, activo = ?, notas = ? WHERE id = ? RETURNING *",
+                    req(b, "nombre"), s(b, "telefono"), s(b, "email"), s(b, "especialidad"),
+                    s(b, "fecha_ingreso"), activoDe(b), s(b, "notas"), id);
+            if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Mecánico no encontrado");
+            return r.get(0);
+        } catch (DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un mecánico con ese nombre");
+        }
+    }
+
+    @DeleteMapping("/mecanicos/{id}")
+    public void borrarMecanico(@PathVariable long id) {
+        db.update("DELETE FROM mecanicos WHERE id = ?", id);
     }
 }
 

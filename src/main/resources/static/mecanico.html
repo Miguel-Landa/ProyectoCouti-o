@@ -725,6 +725,7 @@
         // ================= Estado (datos que vienen de la base de datos) =================
         let catalogoCache = [];
         let listaCitas = [];
+        let mecanicosActivos = [];
         let piezasyInsumosServicio = [];
         let refaccionesMantenimientoForm = [];
         let servicioSeleccionadoParaCobro = null;
@@ -753,7 +754,9 @@
         }
 
         async function cargarDatos() {
-            const [citas, productos] = await Promise.all([api('/api/citas'), api('/api/productos')]);
+            const [citas, productos, mecanicos] = await Promise.all([
+                api('/api/citas'), api('/api/productos'), api('/api/mecanicos')
+            ]);
             listaCitas = citas.map(normalizarCita);
             catalogoCache = productos.map(p => ({
                 id: String(p.id),
@@ -762,6 +765,7 @@
                 precio: Number(p.precio),
                 stock: Number(p.stock)
             }));
+            mecanicosActivos = mecanicos.filter(m => m.activo).map(m => m.nombre);
         }
 
         function obtenerCatalogo() { return catalogoCache; }
@@ -1210,7 +1214,7 @@
                 <tr>
                     <td style="font-weight:600; color:#ffffff;">${escaparHtml(cita.folio)}</td>
                     <td><strong>${escaparHtml(cita.cliente)}</strong></td>
-                    <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:600;">${escaparHtml(cita.mecanico || 'Miguel Landa')}</span></td>
+                    <td><span style="background:#262626; color:#60a5fa; padding:2px 6px; border-radius:3px; font-size:0.75rem; font-weight:600;">${escaparHtml(cita.mecanico || 'Sin asignar')}</span></td>
                     <td>${escaparHtml(cita.moto)} (${escaparHtml(cita.placas)})</td>
                     <td>${escaparHtml(cita.servicio)}</td>
                     <td>
@@ -1263,9 +1267,9 @@
                         <div class="input-group">
                             <label>Mecánico que Realizó el Mantenimiento</label>
                             <select id="cobroMecanicoSelect">
-                                <option value="Miguel Landa">Miguel Landa</option>
-                                <option value="Carlos Mendoza">Carlos Mendoza</option>
-                                <option value="Ramón Gómez">Ramón Gómez</option>
+                                ${mecanicosActivos.length
+                                    ? mecanicosActivos.map(n => `<option value="${escaparHtml(n)}">${escaparHtml(n)}</option>`).join('')
+                                    : '<option value="">Sin mecánicos registrados</option>'}
                             </select>
                         </div>
                     </div>
@@ -1458,6 +1462,11 @@
             const costoManoObra = Number(document.getElementById('cobroManoObraInput').value);
             if (!descripcionServicioRealizado || !Number.isFinite(costoManoObra) || costoManoObra < 0) {
                 alert('Indica el servicio realizado y un precio válido de mano de obra (mínimo $0.00).');
+                return;
+            }
+
+            if (!document.getElementById('cobroMecanicoSelect').value) {
+                alert('Registra al menos un mecánico activo en el panel del administrador.');
                 return;
             }
 
