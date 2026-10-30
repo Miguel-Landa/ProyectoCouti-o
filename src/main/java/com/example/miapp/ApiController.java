@@ -372,6 +372,25 @@ public class ApiController {
         db.update("DELETE FROM citas WHERE id = ?", id);
     }
 
+    // Asigna (o quita) el mecánico encargado de una cita
+    @PutMapping("/citas/mecanico/{folio}")
+    public Map<String, Object> asignarMecanico(@PathVariable String folio, @RequestBody Map<String, Object> b) {
+        String nombre = s(b, "mecanico");
+        if (nombre != null) {
+            Integer existe = db.queryForObject(
+                    "SELECT COUNT(*) FROM mecanicos WHERE nombre = ?", Integer.class, nombre);
+            if (existe == null || existe == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ese mecánico no está registrado");
+            }
+        }
+        List<Map<String, Object>> r = db.queryForList(
+                "UPDATE citas SET mecanico = ? WHERE folio = ? RETURNING *", nombre, folio);
+        if (r.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cita no encontrada");
+        }
+        return r.get(0);
+    }
+
     // ================= MECANICOS =================
     @GetMapping("/mecanicos")
     public List<Map<String, Object>> mecanicos() {
@@ -412,4 +431,3 @@ public class ApiController {
         db.update("DELETE FROM mecanicos WHERE id = ?", id);
     }
 }
-
