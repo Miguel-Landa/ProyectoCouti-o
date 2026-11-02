@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -263,6 +263,17 @@
             color: #000000;
         }
 
+        .btn-secondary {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #404040;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         .qty-btn {
             background: #262626;
             color: #ffffff;
@@ -459,6 +470,67 @@
 
         .btn-remove-item:hover { text-decoration: underline; }
 
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 15px;
+            border: 1px solid #262626;
+            border-radius: 4px;
+        }
+
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        table.data-table th {
+            background: #1f1f1f;
+            color: #a3a3a3;
+            font-weight: 600;
+            padding: 12px 14px;
+            border-bottom: 1px solid #262626;
+        }
+
+        table.data-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #1f1f1f;
+            color: #e5e5e5;
+            vertical-align: top;
+        }
+
+        table.data-table tr:hover {
+            background: #1a1a1a;
+        }
+
+        .report-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin: 18px 0;
+        }
+
+        .report-total-card {
+            padding: 18px;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            background: #1f1f1f;
+        }
+
+        .report-total-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: 1.35rem;
+        }
+
+        .report-filter-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            gap: 12px;
+        }
+
         body {
             background: var(--bg) !important;
             color: var(--text) !important;
@@ -484,14 +556,14 @@
             border-color: var(--border);
         }
 
-        .nav-btn, .btn-add-item, .qty-btn, .input-group input,
+        .nav-btn, .btn-add-item, .btn-secondary, .qty-btn, .input-group input,
         .input-group select, .summary-box, .ticket-item {
             background: var(--panel-alt);
             color: var(--text);
             border-color: var(--border-soft);
         }
 
-        .nav-btn:hover, .btn-add-item:hover, .qty-btn:hover,
+        .nav-btn:hover, .btn-add-item:hover, .btn-secondary:hover, .qty-btn:hover,
         .input-group input:focus, .input-group select:focus,
         .ticket-item:hover {
             background: #dfeeff;
@@ -564,6 +636,33 @@
             color: var(--success);
         }
 
+        .table-container {
+            background: var(--panel-alt);
+            border-color: var(--border-soft);
+        }
+
+        table.data-table th {
+            background: var(--panel-alt);
+            color: var(--muted);
+            border-bottom-color: var(--border);
+        }
+
+        table.data-table td {
+            background: var(--panel-alt);
+            color: var(--text);
+            border-bottom-color: var(--border);
+        }
+
+        table.data-table tr:hover td {
+            background: #dfeeff;
+        }
+
+        .report-total-card {
+            background: var(--panel-alt);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
         [style*="color:#ffffff"], [style*="color: #ffffff"],
         [style*="color:#fff"], [style*="color: #fff"],
         [style*="color:#e5e5e5"], [style*="color: #e5e5e5"] {
@@ -596,18 +695,61 @@
         [style*="background:#2563eb"], [style*="background: #2563eb"] {
             background: var(--accent) !important;
         }
+
+        @media print {
+            @page {
+                size: landscape;
+                margin: 12mm;
+            }
+
+            body.reporte-impresion {
+                background: #fff !important;
+                color: #111 !important;
+            }
+
+            body.reporte-impresion .topbar,
+            body.reporte-impresion .sidebar-buttons,
+            body.reporte-impresion .modal-overlay,
+            body.reporte-impresion .no-print {
+                display: none !important;
+            }
+
+            body.reporte-impresion .workspace,
+            body.reporte-impresion .main-panel {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                box-shadow: none !important;
+            }
+
+            body.reporte-impresion .panel-header h2,
+            body.reporte-impresion .panel-header p {
+                color: #111 !important;
+            }
+
+            body.reporte-impresion .summary-box,
+            body.reporte-impresion .report-total-card,
+            body.reporte-impresion .table-container,
+            body.reporte-impresion table.data-table th,
+            body.reporte-impresion table.data-table td {
+                background: #fff !important;
+                color: #111 !important;
+                border-color: #aaa !important;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- Topbar -->
         <div class="topbar">
             <h1>Sistema MRX - Módulo de Ventas y Cotizaciones</h1>
             <a href="index.html" class="btn-logout">Cerrar Sesión</a>
         </div>
 
-        <!-- Workspace Lateral + Panel Principal -->
         <div class="workspace">
             <div class="sidebar-buttons">
                 <div class="sidebar-title">MÓDULOS DE VENTAS Y COTIZACIONES</div>
@@ -629,12 +771,10 @@
             </div>
 
             <div class="main-panel" id="panel-contenido">
-                <!-- Se renderizan los módulos dinámicamente -->
             </div>
         </div>
     </div>
 
-    <!-- Modal Emergente de Detalles -->
     <div class="modal-overlay" id="modalDetalle">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
@@ -649,19 +789,48 @@
     </div>
 
     <script>
-        // ================= Utilidades =================
         function esc(valor) {
             return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             })[c]);
         }
+
         function mismoId(a, b) { return String(a) === String(b); }
+
         function redondear(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+
+        function formatearMoneda(importe) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(Number(importe) || 0);
+        }
+
+        function fechaLocalISO(fecha) {
+            const anio = fecha.getFullYear();
+            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            const dia = String(fecha.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function fechaVentaISO(texto) {
+            const t = String(texto || '').trim();
+            let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+            m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+            return '';
+        }
+
+        function formatoFechaISO(iso) {
+            const d = new Date(`${iso}T12:00:00`);
+            return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleDateString('es-MX');
+        }
 
         async function api(url, opciones) {
             const resp = await fetch(url, opciones);
             let datos = null;
-            try { datos = await resp.json(); } catch (e) { /* respuesta sin cuerpo */ }
+            try { datos = await resp.json(); } catch (e) { datos = null; }
             if (!resp.ok) {
                 throw new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
             }
@@ -676,15 +845,15 @@
             });
         }
 
-        // ================= Estado (datos que vienen de la base de datos) =================
         let catalogoProductos = [];
         let historialRegistros = [];
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
-        let idCotizacionEnProceso = null;      // id interno de la cotización que se convierte
-        let folioCotizacionEnProceso = null;   // folio visible de esa cotización
+        let idCotizacionEnProceso = null;
+        let folioCotizacionEnProceso = null;
         let registroSeleccionadoId = null;
+        let rangoVentas = null;
 
         async function cargarCatalogo() {
             const filas = await api('/api/productos');
@@ -703,7 +872,7 @@
                 id: r.id,
                 folio: r.folio_numero,
                 cliente: r.cliente,
-                tipo: r.tipo,   // 'VENTA' o 'COTIZACION'
+                tipo: r.tipo,
                 items: (r.detalle || []).map(d => ({
                     id: d.producto_id,
                     producto: d.producto,
@@ -725,7 +894,6 @@
                 || catalogoProductos.find(p => p.nombre.toLowerCase() === String(it.producto).toLowerCase());
         }
 
-        // ================= Navegación =================
         async function cambiarModulo(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -749,7 +917,8 @@
                 } else if (vista === 'cotizacion') {
                     renderizarModuloCotizaciones();
                 } else if (vista === 'historial_ventas') {
-                    renderizarHistorial('VENTA');
+                    rangoVentas = null;
+                    mostrarHistorialVentas();
                 } else if (vista === 'historial_cotizaciones') {
                     renderizarHistorial('COTIZACION');
                 }
@@ -763,7 +932,6 @@
             }
         }
 
-        /* --- MÓDULO 0: CONSULTA DE DISPONIBILIDAD / STOCK POR CÓDIGO --- */
         function renderizarConsultaStock() {
             const panel = document.getElementById('panel-contenido');
 
@@ -852,7 +1020,6 @@
             }
         }
 
-        /* --- MÓDULO 1: VENTA DE PRODUCTOS --- */
         function renderizarModuloVenta() {
             const panel = document.getElementById('panel-contenido');
 
@@ -1073,11 +1240,10 @@
             } catch (e) {
                 if (boton) boton.disabled = false;
                 alert('No se pudo registrar la venta: ' + e.message);
-                try { await cargarCatalogo(); filtrarSelectProductos('selectVentaProducto', ''); } catch (_) { /* se ignora */ }
+                try { await cargarCatalogo(); filtrarSelectProductos('selectVentaProducto', ''); } catch (_) {}
             }
         }
 
-        /* --- MÓDULO 2: COTIZACIÓN DE PRODUCTOS --- */
         function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido');
 
@@ -1249,7 +1415,6 @@
             }
         }
 
-        /* --- MÓDULOS DE HISTORIAL: VENTAS Y COTIZACIONES --- */
         function htmlListaHistorial(registros) {
             return registros.map(t => {
                 const isCotiz = t.tipo === 'COTIZACION';
@@ -1299,6 +1464,169 @@
             const html = htmlListaHistorial(filtrados);
             document.getElementById('contenedorListaHistorial').innerHTML =
                 html.length > 0 ? html : '<p style="color:#a3a3a3; text-align:center; padding:20px;">No hay coincidencias.</p>';
+        }
+
+        function mostrarHistorialVentas(fechaInicio, fechaFin) {
+            const hoy = fechaLocalISO(new Date());
+            const inicio = fechaInicio || (rangoVentas ? rangoVentas.inicio : hoy);
+            const fin = fechaFin || (rangoVentas ? rangoVentas.fin : hoy);
+            rangoVentas = { inicio, fin };
+
+            const ventas = historialRegistros
+                .filter(r => {
+                    if (r.tipo !== 'VENTA') return false;
+                    const f = fechaVentaISO(r.fecha);
+                    return f !== '' && f >= inicio && f <= fin;
+                })
+                .sort((a, b) => {
+                    const fa = fechaVentaISO(a.fecha);
+                    const fb = fechaVentaISO(b.fecha);
+                    if (fa !== fb) return fb.localeCompare(fa);
+                    return Number(b.id) - Number(a.id);
+                });
+
+            const totalPeriodo = ventas.reduce((suma, v) => suma + v.total, 0);
+            const subtotalPeriodo = ventas.reduce((suma, v) => suma + v.subtotal, 0);
+            const ivaPeriodo = ventas.reduce((suma, v) => suma + v.iva, 0);
+
+            const totalesPorDia = new Map();
+            const totalesPorPago = new Map();
+            ventas.forEach(v => {
+                const dia = fechaVentaISO(v.fecha);
+                const registroDia = totalesPorDia.get(dia) || { cantidad: 0, total: 0 };
+                registroDia.cantidad++;
+                registroDia.total += v.total;
+                totalesPorDia.set(dia, registroDia);
+
+                const metodo = v.pago || 'Sin especificar';
+                const registroPago = totalesPorPago.get(metodo) || { cantidad: 0, total: 0 };
+                registroPago.cantidad++;
+                registroPago.total += v.total;
+                totalesPorPago.set(metodo, registroPago);
+            });
+
+            const filasDiarias = [...totalesPorDia.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([dia, registro]) => `
+                    <tr>
+                        <td>${formatoFechaISO(dia)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasPago = [...totalesPorPago.entries()]
+                .sort(([, a], [, b]) => b.total - a.total)
+                .map(([metodo, registro]) => `
+                    <tr>
+                        <td>${esc(metodo)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasVentas = ventas.map(v => {
+                const detalle = v.items.map(it =>
+                    `${esc(it.producto)} (${it.cantidad} × ${formatearMoneda(it.precio)}) — ${formatearMoneda(it.precio * it.cantidad)}`
+                ).join('<br>');
+                return `
+                    <tr>
+                        <td>${esc(v.fecha)}</td>
+                        <td>#${esc(v.folio)}</td>
+                        <td>${esc(v.cliente)}</td>
+                        <td>${detalle}</td>
+                        <td>${esc(v.pago)}</td>
+                        <td>${formatearMoneda(v.subtotal)}<br>IVA: ${formatearMoneda(v.iva)}</td>
+                        <td><strong>${formatearMoneda(v.total)}</strong></td>
+                        <td class="no-print"><button type="button" class="btn-add-item" onclick="abrirDetalleModal(${v.id})">🔍 Detalle</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('panel-contenido').innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Ventas</h2>
+                    <p class="no-print">Elige un periodo para consultar las ventas. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                    <p>Periodo del reporte: ${formatoFechaISO(inicio)} al ${formatoFechaISO(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="ventasFechaInicio">Desde</label>
+                            <input type="date" id="ventasFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="ventasFechaFin">Hasta</label>
+                            <input type="date" id="ventasFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroVentas()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporteVentas()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Ventas en el periodo<strong>${ventas.length}</strong></div>
+                    <div class="report-total-card">Total vendido<strong>${formatearMoneda(totalPeriodo)}</strong></div>
+                    <div class="report-total-card">Subtotal sin IVA<strong>${formatearMoneda(subtotalPeriodo)}</strong></div>
+                    <div class="report-total-card">IVA<strong>${formatearMoneda(ivaPeriodo)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3>Resumen diario</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Día</th><th>Ventas</th><th>Total vendido</th></tr></thead>
+                            <tbody>${filasDiarias || '<tr><td colspan="3" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3>Resumen por método de pago</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Método de pago</th><th>Ventas</th><th>Total</th></tr></thead>
+                            <tbody>${filasPago || '<tr><td colspan="3" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3>Detalle de ventas realizadas</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Productos</th><th>Método de pago</th><th>Subtotal / IVA</th><th>Total</th><th class="no-print">Acciones</th></tr></thead>
+                            <tbody>${filasVentas || '<tr><td colspan="8" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoVentas(periodo) {
+            const hoy = new Date();
+            const inicio = new Date(hoy);
+            const fin = new Date(hoy);
+            if (periodo === 'semana') {
+                const diasDesdeLunes = (hoy.getDay() + 6) % 7;
+                inicio.setDate(hoy.getDate() - diasDesdeLunes);
+                fin.setDate(inicio.getDate() + 6);
+            }
+            mostrarHistorialVentas(fechaLocalISO(inicio), fechaLocalISO(fin));
+        }
+
+        function aplicarFiltroVentas() {
+            const fechaInicio = document.getElementById('ventasFechaInicio').value;
+            const fechaFin = document.getElementById('ventasFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarHistorialVentas(fechaInicio, fechaFin);
+        }
+
+        function imprimirReporteVentas() {
+            document.body.classList.add('reporte-impresion');
+            window.print();
+            window.setTimeout(() => document.body.classList.remove('reporte-impresion'), 500);
         }
 
         function abrirDetalleModal(id) {
@@ -1408,7 +1736,12 @@
             try {
                 await enviar('DELETE', '/api/ventas/' + reg.id);
                 cerrarModal();
-                await cambiarModulo(reg.tipo === 'VENTA' ? 'historial_ventas' : 'historial_cotizaciones');
+                if (reg.tipo === 'VENTA') {
+                    await cargarHistorial();
+                    mostrarHistorialVentas();
+                } else {
+                    await cambiarModulo('historial_cotizaciones');
+                }
             } catch (e) {
                 alert('No se pudo eliminar: ' + e.message);
             }
