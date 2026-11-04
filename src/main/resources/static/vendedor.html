@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -747,7 +747,8 @@
             body.reporte-impresion .report-total-card,
             body.reporte-impresion .table-container,
             body.reporte-impresion table.data-table th,
-            body.reporte-impresion table.data-table td {
+            body.reporte-impresion table.data-table td,
+            body.reporte-impresion .summary-row {
                 background: #fff !important;
                 color: #111 !important;
                 border-color: #aaa !important;
@@ -780,6 +781,9 @@
                 </button>
                 <button class="nav-btn" onclick="cambiarModulo('historial_ventas', this)">
                     📜 Historial de Ventas
+                </button>
+                <button class="nav-btn" onclick="cambiarModulo('corte_caja', this)">
+                    🧾 Corte de Caja
                 </button>
             </div>
 
@@ -842,6 +846,11 @@
             return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleDateString('es-MX');
         }
 
+        function formatoFechaHora(ms) {
+            const d = new Date(Number(ms));
+            return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('es-MX');
+        }
+
         async function api(url, opciones) {
             const resp = await fetch(url, opciones);
             let datos = null;
@@ -862,6 +871,8 @@
 
         let catalogoProductos = [];
         let historialRegistros = [];
+        let cajaPendiente = null;
+        let cortesHistorial = [];
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
@@ -899,8 +910,36 @@
                 iva: Number(r.iva),
                 total: Number(r.total),
                 fecha: r.fecha,
-                pago: r.pago
+                pago: r.pago,
+                recibido: Number(r.monto_recibido || 0),
+                cambio: Number(r.cambio || 0),
+                corteId: r.corte_id
             }));
+        }
+
+        async function cargarCaja() {
+            const [pendiente, cortes] = await Promise.all([
+                api('/api/caja/pendiente'),
+                api('/api/caja/cortes')
+            ]);
+            cajaPendiente = {
+                cantidad: Number(pendiente.cantidad),
+                total: Number(pendiente.total),
+                efectivo: Number(pendiente.efectivo),
+                tarjeta: Number(pendiente.tarjeta),
+                transferencia: Number(pendiente.transferencia),
+                ventas: (pendiente.ventas || []).map(v => ({
+                    id: v.id,
+                    folio: v.folio_numero,
+                    cliente: v.cliente,
+                    pago: v.pago,
+                    fecha: v.fecha,
+                    total: Number(v.total),
+                    recibido: Number(v.monto_recibido || 0),
+                    cambio: Number(v.cambio || 0)
+                }))
+            };
+            cortesHistorial = cortes;
         }
 
         function etiquetaTipo(tipo) { return tipo === 'COTIZACION' ? 'COTIZACIÓN' : 'VENTA'; }
@@ -920,7 +959,9 @@
             panel.innerHTML = '<div class="summary-box">Cargando...</div>';
 
             try {
-                if (vista === 'historial_ventas' || vista === 'historial_cotizaciones') {
+                if (vista === 'corte_caja') {
+                    await cargarCaja();
+                } else if (vista === 'historial_ventas' || vista === 'historial_cotizaciones') {
                     await cargarHistorial();
                 } else {
                     await cargarCatalogo();
@@ -937,6 +978,8 @@
                     mostrarHistorialVentas();
                 } else if (vista === 'historial_cotizaciones') {
                     renderizarHistorial('COTIZACION');
+                } else if (vista === 'corte_caja') {
+                    renderizarCorteCaja();
                 }
             } catch (e) {
                 panel.innerHTML = `
@@ -1305,6 +1348,7 @@
                     pago: pago,
                     fecha: new Date().toLocaleDateString('es-MX'),
                     subtotal, iva, total,
+                    monto_recibido: esEfectivo ? recibido : total,
                     cotizacion_id: idCotizacionEnProceso,
                     detalle
                 });
@@ -1646,7 +1690,7 @@
                         <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('hoy')">Hoy</button>
                         <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('semana')">Esta semana</button>
                         <button type="button" class="btn-secondary" onclick="aplicarFiltroVentas()">Aplicar fechas</button>
-                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporteVentas()">Imprimir / Guardar PDF</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
                     </div>
                 </div>
                 <div class="report-summary-grid">
@@ -1707,10 +1751,283 @@
             mostrarHistorialVentas(fechaInicio, fechaFin);
         }
 
-        function imprimirReporteVentas() {
+        function imprimirReporte() {
             document.body.classList.add('reporte-impresion');
             window.print();
             window.setTimeout(() => document.body.classList.remove('reporte-impresion'), 500);
+        }
+
+        function renderizarCorteCaja() {
+            const c = cajaPendiente;
+            const filasPendientes = c.ventas.map(v => `
+                <tr>
+                    <td>#${esc(v.folio)}</td>
+                    <td>${esc(v.fecha)}</td>
+                    <td>${esc(v.cliente)}</td>
+                    <td>${esc(v.pago)}</td>
+                    <td><strong>${formatearMoneda(v.total)}</strong></td>
+                    <td>${v.pago === 'Efectivo' && v.recibido > 0 ? formatearMoneda(v.recibido) : '—'}</td>
+                    <td>${v.pago === 'Efectivo' && v.recibido > 0 ? formatearMoneda(v.cambio) : '—'}</td>
+                </tr>
+            `).join('');
+
+            const filasCortes = cortesHistorial.map(k => {
+                const dif = Number(k.diferencia);
+                return `
+                    <tr>
+                        <td>#${esc(k.id)}</td>
+                        <td>${esc(formatoFechaHora(k.fecha_corte))}</td>
+                        <td>${esc(k.responsable)}</td>
+                        <td>${esc(k.num_ventas)}</td>
+                        <td>${formatearMoneda(k.total_ventas)}</td>
+                        <td>${formatearMoneda(k.efectivo_esperado)}</td>
+                        <td>${formatearMoneda(k.efectivo_contado)}</td>
+                        <td class="${dif < 0 ? 'cambio-falta' : 'cambio-ok'}"><strong>${formatearMoneda(dif)}</strong></td>
+                        <td><button type="button" class="btn-add-item" onclick="verCorte(${k.id})">🔍 Ver / Imprimir</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            const bloquePendiente = c.cantidad === 0
+                ? `<div class="summary-box" style="margin-top:0;"><p style="text-align:center;">No hay ventas pendientes de corte. Cuando registres nuevas ventas, aparecerán aquí.</p></div>`
+                : `
+                <form id="corteForm" onsubmit="realizarCorte(event)">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Responsable del Corte</label>
+                            <input type="text" id="corteResponsable" placeholder="Ej. Nombre del vendedor" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Fondo Inicial de Caja ($ MXN)</label>
+                            <input type="number" id="corteFondo" min="0" step="0.01" value="0" oninput="actualizarCalculoCorte()">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Retiros de Efectivo ($ MXN)</label>
+                            <input type="number" id="corteRetiros" min="0" step="0.01" value="0" oninput="actualizarCalculoCorte()">
+                        </div>
+                        <div class="input-group">
+                            <label>Efectivo Contado en Caja ($ MXN)</label>
+                            <input type="number" id="corteContado" min="0" step="0.01" placeholder="Ej. 1500.00" oninput="actualizarCalculoCorte()" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Observaciones (opcional)</label>
+                        <input type="text" id="corteObs" maxlength="500" placeholder="Ej. Se retiró efectivo para depósito">
+                    </div>
+
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
+                            🧮 Cuadre de Efectivo
+                        </h3>
+                        <div class="summary-row"><span>Fondo inicial:</span><span id="lblCorteFondo">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>Ventas en efectivo:</span><span id="lblCorteEfectivo">${dineroTexto(c.efectivo)}</span></div>
+                        <div class="summary-row"><span>Retiros:</span><span id="lblCorteRetiros">$0.00 MXN</span></div>
+                        <div class="summary-row total"><span>Efectivo esperado en caja:</span><span id="lblCorteEsperado">${dineroTexto(c.efectivo)}</span></div>
+                        <div class="summary-row"><span>Efectivo contado:</span><span id="lblCorteContado">$0.00 MXN</span></div>
+                        <div class="summary-row total"><span id="lblCorteDifTitulo">Diferencia:</span><span id="lblCorteDif" class="cambio-ok">$0.00 MXN</span></div>
+                    </div>
+
+                    <button type="submit" class="btn-action" id="btnRealizarCorte">Realizar Corte de Caja</button>
+                </form>
+
+                <div class="summary-box">
+                    <h3>Ventas incluidas en este corte</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Método de pago</th><th>Total</th><th>Recibido</th><th>Cambio</th></tr></thead>
+                            <tbody>${filasPendientes}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('panel-contenido').innerHTML = `
+                <div class="panel-header">
+                    <h2>Corte de Caja</h2>
+                    <p>Suma las ventas realizadas desde el último corte y compara el efectivo esperado contra el efectivo contado.</p>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Ventas pendientes de corte<strong>${c.cantidad}</strong></div>
+                    <div class="report-total-card">Total vendido<strong>${formatearMoneda(c.total)}</strong></div>
+                    <div class="report-total-card">Efectivo<strong>${formatearMoneda(c.efectivo)}</strong></div>
+                    <div class="report-total-card">Tarjeta<strong>${formatearMoneda(c.tarjeta)}</strong></div>
+                    <div class="report-total-card">Transferencia<strong>${formatearMoneda(c.transferencia)}</strong></div>
+                </div>
+                ${bloquePendiente}
+                <div class="summary-box">
+                    <h3>Historial de cortes realizados</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Corte</th><th>Fecha y hora</th><th>Responsable</th><th>Ventas</th><th>Total vendido</th><th>Efectivo esperado</th><th>Efectivo contado</th><th>Diferencia</th><th>Acciones</th></tr></thead>
+                            <tbody>${filasCortes || '<tr><td colspan="9" style="text-align:center;">Aún no se ha realizado ningún corte.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            if (c.cantidad > 0) actualizarCalculoCorte();
+        }
+
+        function actualizarCalculoCorte() {
+            const campoFondo = document.getElementById('corteFondo');
+            const campoRetiros = document.getElementById('corteRetiros');
+            const campoContado = document.getElementById('corteContado');
+            if (!campoFondo || !campoRetiros || !campoContado || !cajaPendiente) return;
+
+            const fondo = redondear(parseFloat(campoFondo.value) || 0);
+            const retiros = redondear(parseFloat(campoRetiros.value) || 0);
+            const contado = redondear(parseFloat(campoContado.value) || 0);
+            const capturado = campoContado.value !== '';
+            const esperado = redondear(fondo + cajaPendiente.efectivo - retiros);
+            const diferencia = redondear(contado - esperado);
+
+            document.getElementById('lblCorteFondo').innerText = dineroTexto(fondo);
+            document.getElementById('lblCorteRetiros').innerText = dineroTexto(retiros);
+            document.getElementById('lblCorteEsperado').innerText = dineroTexto(esperado);
+            document.getElementById('lblCorteContado').innerText = dineroTexto(contado);
+
+            const titulo = document.getElementById('lblCorteDifTitulo');
+            const valor = document.getElementById('lblCorteDif');
+            if (!capturado) {
+                titulo.innerText = 'Diferencia:';
+                valor.innerText = dineroTexto(0);
+                valor.className = 'cambio-ok';
+            } else if (diferencia === 0) {
+                titulo.innerText = 'Caja cuadrada:';
+                valor.innerText = dineroTexto(0);
+                valor.className = 'cambio-ok';
+            } else if (diferencia > 0) {
+                titulo.innerText = 'Sobrante:';
+                valor.innerText = dineroTexto(diferencia);
+                valor.className = 'cambio-ok';
+            } else {
+                titulo.innerText = 'Faltante:';
+                valor.innerText = dineroTexto(Math.abs(diferencia));
+                valor.className = 'cambio-falta';
+            }
+        }
+
+        async function realizarCorte(event) {
+            event.preventDefault();
+
+            const responsable = document.getElementById('corteResponsable').value.trim();
+            const fondo = redondear(parseFloat(document.getElementById('corteFondo').value) || 0);
+            const retiros = redondear(parseFloat(document.getElementById('corteRetiros').value) || 0);
+            const contadoTexto = document.getElementById('corteContado').value;
+            const contado = redondear(parseFloat(contadoTexto));
+
+            if (!responsable) {
+                alert('Escribe el nombre del responsable del corte.');
+                return;
+            }
+            if (contadoTexto === '' || !Number.isFinite(contado) || contado < 0) {
+                alert('Captura el efectivo contado en caja.');
+                return;
+            }
+            if (fondo < 0 || retiros < 0) {
+                alert('Los montos no pueden ser negativos.');
+                return;
+            }
+
+            const esperado = redondear(fondo + cajaPendiente.efectivo - retiros);
+            const diferencia = redondear(contado - esperado);
+            const textoDiferencia = diferencia === 0
+                ? 'La caja está cuadrada.'
+                : (diferencia > 0 ? `Hay un sobrante de ${dineroTexto(diferencia)}.` : `Hay un faltante de ${dineroTexto(Math.abs(diferencia))}.`);
+
+            if (!confirm(`¿Realizar el corte con ${cajaPendiente.cantidad} venta(s) por ${dineroTexto(cajaPendiente.total)}?\n\n${textoDiferencia}\n\nEl corte no se puede modificar después.`)) {
+                return;
+            }
+
+            const boton = document.getElementById('btnRealizarCorte');
+            if (boton) boton.disabled = true;
+
+            try {
+                const corte = await enviar('POST', '/api/caja/cortes', {
+                    responsable,
+                    fondo_inicial: fondo,
+                    retiros,
+                    efectivo_contado: contado,
+                    observaciones: document.getElementById('corteObs').value.trim()
+                });
+                mostrarCorte(corte, true);
+            } catch (e) {
+                if (boton) boton.disabled = false;
+                alert('No se pudo realizar el corte: ' + e.message);
+                cambiarModulo('corte_caja');
+            }
+        }
+
+        async function verCorte(id) {
+            try {
+                const corte = await api('/api/caja/cortes/' + id);
+                mostrarCorte(corte, false);
+            } catch (e) {
+                alert('No se pudo cargar el corte: ' + e.message);
+            }
+        }
+
+        function mostrarCorte(k, recien) {
+            const ventas = k.ventas || [];
+            const dif = Number(k.diferencia);
+            const etiquetaDif = dif === 0 ? 'Caja cuadrada' : (dif > 0 ? 'Sobrante' : 'Faltante');
+
+            const filas = ventas.map(v => {
+                const esEfectivo = v.pago === 'Efectivo' && Number(v.monto_recibido || 0) > 0;
+                return `
+                    <tr>
+                        <td>#${esc(v.folio_numero)}</td>
+                        <td>${esc(v.fecha)}</td>
+                        <td>${esc(v.cliente)}</td>
+                        <td>${esc(v.pago)}</td>
+                        <td><strong>${formatearMoneda(v.total)}</strong></td>
+                        <td>${esEfectivo ? formatearMoneda(v.monto_recibido) : '—'}</td>
+                        <td>${esEfectivo ? formatearMoneda(v.cambio) : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('panel-contenido').innerHTML = `
+                <div class="panel-header">
+                    <h2>Corte de Caja #${esc(k.id)}</h2>
+                    <p>Fecha y hora del corte: ${esc(formatoFechaHora(k.fecha_corte))} | Responsable: ${esc(k.responsable)}</p>
+                </div>
+                ${recien ? '<div class="alert-box no-print" style="display:block; margin-top:0;">✓ Corte de caja registrado correctamente. Las ventas incluidas ya no aparecerán como pendientes.</div>' : ''}
+                <div class="summary-box no-print" style="margin-top:15px;">
+                    <div class="report-filter-actions">
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                        <button type="button" class="btn-secondary" onclick="cambiarModulo('corte_caja')">← Volver a Corte de Caja</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Ventas incluidas<strong>${esc(k.num_ventas)}</strong></div>
+                    <div class="report-total-card">Total vendido<strong>${formatearMoneda(k.total_ventas)}</strong></div>
+                    <div class="report-total-card">Efectivo<strong>${formatearMoneda(k.ventas_efectivo)}</strong></div>
+                    <div class="report-total-card">Tarjeta<strong>${formatearMoneda(k.ventas_tarjeta)}</strong></div>
+                    <div class="report-total-card">Transferencia<strong>${formatearMoneda(k.ventas_transferencia)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3>Cuadre de efectivo</h3>
+                    <div class="summary-row"><span>Fondo inicial:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
+                    <div class="summary-row"><span>Ventas en efectivo:</span><span>${formatearMoneda(k.ventas_efectivo)}</span></div>
+                    <div class="summary-row"><span>Retiros:</span><span>${formatearMoneda(k.retiros)}</span></div>
+                    <div class="summary-row total"><span>Efectivo esperado en caja:</span><span>${formatearMoneda(k.efectivo_esperado)}</span></div>
+                    <div class="summary-row"><span>Efectivo contado:</span><span>${formatearMoneda(k.efectivo_contado)}</span></div>
+                    <div class="summary-row total"><span>${etiquetaDif}:</span><span class="${dif < 0 ? 'cambio-falta' : 'cambio-ok'}">${formatearMoneda(Math.abs(dif))}</span></div>
+                    <div class="summary-row"><span>Observaciones:</span><span>${esc(k.observaciones || '—')}</span></div>
+                </div>
+                <div class="summary-box">
+                    <h3>Ventas incluidas en el corte</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead><tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Método de pago</th><th>Total</th><th>Recibido</th><th>Cambio</th></tr></thead>
+                            <tbody>${filas || '<tr><td colspan="7" style="text-align:center;">Sin ventas.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
         }
 
         function abrirDetalleModal(id) {
@@ -1729,6 +2046,7 @@
             `).join('');
 
             const colorTotal = reg.tipo === 'COTIZACION' ? '#60a5fa' : '#22c55e';
+            const esEfectivo = reg.tipo === 'VENTA' && reg.pago === 'Efectivo' && reg.recibido > 0;
             document.getElementById('modalDetalleContenido').innerHTML = `
                 <h4 style="font-size:0.85rem; color:#a3a3a3; margin-bottom:8px;">Detalle de ítems:</h4>
                 ${itemsDesglose}
@@ -1740,19 +2058,28 @@
                     <span>Total:</span>
                     <span style="color:${colorTotal};">$${reg.total.toFixed(2)} MXN</span>
                 </div>
+                ${esEfectivo ? `
+                    <div class="summary-row"><span>Monto recibido:</span><span>${dineroTexto(reg.recibido)}</span></div>
+                    <div class="summary-row"><span>Cambio entregado:</span><span>${dineroTexto(reg.cambio)}</span></div>
+                ` : ''}
+                ${reg.tipo === 'VENTA' && reg.corteId ? `<div class="summary-row"><span>Incluida en el corte:</span><span>#${esc(reg.corteId)}</span></div>` : ''}
             `;
 
             const acciones = document.getElementById('modalAcciones');
+            const botonEliminar = (reg.tipo === 'VENTA' && reg.corteId)
+                ? ''
+                : '<button class="btn-danger" onclick="eliminarRegistroModal()">🗑️ Eliminar</button>';
+
             if (reg.tipo === 'COTIZACION') {
                 acciones.innerHTML = `
                     <button class="btn-convert" onclick="convertirCotizacionAVenta(${reg.id})">🛒 Convertir a Venta</button>
-                    <button class="btn-danger" onclick="eliminarRegistroModal()">🗑️ Eliminar</button>
+                    ${botonEliminar}
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             } else {
                 acciones.innerHTML = `
                     <button class="btn-convert" style="background:#2563eb;" onclick="generarCotizacionDesdeVenta(${reg.id})">📋 Generar Cotización desde Venta</button>
-                    <button class="btn-danger" onclick="eliminarRegistroModal()">🗑️ Eliminar</button>
+                    ${botonEliminar}
                     <button class="btn-close" onclick="cerrarModal()">Cerrar</button>
                 `;
             }

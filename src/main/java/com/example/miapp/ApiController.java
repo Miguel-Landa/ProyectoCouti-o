@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +24,6 @@ public class ApiController {
         this.db = db;
     }
 
-    // ---------- helpers ----------
     private String s(Map<String, Object> m, String k) {
         Object v = m.get(k);
         if (v == null) return null;
@@ -76,7 +76,6 @@ public class ApiController {
         return "CITA-" + sig;
     }
 
-    // ================= PROVEEDORES =================
     @GetMapping("/proveedores")
     public List<Map<String, Object>> proveedores() {
         return db.queryForList("SELECT * FROM proveedores ORDER BY nombre");
@@ -114,7 +113,6 @@ public class ApiController {
         db.update("DELETE FROM proveedores WHERE id = ?", id);
     }
 
-    // ================= PRODUCTOS =================
     @GetMapping("/productos")
     public List<Map<String, Object>> productos() {
         return db.queryForList("SELECT * FROM productos ORDER BY nombre");
@@ -152,8 +150,6 @@ public class ApiController {
         db.update("DELETE FROM productos WHERE id = ?", id);
     }
 
-    // ================= VENTAS Y COTIZACIONES =================
-    // tipo = 'VENTA' o 'COTIZACION'
     @GetMapping("/ventas")
     public List<Map<String, Object>> ventas() {
         List<Map<String, Object>> ventas = db.queryForList("SELECT * FROM ventas ORDER BY id DESC");
@@ -177,13 +173,30 @@ public class ApiController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agrega al menos un producto.");
         }
 
+        String pago = req(b, "pago");
+        BigDecimal total = n(b, "total");
+        BigDecimal recibido = BigDecimal.ZERO;
+        BigDecimal cambio = BigDecimal.ZERO;
+        if (tipo.equals("VENTA")) {
+            if (pago.equals("Efectivo")) {
+                recibido = n(b, "monto_recibido");
+                if (recibido.compareTo(total) < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "El monto recibido es menor al total a cobrar.");
+                }
+                cambio = recibido.subtract(total);
+            } else {
+                recibido = total;
+            }
+        }
+
         Integer folio = db.queryForObject(
                 "SELECT COALESCE(MAX(folio_numero), 0) + 1 FROM ventas", Integer.class);
         Map<String, Object> venta = db.queryForMap(
-                "INSERT INTO ventas (folio_numero, cliente, tipo, pago, fecha, subtotal, iva, total) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
-                folio, req(b, "cliente"), tipo, req(b, "pago"), req(b, "fecha"),
-                n(b, "subtotal"), n(b, "iva"), n(b, "total"));
+                "INSERT INTO ventas (folio_numero, cliente, tipo, pago, fecha, subtotal, iva, total, monto_recibido, cambio) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                folio, req(b, "cliente"), tipo, pago, req(b, "fecha"),
+                n(b, "subtotal"), n(b, "iva"), total, recibido, cambio);
         Object ventaId = venta.get("id");
 
         for (Map<String, Object> d : detalle) {
@@ -193,7 +206,6 @@ public class ApiController {
                             + "VALUES (?, ?, ?, ?, ?, ?)",
                     ventaId, pid, req(d, "producto"), i(d, "cantidad"), n(d, "precio"), n(d, "importe"));
 
-            // Solo las ventas descuentan inventario (las cotizaciones no)
             if (tipo.equals("VENTA") && pid != null && pid.matches("\\d+")) {
                 int cant = i(d, "cantidad");
                 int filas = db.update(
@@ -206,7 +218,6 @@ public class ApiController {
             }
         }
 
-        // Si la venta viene de convertir una cotización, esa cotización se elimina
         String cot = s(b, "cotizacion_id");
         if (cot != null && cot.matches("\\d+")) {
             db.update("DELETE FROM ventas WHERE id = ? AND tipo = 'COTIZACION'", Long.valueOf(cot));
@@ -216,10 +227,114 @@ public class ApiController {
 
     @DeleteMapping("/ventas/{id}")
     public void borrarVenta(@PathVariable long id) {
+        Integer cortadas = db.queryForObject(
+                "SELECT COUNT(*) FROM ventas WHERE id = ? AND corte_id IS NOT NULL", Integer.class, id);
+        if (cortadas != null && cortadas > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Esta venta ya pertenece a un corte de caja y no se puede eliminar.");
+        }
         db.update("DELETE FROM ventas WHERE id = ?", id);
     }
 
-    // ================= COMPRAS =================
+    private Map<String, Object> resumenPendiente() {
+        List<Map<String, Object>> ventas = db.queryForList(
+                "SELECT id, folio_numero, cliente, pago, fecha, total, monto_recibido, cambio "
+                        + "FROM ventas WHERE tipo = 'VENTA' AND corte_id IS NULL ORDER BY id");
+        BigDecimal efectivo = BigDecimal.ZERO;
+        BigDecimal tarjeta = BigDecimal.ZERO;
+        BigDecimal transferencia = BigDecimal.ZERO;
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map<String, Object> v : ventas) {
+            BigDecimal t = new BigDecimal(v.get("total").toString());
+            String pago = String.valueOf(v.get("pago"));
+            total = total.add(t);
+            if (pago.equals("Efectivo")) {
+                efectivo = efectivo.add(t);
+            } else if (pago.equals("Tarjeta")) {
+                tarjeta = tarjeta.add(t);
+            } else if (pago.equals("Transferencia")) {
+                transferencia = transferencia.add(t);
+            }
+        }
+        Map<String, Object> resumen = new LinkedHashMap<>();
+        resumen.put("cantidad", ventas.size());
+        resumen.put("total", total);
+        resumen.put("efectivo", efectivo);
+        resumen.put("tarjeta", tarjeta);
+        resumen.put("transferencia", transferencia);
+        resumen.put("ventas", ventas);
+        return resumen;
+    }
+
+    private List<Map<String, Object>> ventasDeCorte(Object corteId) {
+        return db.queryForList(
+                "SELECT id, folio_numero, cliente, pago, fecha, total, monto_recibido, cambio "
+                        + "FROM ventas WHERE corte_id = ? ORDER BY id", corteId);
+    }
+
+    @GetMapping("/caja/pendiente")
+    public Map<String, Object> cajaPendiente() {
+        return resumenPendiente();
+    }
+
+    @GetMapping("/caja/cortes")
+    public List<Map<String, Object>> cortes() {
+        return db.queryForList("SELECT * FROM cortes_caja ORDER BY id DESC");
+    }
+
+    @GetMapping("/caja/cortes/{id}")
+    public Map<String, Object> corte(@PathVariable long id) {
+        List<Map<String, Object>> r = db.queryForList("SELECT * FROM cortes_caja WHERE id = ?", id);
+        if (r.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Corte no encontrado");
+        }
+        Map<String, Object> corte = r.get(0);
+        corte.put("ventas", ventasDeCorte(id));
+        return corte;
+    }
+
+    @PostMapping("/caja/cortes")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public Map<String, Object> crearCorte(@RequestBody Map<String, Object> b) {
+        db.execute("LOCK TABLE ventas IN SHARE ROW EXCLUSIVE MODE");
+
+        Map<String, Object> pendiente = resumenPendiente();
+        int cantidad = ((Number) pendiente.get("cantidad")).intValue();
+        if (cantidad == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No hay ventas pendientes de corte.");
+        }
+
+        String responsable = req(b, "responsable");
+        if (s(b, "efectivo_contado") == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Captura el efectivo contado en caja.");
+        }
+        BigDecimal fondo = n(b, "fondo_inicial");
+        BigDecimal retiros = n(b, "retiros");
+        BigDecimal contado = n(b, "efectivo_contado");
+        if (fondo.signum() < 0 || retiros.signum() < 0 || contado.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los montos no pueden ser negativos.");
+        }
+
+        BigDecimal efectivo = (BigDecimal) pendiente.get("efectivo");
+        BigDecimal esperado = fondo.add(efectivo).subtract(retiros);
+        BigDecimal diferencia = contado.subtract(esperado);
+
+        Map<String, Object> corte = db.queryForMap(
+                "INSERT INTO cortes_caja (fecha_corte, responsable, num_ventas, ventas_efectivo, ventas_tarjeta, "
+                        + "ventas_transferencia, total_ventas, fondo_inicial, retiros, efectivo_esperado, "
+                        + "efectivo_contado, diferencia, observaciones) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                System.currentTimeMillis(), responsable, cantidad, efectivo, pendiente.get("tarjeta"),
+                pendiente.get("transferencia"), pendiente.get("total"), fondo, retiros, esperado,
+                contado, diferencia, s(b, "observaciones"));
+
+        Object corteId = corte.get("id");
+        db.update("UPDATE ventas SET corte_id = ? WHERE tipo = 'VENTA' AND corte_id IS NULL", corteId);
+        corte.put("ventas", ventasDeCorte(corteId));
+        return corte;
+    }
+
     @GetMapping("/compras")
     public List<Map<String, Object>> compras() {
         List<Map<String, Object>> compras = db.queryForList("SELECT * FROM compras ORDER BY id DESC");
@@ -270,7 +385,6 @@ public class ApiController {
         db.update("DELETE FROM compras WHERE id = ?", id);
     }
 
-    // ================= CITAS =================
     @GetMapping("/citas")
     public List<Map<String, Object>> citas() {
         return db.queryForList("SELECT * FROM citas ORDER BY id DESC");
@@ -281,7 +395,6 @@ public class ApiController {
         return Map.of("folio", siguienteFolio());
     }
 
-    // Público para la pantalla del cliente: solo devuelve fechas ocupadas, sin datos personales
     @GetMapping("/citas/horarios")
     public List<String> horariosOcupados() {
         return db.queryForList("SELECT fecha_hora FROM citas WHERE modalidad = 'Cita Previa'", String.class);
@@ -343,7 +456,6 @@ public class ApiController {
         return r.get(0);
     }
 
-    // Orden de servicio del mecánico: actualiza la cita si existe, o crea un registro directo (sin cita)
     @PostMapping("/citas/orden")
     public Map<String, Object> guardarOrden(@RequestBody Map<String, Object> b) {
         String folio = req(b, "folio");
@@ -372,7 +484,6 @@ public class ApiController {
         db.update("DELETE FROM citas WHERE id = ?", id);
     }
 
-    // Asigna (o quita) el mecánico encargado de una cita
     @PutMapping("/citas/mecanico/{folio}")
     public Map<String, Object> asignarMecanico(@PathVariable String folio, @RequestBody Map<String, Object> b) {
         String nombre = s(b, "mecanico");
@@ -391,7 +502,6 @@ public class ApiController {
         return r.get(0);
     }
 
-    // ================= MECANICOS =================
     @GetMapping("/mecanicos")
     public List<Map<String, Object>> mecanicos() {
         return db.queryForList("SELECT * FROM mecanicos ORDER BY nombre");
