@@ -349,6 +349,14 @@
             display: inline-block;
         }
 
+        .dif-ok {
+            color: var(--success);
+        }
+
+        .dif-falta {
+            color: var(--danger);
+        }
+
         .alert-box {
             display: none;
             padding: 14px;
@@ -495,6 +503,7 @@
 
             body.reporte-impresion .summary-box,
             body.reporte-impresion .report-total-card,
+            body.reporte-impresion .summary-row,
             body.reporte-impresion .data-table th,
             body.reporte-impresion .data-table td {
                 background: #fff !important;
@@ -529,6 +538,9 @@
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('historial_ventas', this)">
                     📜 Historial de Ventas
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('cortes_caja', this)">
+                    🧾 Cortes de Caja
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('historial_cobros', this)">
                     📊 Historial de Mantenimientos
@@ -612,6 +624,11 @@
             return isNaN(d.getTime()) ? esc(f) : d.toLocaleDateString('es-MX');
         }
 
+        function formatoFechaHora(ms) {
+            const d = new Date(Number(ms));
+            return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('es-MX');
+        }
+
         async function api(url, opciones) {
             const resp = await fetch(url, opciones);
             let datos = null;
@@ -636,6 +653,7 @@
         let mecanicosCache = [];
         let cobrosCache = [];
         let ventasCache = [];
+        let cortesCache = [];
         let itemsCompraActual = [];
         let idProveedorEditando = null;
         let idProductoEditando = null;
@@ -643,6 +661,7 @@
         let filtroMecanicos = '';
         let rangoVentas = null;
         let rangoCobros = null;
+        let rangoCortes = null;
 
         function panelAdmin() { return document.getElementById('panel-contenido-admin'); }
 
@@ -689,6 +708,10 @@
                     await cargarVentas();
                     rangoVentas = null;
                     mostrarHistorialVentas();
+                } else if (vista === 'cortes_caja') {
+                    cortesCache = await api('/api/caja/cortes');
+                    rangoCortes = null;
+                    mostrarCortes();
                 } else if (vista === 'historial_cobros') {
                     cobrosCache = await api('/api/cobros');
                     rangoCobros = null;
@@ -1484,7 +1507,8 @@
                 iva: Number(r.iva),
                 total: Number(r.total),
                 fecha: r.fecha,
-                pago: r.pago
+                pago: r.pago,
+                corteId: r.corte_id
             }));
         }
 
@@ -1560,6 +1584,7 @@
                         <td>${esc(v.pago)}</td>
                         <td>${formatearMoneda(v.subtotal)}<br>IVA: ${formatearMoneda(v.iva)}</td>
                         <td><strong>${formatearMoneda(v.total)}</strong></td>
+                        <td>${v.corteId ? '#' + esc(v.corteId) : 'Pendiente'}</td>
                     </tr>
                 `;
             }).join('');
@@ -1614,8 +1639,8 @@
                     <h3 style="font-size:0.9rem;">Detalle de ventas realizadas</h3>
                     <div class="table-scroll">
                         <table class="data-table">
-                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Productos</th><th>Método de pago</th><th>Subtotal / IVA</th><th>Total</th></tr></thead>
-                            <tbody>${filasVentas || '<tr><td colspan="7" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Productos</th><th>Método de pago</th><th>Subtotal / IVA</th><th>Total</th><th>Corte</th></tr></thead>
+                            <tbody>${filasVentas || '<tr><td colspan="8" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
                         </table>
                     </div>
                 </div>
@@ -1635,6 +1660,168 @@
                 return;
             }
             mostrarHistorialVentas(fechaInicio, fechaFin);
+        }
+
+        function mostrarCortes(fechaInicio, fechaFin) {
+            const hoy = hoyISO();
+            const inicio = fechaInicio || (rangoCortes ? rangoCortes.inicio : hoy);
+            const fin = fechaFin || (rangoCortes ? rangoCortes.fin : hoy);
+            rangoCortes = { inicio, fin };
+
+            const cortes = cortesCache
+                .filter(k => {
+                    const f = fechaLocalISO(new Date(Number(k.fecha_corte)));
+                    return f >= inicio && f <= fin;
+                })
+                .sort((a, b) => Number(b.fecha_corte) - Number(a.fecha_corte));
+
+            const sumar = campo => cortes.reduce((suma, k) => suma + Number(k[campo] || 0), 0);
+            const totalVentas = sumar('total_ventas');
+            const totalEfectivo = sumar('ventas_efectivo');
+            const totalTarjeta = sumar('ventas_tarjeta');
+            const totalTransferencia = sumar('ventas_transferencia');
+            const diferenciaNeta = redondear(sumar('diferencia'));
+            const claseNeta = diferenciaNeta < 0 ? 'dif-falta' : 'dif-ok';
+            const etiquetaNeta = diferenciaNeta === 0 ? 'Diferencia neta' : (diferenciaNeta > 0 ? 'Sobrante neto' : 'Faltante neto');
+
+            const filas = cortes.map(k => {
+                const dif = Number(k.diferencia);
+                return `
+                    <tr>
+                        <td>#${esc(k.id)}</td>
+                        <td>${esc(formatoFechaHora(k.fecha_corte))}</td>
+                        <td>${esc(k.responsable)}</td>
+                        <td>${esc(k.num_ventas)}</td>
+                        <td>${formatearMoneda(k.total_ventas)}</td>
+                        <td>${formatearMoneda(k.efectivo_esperado)}</td>
+                        <td>${formatearMoneda(k.efectivo_contado)}</td>
+                        <td class="${dif < 0 ? 'dif-falta' : 'dif-ok'}"><strong>${formatearMoneda(dif)}</strong></td>
+                        <td class="no-print"><button type="button" class="btn-edit-item" onclick="verCorteAdmin(${k.id})">🔍 Ver detalle</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Cortes de Caja</h2>
+                    <p class="no-print">Elige un periodo para consultar los cortes realizados por el vendedor. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                    <p>Periodo del reporte: ${formatoFecha(inicio)} al ${formatoFecha(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="cortesFechaInicio">Desde</label>
+                            <input type="date" id="cortesFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="cortesFechaFin">Hasta</label>
+                            <input type="date" id="cortesFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCortes('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCortes('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroCortes()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Cortes en el periodo<strong>${cortes.length}</strong></div>
+                    <div class="report-total-card">Total vendido<strong>${formatearMoneda(totalVentas)}</strong></div>
+                    <div class="report-total-card">Efectivo<strong>${formatearMoneda(totalEfectivo)}</strong></div>
+                    <div class="report-total-card">Tarjeta<strong>${formatearMoneda(totalTarjeta)}</strong></div>
+                    <div class="report-total-card">Transferencia<strong>${formatearMoneda(totalTransferencia)}</strong></div>
+                    <div class="report-total-card">${etiquetaNeta}<strong class="${claseNeta}">${formatearMoneda(Math.abs(diferenciaNeta))}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Detalle de cortes realizados</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Corte</th><th>Fecha y hora</th><th>Responsable</th><th>Ventas</th><th>Total vendido</th><th>Efectivo esperado</th><th>Efectivo contado</th><th>Diferencia</th><th class="no-print">Acciones</th></tr></thead>
+                            <tbody>${filas || '<tr><td colspan="9" style="text-align:center;">No hay cortes para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoCortes(periodo) {
+            const p = periodoSeleccionado(periodo);
+            mostrarCortes(p.inicio, p.fin);
+        }
+
+        function aplicarFiltroCortes() {
+            const fechaInicio = document.getElementById('cortesFechaInicio').value;
+            const fechaFin = document.getElementById('cortesFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarCortes(fechaInicio, fechaFin);
+        }
+
+        async function verCorteAdmin(id) {
+            mostrarCargando();
+            try {
+                const k = await api('/api/caja/cortes/' + id);
+                const ventas = k.ventas || [];
+                const dif = Number(k.diferencia);
+                const etiquetaDif = dif === 0 ? 'Caja cuadrada' : (dif > 0 ? 'Sobrante' : 'Faltante');
+
+                const filas = ventas.map(v => {
+                    const esEfectivo = v.pago === 'Efectivo' && Number(v.monto_recibido || 0) > 0;
+                    return `
+                        <tr>
+                            <td>#${esc(v.folio_numero)}</td>
+                            <td>${esc(v.fecha)}</td>
+                            <td>${esc(v.cliente)}</td>
+                            <td>${esc(v.pago)}</td>
+                            <td><strong>${formatearMoneda(v.total)}</strong></td>
+                            <td>${esEfectivo ? formatearMoneda(v.monto_recibido) : '—'}</td>
+                            <td>${esEfectivo ? formatearMoneda(v.cambio) : '—'}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                panelAdmin().innerHTML = `
+                    <div class="panel-header">
+                        <h2>Corte de Caja #${esc(k.id)}</h2>
+                        <p>Fecha y hora del corte: ${esc(formatoFechaHora(k.fecha_corte))} | Responsable: ${esc(k.responsable)}</p>
+                    </div>
+                    <div class="summary-box no-print" style="margin-top:0;">
+                        <div class="report-filter-actions">
+                            <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                            <button type="button" class="btn-secondary" onclick="mostrarCortes()">← Volver a Cortes de Caja</button>
+                        </div>
+                    </div>
+                    <div class="report-summary-grid">
+                        <div class="report-total-card">Ventas incluidas<strong>${esc(k.num_ventas)}</strong></div>
+                        <div class="report-total-card">Total vendido<strong>${formatearMoneda(k.total_ventas)}</strong></div>
+                        <div class="report-total-card">Efectivo<strong>${formatearMoneda(k.ventas_efectivo)}</strong></div>
+                        <div class="report-total-card">Tarjeta<strong>${formatearMoneda(k.ventas_tarjeta)}</strong></div>
+                        <div class="report-total-card">Transferencia<strong>${formatearMoneda(k.ventas_transferencia)}</strong></div>
+                    </div>
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Cuadre de efectivo</h3>
+                        <div class="summary-row"><span>Fondo inicial:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
+                        <div class="summary-row"><span>Ventas en efectivo:</span><span>${formatearMoneda(k.ventas_efectivo)}</span></div>
+                        <div class="summary-row"><span>Retiros:</span><span>${formatearMoneda(k.retiros)}</span></div>
+                        <div class="summary-row total"><span>Efectivo esperado en caja:</span><span>${formatearMoneda(k.efectivo_esperado)}</span></div>
+                        <div class="summary-row"><span>Efectivo contado:</span><span>${formatearMoneda(k.efectivo_contado)}</span></div>
+                        <div class="summary-row total"><span>${etiquetaDif}:</span><span class="${dif < 0 ? 'dif-falta' : 'dif-ok'}">${formatearMoneda(Math.abs(dif))}</span></div>
+                        <div class="summary-row"><span>Observaciones:</span><span>${esc(k.observaciones || '—')}</span></div>
+                    </div>
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Ventas incluidas en el corte</h3>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Método de pago</th><th>Total</th><th>Recibido</th><th>Cambio</th></tr></thead>
+                                <tbody>${filas || '<tr><td colspan="7" style="text-align:center;">Sin ventas.</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                mostrarErrorCarga(e, 'cortes_caja');
+            }
         }
 
         function mostrarHistorialCobros(fechaInicio, fechaFin) {
