@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -663,6 +663,19 @@
             color: var(--text);
         }
 
+        .input-group input[readonly] {
+            opacity: 0.75;
+            cursor: not-allowed;
+        }
+
+        .cambio-ok {
+            color: var(--success);
+        }
+
+        .cambio-falta {
+            color: var(--danger);
+        }
+
         [style*="color:#ffffff"], [style*="color: #ffffff"],
         [style*="color:#fff"], [style*="color: #fff"],
         [style*="color:#e5e5e5"], [style*="color: #e5e5e5"] {
@@ -799,6 +812,8 @@
 
         function redondear(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
 
+        function dineroTexto(n) { return '$' + Number(n || 0).toFixed(2) + ' MXN'; }
+
         function formatearMoneda(importe) {
             return new Intl.NumberFormat('es-MX', {
                 style: 'currency',
@@ -854,6 +869,7 @@
         let folioCotizacionEnProceso = null;
         let registroSeleccionadoId = null;
         let rangoVentas = null;
+        let totalVentaActual = 0;
 
         async function cargarCatalogo() {
             const filas = await api('/api/productos');
@@ -1037,11 +1053,18 @@
                         </div>
                         <div class="input-group">
                             <label>Método de Pago</label>
-                            <select id="ventaMetodoPago">
+                            <select id="ventaMetodoPago" onchange="alCambiarMetodoPago()">
                                 <option value="Efectivo">Efectivo</option>
                                 <option value="Tarjeta">Tarjeta de Débito / Crédito</option>
                                 <option value="Transferencia">Transferencia SPEI</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Monto Recibido del Cliente ($ MXN)</label>
+                            <input type="number" id="ventaMontoRecibido" min="0" step="0.01" placeholder="Ej. 500.00" oninput="actualizarCambioVenta()">
                         </div>
                     </div>
 
@@ -1070,6 +1093,8 @@
                             <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotal">$0.00 MXN</span></div>
                             <div class="summary-row"><span>IVA (16%):</span><span id="lblIva">$0.00 MXN</span></div>
                             <div class="summary-row total"><span>Total a Cobrar:</span><span id="lblTotal" style="color: #22c55e;">$0.00 MXN</span></div>
+                            <div class="summary-row"><span>Monto Recibido:</span><span id="lblRecibido">$0.00 MXN</span></div>
+                            <div class="summary-row total"><span id="lblCambioTitulo">Cambio a Entregar:</span><span id="lblCambio" class="cambio-ok">$0.00 MXN</span></div>
                         </div>
                     </div>
 
@@ -1081,6 +1106,45 @@
 
             filtrarSelectProductos('selectVentaProducto', '');
             actualizarTablaVenta();
+        }
+
+        function alCambiarMetodoPago() {
+            const campo = document.getElementById('ventaMontoRecibido');
+            if (campo && document.getElementById('ventaMetodoPago').value === 'Efectivo') {
+                campo.value = '';
+            }
+            actualizarCambioVenta();
+        }
+
+        function actualizarCambioVenta() {
+            const lblCambio = document.getElementById('lblCambio');
+            const lblTitulo = document.getElementById('lblCambioTitulo');
+            const lblRecibido = document.getElementById('lblRecibido');
+            const campo = document.getElementById('ventaMontoRecibido');
+            const selectPago = document.getElementById('ventaMetodoPago');
+            if (!lblCambio || !lblTitulo || !lblRecibido || !campo || !selectPago) return;
+
+            const total = totalVentaActual;
+            const esEfectivo = selectPago.value === 'Efectivo';
+
+            campo.readOnly = !esEfectivo;
+            if (!esEfectivo) {
+                campo.value = total > 0 ? total.toFixed(2) : '';
+            }
+
+            const capturado = campo.value !== '';
+            const recibido = redondear(parseFloat(campo.value) || 0);
+            lblRecibido.innerText = dineroTexto(recibido);
+
+            if (capturado && recibido < total) {
+                lblTitulo.innerText = 'Faltan por Cobrar:';
+                lblCambio.innerText = dineroTexto(redondear(total - recibido));
+                lblCambio.className = 'cambio-falta';
+            } else {
+                lblTitulo.innerText = 'Cambio a Entregar:';
+                lblCambio.innerText = dineroTexto(capturado ? redondear(recibido - total) : 0);
+                lblCambio.className = 'cambio-ok';
+            }
         }
 
         function filtrarSelectProductos(selectId, query) {
@@ -1156,13 +1220,15 @@
                 document.getElementById('lblSubtotal').innerText = '$0.00 MXN';
                 document.getElementById('lblIva').innerText = '$0.00 MXN';
                 document.getElementById('lblTotal').innerText = '$0.00 MXN';
+                totalVentaActual = 0;
+                actualizarCambioVenta();
                 return;
             }
 
-            let subtotal = 0;
+            let suma = 0;
             contenedor.innerHTML = itemsVentaActual.map(item => {
                 const importe = item.precio * item.cantidad;
-                subtotal += importe;
+                suma += importe;
                 return `
                     <div class="summary-row">
                         <div>
@@ -1180,12 +1246,15 @@
                 `;
             }).join('');
 
-            const iva = subtotal * 0.16;
-            const total = subtotal + iva;
+            const subtotal = redondear(suma);
+            const iva = redondear(subtotal * 0.16);
+            const total = redondear(subtotal + iva);
+            totalVentaActual = total;
 
-            document.getElementById('lblSubtotal').innerText = '$' + subtotal.toFixed(2) + ' MXN';
-            document.getElementById('lblIva').innerText = '$' + iva.toFixed(2) + ' MXN';
-            document.getElementById('lblTotal').innerText = '$' + total.toFixed(2) + ' MXN';
+            document.getElementById('lblSubtotal').innerText = dineroTexto(subtotal);
+            document.getElementById('lblIva').innerText = dineroTexto(iva);
+            document.getElementById('lblTotal').innerText = dineroTexto(total);
+            actualizarCambioVenta();
         }
 
         async function procesarVenta(event) {
@@ -1214,6 +1283,18 @@
             const iva = redondear(subtotal * 0.16);
             const total = redondear(subtotal + iva);
 
+            const campoRecibido = document.getElementById('ventaMontoRecibido');
+            const esEfectivo = pago === 'Efectivo';
+            const recibido = redondear(parseFloat(campoRecibido.value));
+
+            if (esEfectivo && (!Number.isFinite(recibido) || recibido < total)) {
+                alert('El monto recibido es menor al total a cobrar. Captura el monto con el que paga el cliente.');
+                campoRecibido.focus();
+                return;
+            }
+
+            const cambio = esEfectivo ? redondear(recibido - total) : 0;
+
             const boton = document.getElementById('btnProcesarVenta');
             if (boton) boton.disabled = true;
 
@@ -1232,11 +1313,14 @@
                 folioCotizacionEnProceso = null;
 
                 const alerta = document.getElementById('alertaVenta');
+                alerta.innerText = esEfectivo
+                    ? `✓ Venta registrada. Recibido: ${dineroTexto(recibido)} | Cambio a entregar: ${dineroTexto(cambio)}`
+                    : '✓ Venta registrada exitosamente y stock actualizado.';
                 alerta.style.display = 'block';
                 setTimeout(() => {
                     itemsVentaActual = [];
                     cambiarModulo('venta');
-                }, 1500);
+                }, 3500);
             } catch (e) {
                 if (boton) boton.disabled = false;
                 alert('No se pudo registrar la venta: ' + e.message);
