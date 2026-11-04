@@ -265,6 +265,23 @@
             color: var(--button-text);
         }
 
+        .btn-secondary {
+            background: var(--panel-strong);
+            color: var(--text);
+            border: 1px solid var(--border-soft);
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--text);
+            color: var(--button-text);
+        }
+
         .qty-btn {
             background: var(--panel-strong);
             color: var(--text);
@@ -361,12 +378,41 @@
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            vertical-align: top;
         }
 
         .data-table th {
             color: var(--muted);
             font-weight: 600;
             background: var(--panel-alt);
+        }
+
+        .report-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin: 18px 0;
+        }
+
+        .report-total-card {
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-alt);
+            color: var(--text);
+        }
+
+        .report-total-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: 1.35rem;
+        }
+
+        .report-filter-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            gap: 12px;
         }
 
         .modal-overlay {
@@ -405,6 +451,57 @@
         [style*="color:#fff"], [style*="color: #fff"] {
             color: var(--text) !important;
         }
+
+        @media print {
+            @page {
+                size: landscape;
+                margin: 12mm;
+            }
+
+            body.reporte-impresion {
+                background: #fff !important;
+                color: #111 !important;
+                padding: 0 !important;
+            }
+
+            body.reporte-impresion .topbar,
+            body.reporte-impresion .sidebar-buttons,
+            body.reporte-impresion .modal-overlay,
+            body.reporte-impresion .no-print {
+                display: none !important;
+            }
+
+            body.reporte-impresion .workspace,
+            body.reporte-impresion .main-panel {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                background: #fff !important;
+            }
+
+            body.reporte-impresion .panel-header h2,
+            body.reporte-impresion .panel-header p,
+            body.reporte-impresion .summary-box h3 {
+                color: #111 !important;
+            }
+
+            body.reporte-impresion .table-scroll {
+                overflow: visible !important;
+            }
+
+            body.reporte-impresion .summary-box,
+            body.reporte-impresion .report-total-card,
+            body.reporte-impresion .data-table th,
+            body.reporte-impresion .data-table td {
+                background: #fff !important;
+                color: #111 !important;
+                border-color: #aaa !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -430,6 +527,12 @@
                 <button class="nav-btn" onclick="cambiarVistaAdmin('mecanicos', this)">
                     👷 Registro de Mecánicos
                 </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('historial_ventas', this)">
+                    📜 Historial de Ventas
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('historial_cobros', this)">
+                    📊 Historial de Mantenimientos
+                </button>
             </div>
 
             <div class="main-panel" id="panel-contenido-admin">
@@ -437,7 +540,6 @@
         </div>
     </div>
 
-    <!-- Modal Emergente de Detalle de Compra -->
     <div class="modal-overlay" id="modalDetalleCompra">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
@@ -452,7 +554,6 @@
         </div>
     </div>
 
-    <!-- Modal Emergente de Detalle de Mecánico -->
     <div class="modal-overlay" id="modalDetalleMecanico">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
@@ -468,19 +569,41 @@
     </div>
 
     <script>
-        // ================= Utilidades =================
         function esc(valor) {
             return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             })[c]);
         }
+
         function dinero(n) { return Number(n || 0).toFixed(2); }
+
         function mismoId(a, b) { return String(a) === String(b); }
+
         function redondear(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
 
-        function hoyISO() {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        function formatearMoneda(importe) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(Number(importe) || 0);
+        }
+
+        function fechaLocalISO(fecha) {
+            const anio = fecha.getFullYear();
+            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            const dia = String(fecha.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function hoyISO() { return fechaLocalISO(new Date()); }
+
+        function fechaVentaISO(texto) {
+            const t = String(texto || '').trim();
+            let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+            m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+            return '';
         }
 
         function formatoFecha(f) {
@@ -492,7 +615,7 @@
         async function api(url, opciones) {
             const resp = await fetch(url, opciones);
             let datos = null;
-            try { datos = await resp.json(); } catch (e) { /* respuesta sin cuerpo */ }
+            try { datos = await resp.json(); } catch (e) { datos = null; }
             if (!resp.ok) {
                 throw new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
             }
@@ -507,17 +630,19 @@
             });
         }
 
-        // ================= Estado =================
         let catalogoCache = [];
         let proveedoresCache = [];
         let comprasCache = [];
         let mecanicosCache = [];
         let cobrosCache = [];
+        let ventasCache = [];
         let itemsCompraActual = [];
         let idProveedorEditando = null;
         let idProductoEditando = null;
         let idMecanicoEditando = null;
         let filtroMecanicos = '';
+        let rangoVentas = null;
+        let rangoCobros = null;
 
         function panelAdmin() { return document.getElementById('panel-contenido-admin'); }
 
@@ -560,13 +685,20 @@
                     mecanicosCache = await api('/api/mecanicos');
                     try { cobrosCache = await api('/api/cobros'); } catch (e) { cobrosCache = []; }
                     renderizarModuloMecanicos();
+                } else if (vista === 'historial_ventas') {
+                    await cargarVentas();
+                    rangoVentas = null;
+                    mostrarHistorialVentas();
+                } else if (vista === 'historial_cobros') {
+                    cobrosCache = await api('/api/cobros');
+                    rangoCobros = null;
+                    mostrarHistorialCobros();
                 }
             } catch (e) {
                 mostrarErrorCarga(e, vista);
             }
         }
 
-        /* ================= 1. COMPRAS ================= */
         function renderizarModuloCompras() {
             const opcionesProveedores = proveedoresCache.map(p =>
                 `<option value="${esc(p.nombre)}">${esc(p.nombre)}</option>`).join('');
@@ -815,7 +947,6 @@
             }
         }
 
-        /* ================= 2. PROVEEDORES ================= */
         function renderizarModuloProveedores() {
             const filasHTML = proveedoresCache.map(p => `
                 <tr>
@@ -937,7 +1068,6 @@
             }
         }
 
-        /* ================= 3. ARTÍCULOS ================= */
         function renderizarModuloArticulos() {
             const filasHTML = catalogoCache.map(a => `
                 <tr>
@@ -1069,7 +1199,6 @@
             }
         }
 
-        /* ================= 4. REGISTRO DE MECÁNICOS ================= */
         function resumenMecanico(nombre) {
             const suyos = cobrosCache.filter(c => c.mecanico === nombre);
             return {
@@ -1319,6 +1448,347 @@
 
         function cerrarModalMecanico() {
             document.getElementById('modalDetalleMecanico').style.display = 'none';
+        }
+
+        function periodoSeleccionado(periodo) {
+            const hoy = new Date();
+            const inicio = new Date(hoy);
+            const fin = new Date(hoy);
+            if (periodo === 'semana') {
+                const diasDesdeLunes = (hoy.getDay() + 6) % 7;
+                inicio.setDate(hoy.getDate() - diasDesdeLunes);
+                fin.setDate(inicio.getDate() + 6);
+            }
+            return { inicio: fechaLocalISO(inicio), fin: fechaLocalISO(fin) };
+        }
+
+        function imprimirReporte() {
+            document.body.classList.add('reporte-impresion');
+            window.print();
+            window.setTimeout(() => document.body.classList.remove('reporte-impresion'), 500);
+        }
+
+        async function cargarVentas() {
+            const filas = await api('/api/ventas');
+            ventasCache = filas.map(r => ({
+                id: r.id,
+                folio: r.folio_numero,
+                cliente: r.cliente,
+                tipo: r.tipo,
+                items: (r.detalle || []).map(d => ({
+                    producto: d.producto,
+                    cantidad: Number(d.cantidad),
+                    precio: Number(d.precio)
+                })),
+                subtotal: Number(r.subtotal),
+                iva: Number(r.iva),
+                total: Number(r.total),
+                fecha: r.fecha,
+                pago: r.pago
+            }));
+        }
+
+        function mostrarHistorialVentas(fechaInicio, fechaFin) {
+            const hoy = hoyISO();
+            const inicio = fechaInicio || (rangoVentas ? rangoVentas.inicio : hoy);
+            const fin = fechaFin || (rangoVentas ? rangoVentas.fin : hoy);
+            rangoVentas = { inicio, fin };
+
+            const ventas = ventasCache
+                .filter(v => {
+                    if (v.tipo !== 'VENTA') return false;
+                    const f = fechaVentaISO(v.fecha);
+                    return f !== '' && f >= inicio && f <= fin;
+                })
+                .sort((a, b) => {
+                    const fa = fechaVentaISO(a.fecha);
+                    const fb = fechaVentaISO(b.fecha);
+                    if (fa !== fb) return fb.localeCompare(fa);
+                    return Number(b.id) - Number(a.id);
+                });
+
+            const totalPeriodo = ventas.reduce((suma, v) => suma + v.total, 0);
+            const subtotalPeriodo = ventas.reduce((suma, v) => suma + v.subtotal, 0);
+            const ivaPeriodo = ventas.reduce((suma, v) => suma + v.iva, 0);
+
+            const totalesPorDia = new Map();
+            const totalesPorPago = new Map();
+            ventas.forEach(v => {
+                const dia = fechaVentaISO(v.fecha);
+                const registroDia = totalesPorDia.get(dia) || { cantidad: 0, total: 0 };
+                registroDia.cantidad++;
+                registroDia.total += v.total;
+                totalesPorDia.set(dia, registroDia);
+
+                const metodo = v.pago || 'Sin especificar';
+                const registroPago = totalesPorPago.get(metodo) || { cantidad: 0, total: 0 };
+                registroPago.cantidad++;
+                registroPago.total += v.total;
+                totalesPorPago.set(metodo, registroPago);
+            });
+
+            const filasDiarias = [...totalesPorDia.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([dia, registro]) => `
+                    <tr>
+                        <td>${formatoFecha(dia)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasPago = [...totalesPorPago.entries()]
+                .sort(([, a], [, b]) => b.total - a.total)
+                .map(([metodo, registro]) => `
+                    <tr>
+                        <td>${esc(metodo)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasVentas = ventas.map(v => {
+                const detalle = v.items.map(it =>
+                    `${esc(it.producto)} (${it.cantidad} × ${formatearMoneda(it.precio)}) — ${formatearMoneda(it.precio * it.cantidad)}`
+                ).join('<br>');
+                return `
+                    <tr>
+                        <td>${esc(v.fecha)}</td>
+                        <td>#${esc(v.folio)}</td>
+                        <td>${esc(v.cliente)}</td>
+                        <td>${detalle}</td>
+                        <td>${esc(v.pago)}</td>
+                        <td>${formatearMoneda(v.subtotal)}<br>IVA: ${formatearMoneda(v.iva)}</td>
+                        <td><strong>${formatearMoneda(v.total)}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Ventas</h2>
+                    <p class="no-print">Elige un periodo para consultar las ventas. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                    <p>Periodo del reporte: ${formatoFecha(inicio)} al ${formatoFecha(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="ventasFechaInicio">Desde</label>
+                            <input type="date" id="ventasFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="ventasFechaFin">Hasta</label>
+                            <input type="date" id="ventasFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoVentas('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroVentas()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Ventas en el periodo<strong>${ventas.length}</strong></div>
+                    <div class="report-total-card">Total vendido<strong>${formatearMoneda(totalPeriodo)}</strong></div>
+                    <div class="report-total-card">Subtotal sin IVA<strong>${formatearMoneda(subtotalPeriodo)}</strong></div>
+                    <div class="report-total-card">IVA<strong>${formatearMoneda(ivaPeriodo)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen diario</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Día</th><th>Ventas</th><th>Total vendido</th></tr></thead>
+                            <tbody>${filasDiarias || '<tr><td colspan="3" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen por método de pago</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Método de pago</th><th>Ventas</th><th>Total</th></tr></thead>
+                            <tbody>${filasPago || '<tr><td colspan="3" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Detalle de ventas realizadas</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Productos</th><th>Método de pago</th><th>Subtotal / IVA</th><th>Total</th></tr></thead>
+                            <tbody>${filasVentas || '<tr><td colspan="7" style="text-align:center;">No hay ventas para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoVentas(periodo) {
+            const p = periodoSeleccionado(periodo);
+            mostrarHistorialVentas(p.inicio, p.fin);
+        }
+
+        function aplicarFiltroVentas() {
+            const fechaInicio = document.getElementById('ventasFechaInicio').value;
+            const fechaFin = document.getElementById('ventasFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarHistorialVentas(fechaInicio, fechaFin);
+        }
+
+        function mostrarHistorialCobros(fechaInicio, fechaFin) {
+            const hoy = hoyISO();
+            const inicio = fechaInicio || (rangoCobros ? rangoCobros.inicio : hoy);
+            const fin = fechaFin || (rangoCobros ? rangoCobros.fin : hoy);
+            rangoCobros = { inicio, fin };
+
+            const cobros = cobrosCache
+                .filter(c => {
+                    const f = fechaLocalISO(new Date(c.fechaPago));
+                    return f >= inicio && f <= fin;
+                })
+                .sort((a, b) => Number(b.fechaPago) - Number(a.fechaPago));
+
+            const totalPeriodo = cobros.reduce((suma, c) => suma + Number(c.total || 0), 0);
+            const totalRefacciones = cobros.reduce((suma, c) =>
+                suma + (c.refacciones || []).reduce((s, r) => s + Number(r.importe || 0), 0), 0);
+            const totalServicios = cobros.reduce((suma, c) =>
+                suma + Number(c.manoObra || 0) + Number(c.servicioExtraPrecio || 0), 0);
+
+            const totalesPorDia = new Map();
+            const totalesPorMecanico = new Map();
+            cobros.forEach(c => {
+                const dia = fechaLocalISO(new Date(c.fechaPago));
+                const registroDia = totalesPorDia.get(dia) || { cantidad: 0, total: 0 };
+                registroDia.cantidad++;
+                registroDia.total += Number(c.total || 0);
+                totalesPorDia.set(dia, registroDia);
+
+                const nombre = c.mecanico || 'Sin asignar';
+                const registroMec = totalesPorMecanico.get(nombre) || { cantidad: 0, total: 0 };
+                registroMec.cantidad++;
+                registroMec.total += Number(c.total || 0);
+                totalesPorMecanico.set(nombre, registroMec);
+            });
+
+            const filasDiarias = [...totalesPorDia.entries()]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([dia, registro]) => `
+                    <tr>
+                        <td>${formatoFecha(dia)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasMecanico = [...totalesPorMecanico.entries()]
+                .sort(([, a], [, b]) => b.total - a.total)
+                .map(([nombre, registro]) => `
+                    <tr>
+                        <td>${esc(nombre)}</td>
+                        <td>${registro.cantidad}</td>
+                        <td>${formatearMoneda(registro.total)}</td>
+                    </tr>
+                `).join('');
+
+            const filasCobros = cobros.map(c => {
+                const detalleRefacciones = (c.refacciones || []).map(r =>
+                    `${esc(r.nombre)} (${r.cantidad} × ${formatearMoneda(r.precioUnitario)}) — ${formatearMoneda(r.importe)}`
+                );
+                const detalle = [
+                    `<strong>Solicitado:</strong> ${esc(c.servicioSolicitado)}`,
+                    `<strong>Realizado:</strong> ${esc(c.servicioRealizado)}`,
+                    `<strong>Mano de obra:</strong> ${formatearMoneda(c.manoObra)}`,
+                    Number(c.servicioExtraPrecio) > 0
+                        ? `<strong>Extra:</strong> ${esc(c.servicioExtraDescripcion)} — ${formatearMoneda(c.servicioExtraPrecio)}`
+                        : '',
+                    ...detalleRefacciones
+                ].filter(Boolean).join('<br>');
+                return `
+                    <tr>
+                        <td>${esc(new Date(c.fechaPago).toLocaleString('es-MX'))}</td>
+                        <td>${esc(c.folio)}</td>
+                        <td>${esc(c.cliente)}<br>${esc(c.motocicleta)} (${esc(c.placas)})</td>
+                        <td>${detalle}</td>
+                        <td>${esc(c.mecanico)}</td>
+                        <td>${formatearMoneda(c.subtotal)}<br>IVA: ${formatearMoneda(c.iva)}</td>
+                        <td><strong>${formatearMoneda(c.total)}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Mantenimientos</h2>
+                    <p class="no-print">Elige un periodo para consultar los servicios cobrados. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                    <p>Periodo del reporte: ${formatoFecha(inicio)} al ${formatoFecha(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="cobrosFechaInicio">Desde</label>
+                            <input type="date" id="cobrosFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="cobrosFechaFin">Hasta</label>
+                            <input type="date" id="cobrosFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCobros('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCobros('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroCobros()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Cobros en el periodo<strong>${cobros.length}</strong></div>
+                    <div class="report-total-card">Total en caja<strong>${formatearMoneda(totalPeriodo)}</strong></div>
+                    <div class="report-total-card">Servicios y mano de obra<strong>${formatearMoneda(totalServicios)}</strong></div>
+                    <div class="report-total-card">Refacciones<strong>${formatearMoneda(totalRefacciones)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen diario</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Día</th><th>Cobros</th><th>Total de caja</th></tr></thead>
+                            <tbody>${filasDiarias || '<tr><td colspan="3" style="text-align:center;">No hay cobros para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen por mecánico</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Mecánico</th><th>Servicios</th><th>Total generado</th></tr></thead>
+                            <tbody>${filasMecanico || '<tr><td colspan="3" style="text-align:center;">No hay cobros para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Detalle de servicios cobrados</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente / Motocicleta</th><th>Desglose</th><th>Mecánico</th><th>Subtotal / IVA</th><th>Total</th></tr></thead>
+                            <tbody>${filasCobros || '<tr><td colspan="7" style="text-align:center;">No hay cobros para este periodo.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoCobros(periodo) {
+            const p = periodoSeleccionado(periodo);
+            mostrarHistorialCobros(p.inicio, p.fin);
+        }
+
+        function aplicarFiltroCobros() {
+            const fechaInicio = document.getElementById('cobrosFechaInicio').value;
+            const fechaFin = document.getElementById('cobrosFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarHistorialCobros(fechaInicio, fechaFin);
         }
 
         window.onload = function () {
