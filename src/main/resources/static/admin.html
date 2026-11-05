@@ -417,6 +417,29 @@
             font-size: 1.35rem;
         }
 
+        .fondo-input {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--panel);
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        .fondo-botones {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .fondo-botones .btn-secondary {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 0.8rem;
+        }
+
         .report-filter-actions {
             display: flex;
             flex-wrap: wrap;
@@ -655,6 +678,7 @@
         let cobrosCache = [];
         let ventasCache = [];
         let cortesCache = [];
+        let fondoCaja = 0;
         let itemsCompraActual = [];
         let idProveedorEditando = null;
         let idProductoEditando = null;
@@ -710,7 +734,11 @@
                     rangoVentas = null;
                     mostrarHistorialVentas();
                 } else if (vista === 'cortes_caja') {
-                    cortesCache = await api('/api/caja/cortes');
+                    const [cortes, fondo] = await Promise.all([
+                        api('/api/caja/cortes'), api('/api/caja/fondo')
+                    ]);
+                    cortesCache = cortes;
+                    fondoCaja = Number(fondo.fondo);
                     rangoCortes = null;
                     mostrarCortes();
                 } else if (vista === 'historial_cobros') {
@@ -1663,6 +1691,27 @@
             mostrarHistorialVentas(fechaInicio, fechaFin);
         }
 
+        async function guardarFondo(modo) {
+            const campo = document.getElementById('fondoInput');
+            const valor = campo ? campo.value : '';
+            if (valor === '' || !Number.isFinite(Number(valor))) {
+                alert('Escribe un monto válido.');
+                return;
+            }
+            if (modo === 'fondo' && Number(valor) < 0) {
+                alert('El fondo no puede ser negativo.');
+                return;
+            }
+            const cuerpo = modo === 'agregar' ? { agregar: valor } : { fondo: valor };
+            try {
+                const r = await enviar('PUT', '/api/caja/fondo', cuerpo);
+                fondoCaja = Number(r.fondo);
+                mostrarCortes();
+            } catch (e) {
+                alert('No se pudo guardar el fondo: ' + e.message);
+            }
+        }
+
         function mostrarCortes(fechaInicio, fechaFin) {
             const hoy = hoyISO();
             const inicio = fechaInicio || (rangoCortes ? rangoCortes.inicio : hoy);
@@ -1725,6 +1774,16 @@
                     </div>
                 </div>
                 <div class="report-summary-grid">
+                    <div class="report-total-card">
+                        Fondo de caja vigente<strong>${formatearMoneda(fondoCaja)}</strong>
+                        <div class="no-print">
+                            <input type="number" id="fondoInput" class="fondo-input" min="0" step="0.01" placeholder="Monto en $ MXN" style="margin-top:10px;">
+                            <div class="fondo-botones">
+                                <button type="button" class="btn-secondary" onclick="guardarFondo('fondo')">Definir</button>
+                                <button type="button" class="btn-secondary" onclick="guardarFondo('agregar')">Sumar</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="report-total-card">Cortes en el periodo<strong>${cortes.length}</strong></div>
                     <div class="report-total-card">Total vendido<strong>${formatearMoneda(totalVentas)}</strong></div>
                     <div class="report-total-card">Efectivo<strong>${formatearMoneda(totalEfectivo)}</strong></div>
@@ -1802,7 +1861,7 @@
                     </div>
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Cuadre de efectivo</h3>
-                        <div class="summary-row"><span>Fondo inicial:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
+                        <div class="summary-row"><span>Fondo de caja:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
                         <div class="summary-row"><span>Ventas en efectivo:</span><span>${formatearMoneda(k.ventas_efectivo)}</span></div>
                         <div class="summary-row"><span>Retiros:</span><span>${formatearMoneda(k.retiros)}</span></div>
                         <div class="summary-row total"><span>Efectivo esperado en caja:</span><span>${formatearMoneda(k.efectivo_esperado)}</span></div>

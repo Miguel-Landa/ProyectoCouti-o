@@ -8,8 +8,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +26,8 @@ public class ApiController {
 
     public ApiController(JdbcTemplate db) {
         this.db = db;
+        this.db.execute("CREATE TABLE IF NOT EXISTS configuracion ("
+                + "clave VARCHAR(50) PRIMARY KEY, valor VARCHAR(200) NOT NULL)");
     }
 
     private String s(Map<String, Object> m, String k) {
@@ -78,6 +84,61 @@ public class ApiController {
                         + "FROM cobros WHERE folio ~ '^CITA-[0-9]+$'", Integer.class);
         int mayor = Math.max(enCitas, enCobros);
         return "CITA-" + (mayor + 1);
+    }
+
+    private LocalDate fechaDeVenta(String texto) {
+        if (texto == null) {
+            return null;
+        }
+        String t = texto.trim();
+        try {
+            String primera = t.split("[ ,]")[0];
+            if (primera.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+                String[] partes = primera.split("/");
+                return LocalDate.of(Integer.parseInt(partes[2]),
+                        Integer.parseInt(partes[1]), Integer.parseInt(partes[0]));
+            }
+            if (t.matches("\\d{4}-\\d{2}-\\d{2}.*")) {
+                return LocalDate.parse(t.substring(0, 10));
+            }
+        } catch (DateTimeException e) {
+            return null;
+        }
+        return null;
+    }
+
+    private LocalDate fechaParam(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(texto.trim());
+        } catch (DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fecha inválida: " + texto);
+        }
+    }
+
+    private void validarRango(LocalDate desde, LocalDate hasta) {
+        if ((desde == null) != (hasta == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica la fecha inicial y la final.");
+        }
+        if (desde != null && desde.isAfter(hasta)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La fecha inicial debe ser igual o anterior a la final.");
+        }
+    }
+
+    private BigDecimal fondoActual() {
+        List<String> r = db.queryForList(
+                "SELECT valor FROM configuracion WHERE clave = 'fondo_caja'", String.class);
+        if (r.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(r.get(0));
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
     }
 
     @GetMapping("/proveedores")
@@ -240,10 +301,21 @@ public class ApiController {
         db.update("DELETE FROM ventas WHERE id = ?", id);
     }
 
-    private Map<String, Object> resumenPendiente() {
-        List<Map<String, Object>> ventas = db.queryForList(
+    private Map<String, Object> resumenPendiente(LocalDate desde, LocalDate hasta) {
+        List<Map<String, Object>> todas = db.queryForList(
                 "SELECT id, folio_numero, cliente, pago, fecha, total, monto_recibido, cambio "
                         + "FROM ventas WHERE tipo = 'VENTA' AND corte_id IS NULL ORDER BY id");
+        List<Map<String, Object>> ventas = new ArrayList<>();
+        for (Map<String, Object> v : todas) {
+            if (desde == null) {
+                ventas.add(v);
+            } else {
+                LocalDate f = fechaDeVenta(String.valueOf(v.get("fecha")));
+                if (f != null && !f.isBefore(desde) && !f.isAfter(hasta)) {
+                    ventas.add(v);
+                }
+            }
+        }
         BigDecimal efectivo = BigDecimal.ZERO;
         BigDecimal tarjeta = BigDecimal.ZERO;
         BigDecimal transferencia = BigDecimal.ZERO;
@@ -276,9 +348,36 @@ public class ApiController {
                         + "FROM ventas WHERE corte_id = ? ORDER BY id", corteId);
     }
 
+    @GetMapping("/caja/fondo")
+    public Map<String, Object> fondo() {
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+        respuesta.put("fondo", fondoActual());
+        return respuesta;
+    }
+
+    @PutMapping("/caja/fondo")
+    public Map<String, Object> guardarFondo(@RequestBody Map<String, Object> b) {
+        BigDecimal nuevo;
+        if (s(b, "agregar") != null) {
+            nuevo = fondoActual().add(n(b, "agregar"));
+        } else {
+            nuevo = n(b, "fondo");
+        }
+        if (nuevo.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El fondo no puede quedar negativo.");
+        }
+        db.update("INSERT INTO configuracion (clave, valor) VALUES ('fondo_caja', ?) "
+                + "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor", nuevo.toPlainString());
+        return fondo();
+    }
+
     @GetMapping("/caja/pendiente")
-    public Map<String, Object> cajaPendiente() {
-        return resumenPendiente();
+    public Map<String, Object> cajaPendiente(@RequestParam(required = false) String desde,
+                                             @RequestParam(required = false) String hasta) {
+        LocalDate inicio = fechaParam(desde);
+        LocalDate fin = fechaParam(hasta);
+        validarRango(inicio, fin);
+        return resumenPendiente(inicio, fin);
     }
 
     @GetMapping("/caja/cortes")
@@ -297,26 +396,32 @@ public class ApiController {
         return corte;
     }
 
+    @SuppressWarnings("unchecked")
     @PostMapping("/caja/cortes")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public Map<String, Object> crearCorte(@RequestBody Map<String, Object> b) {
         db.execute("LOCK TABLE ventas IN SHARE ROW EXCLUSIVE MODE");
 
-        Map<String, Object> pendiente = resumenPendiente();
+        LocalDate desde = fechaParam(s(b, "desde"));
+        LocalDate hasta = fechaParam(s(b, "hasta"));
+        validarRango(desde, hasta);
+
+        Map<String, Object> pendiente = resumenPendiente(desde, hasta);
         int cantidad = ((Number) pendiente.get("cantidad")).intValue();
         if (cantidad == 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No hay ventas pendientes de corte.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No hay ventas pendientes de corte en ese periodo.");
         }
 
         String responsable = req(b, "responsable");
         if (s(b, "efectivo_contado") == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Captura el efectivo contado en caja.");
         }
-        BigDecimal fondo = n(b, "fondo_inicial");
+        BigDecimal fondo = fondoActual();
         BigDecimal retiros = n(b, "retiros");
         BigDecimal contado = n(b, "efectivo_contado");
-        if (fondo.signum() < 0 || retiros.signum() < 0 || contado.signum() < 0) {
+        if (retiros.signum() < 0 || contado.signum() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los montos no pueden ser negativos.");
         }
 
@@ -334,7 +439,11 @@ public class ApiController {
                 contado, diferencia, s(b, "observaciones"));
 
         Object corteId = corte.get("id");
-        db.update("UPDATE ventas SET corte_id = ? WHERE tipo = 'VENTA' AND corte_id IS NULL", corteId);
+        List<Map<String, Object>> incluidas = (List<Map<String, Object>>) pendiente.get("ventas");
+        for (Map<String, Object> v : incluidas) {
+            db.update("UPDATE ventas SET corte_id = ? WHERE id = ? AND corte_id IS NULL",
+                    corteId, v.get("id"));
+        }
         corte.put("ventas", ventasDeCorte(corteId));
         return corte;
     }

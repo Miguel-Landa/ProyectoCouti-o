@@ -874,6 +874,8 @@
         let historialRegistros = [];
         let cajaPendiente = null;
         let cortesHistorial = [];
+        let fondoCaja = 0;
+        let rangoCorte = null;
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
@@ -918,11 +920,19 @@
             }));
         }
 
-        async function cargarCaja() {
-            const [pendiente, cortes] = await Promise.all([
-                api('/api/caja/pendiente'),
-                api('/api/caja/cortes')
+        async function cargarCaja(desde, hasta) {
+            let url = '/api/caja/pendiente';
+            rangoCorte = null;
+            if (desde && hasta) {
+                url = url + '?desde=' + desde + '&hasta=' + hasta;
+                rangoCorte = { desde: desde, hasta: hasta };
+            }
+            const [pendiente, cortes, fondo] = await Promise.all([
+                api(url),
+                api('/api/caja/cortes'),
+                api('/api/caja/fondo')
             ]);
+            fondoCaja = Number(fondo.fondo);
             cajaPendiente = {
                 cantidad: Number(pendiente.cantidad),
                 total: Number(pendiente.total),
@@ -941,6 +951,21 @@
                 }))
             };
             cortesHistorial = cortes;
+        }
+
+        async function aplicarFiltroCorte() {
+            const desde = document.getElementById('corteFechaInicio').value;
+            const hasta = document.getElementById('corteFechaFin').value;
+            if (!desde || !hasta || desde > hasta) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            try {
+                await cargarCaja(desde, hasta);
+                renderizarCorteCaja();
+            } catch (e) {
+                alert('No se pudo aplicar el filtro: ' + e.message);
+            }
         }
 
         function etiquetaTipo(tipo) { return tipo === 'COTIZACION' ? 'COTIZACIÓN' : 'VENTA'; }
@@ -1760,6 +1785,17 @@
 
         function renderizarCorteCaja() {
             const c = cajaPendiente;
+            const hoy = fechaLocalISO(new Date());
+            let minimo = hoy;
+            c.ventas.forEach(function (v) {
+                const f = fechaVentaISO(v.fecha);
+                if (f !== '' && f < minimo) {
+                    minimo = f;
+                }
+            });
+            const inicio = rangoCorte ? rangoCorte.desde : minimo;
+            const fin = rangoCorte ? rangoCorte.hasta : hoy;
+
             const filasPendientes = c.ventas.map(v => `
                 <tr>
                     <td>#${esc(v.folio)}</td>
@@ -1790,7 +1826,7 @@
             }).join('');
 
             const bloquePendiente = c.cantidad === 0
-                ? `<div class="summary-box" style="margin-top:0;"><p style="text-align:center;">No hay ventas pendientes de corte. Cuando registres nuevas ventas, aparecerán aquí.</p></div>`
+                ? `<div class="summary-box" style="margin-top:0;"><p style="text-align:center;">No hay ventas pendientes de corte en este periodo.</p></div>`
                 : `
                 <form id="corteForm" onsubmit="realizarCorte(event)">
                     <div class="form-grid">
@@ -1799,8 +1835,8 @@
                             <input type="text" id="corteResponsable" placeholder="Ej. Nombre del vendedor" required>
                         </div>
                         <div class="input-group">
-                            <label>Fondo Inicial de Caja ($ MXN)</label>
-                            <input type="number" id="corteFondo" min="0" step="0.01" value="0" oninput="actualizarCalculoCorte()">
+                            <label>Fondo de Caja (definido por el administrador)</label>
+                            <input type="number" id="corteFondo" value="${fondoCaja}" readonly>
                         </div>
                     </div>
                     <div class="form-grid">
@@ -1822,10 +1858,10 @@
                         <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px; border-bottom:1px solid #262626; padding-bottom:8px;">
                             🧮 Cuadre de Efectivo
                         </h3>
-                        <div class="summary-row"><span>Fondo inicial:</span><span id="lblCorteFondo">$0.00 MXN</span></div>
+                        <div class="summary-row"><span>Fondo de caja:</span><span id="lblCorteFondo">${dineroTexto(fondoCaja)}</span></div>
                         <div class="summary-row"><span>Ventas en efectivo:</span><span id="lblCorteEfectivo">${dineroTexto(c.efectivo)}</span></div>
                         <div class="summary-row"><span>Retiros:</span><span id="lblCorteRetiros">$0.00 MXN</span></div>
-                        <div class="summary-row total"><span>Efectivo esperado en caja:</span><span id="lblCorteEsperado">${dineroTexto(c.efectivo)}</span></div>
+                        <div class="summary-row total"><span>Efectivo esperado en caja:</span><span id="lblCorteEsperado">${dineroTexto(fondoCaja + c.efectivo)}</span></div>
                         <div class="summary-row"><span>Efectivo contado:</span><span id="lblCorteContado">$0.00 MXN</span></div>
                         <div class="summary-row total"><span id="lblCorteDifTitulo">Diferencia:</span><span id="lblCorteDif" class="cambio-ok">$0.00 MXN</span></div>
                     </div>
@@ -1847,9 +1883,25 @@
             document.getElementById('panel-contenido').innerHTML = `
                 <div class="panel-header">
                     <h2>Corte de Caja</h2>
-                    <p>Suma las ventas realizadas desde el último corte y compara el efectivo esperado contra el efectivo contado.</p>
+                    <p>Elige el periodo de ventas que quieres cortar y compara el efectivo esperado contra el efectivo contado.</p>
+                    <p>Periodo del corte: ${formatoFechaISO(inicio)} al ${formatoFechaISO(fin)}</p>
+                </div>
+                <div class="summary-box" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="corteFechaInicio">Desde</label>
+                            <input type="date" id="corteFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="corteFechaFin">Hasta</label>
+                            <input type="date" id="corteFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroCorte()">Aplicar fechas</button>
+                        <button type="button" class="btn-secondary" onclick="cambiarModulo('corte_caja')">Ver todo lo pendiente</button>
+                    </div>
                 </div>
                 <div class="report-summary-grid">
+                    <div class="report-total-card">Fondo de caja<strong>${formatearMoneda(fondoCaja)}</strong></div>
                     <div class="report-total-card">Ventas pendientes de corte<strong>${c.cantidad}</strong></div>
                     <div class="report-total-card">Total vendido<strong>${formatearMoneda(c.total)}</strong></div>
                     <div class="report-total-card">Efectivo<strong>${formatearMoneda(c.efectivo)}</strong></div>
@@ -1872,12 +1924,11 @@
         }
 
         function actualizarCalculoCorte() {
-            const campoFondo = document.getElementById('corteFondo');
             const campoRetiros = document.getElementById('corteRetiros');
             const campoContado = document.getElementById('corteContado');
-            if (!campoFondo || !campoRetiros || !campoContado || !cajaPendiente) return;
+            if (!campoRetiros || !campoContado || !cajaPendiente) return;
 
-            const fondo = redondear(parseFloat(campoFondo.value) || 0);
+            const fondo = redondear(fondoCaja);
             const retiros = redondear(parseFloat(campoRetiros.value) || 0);
             const contado = redondear(parseFloat(campoContado.value) || 0);
             const capturado = campoContado.value !== '';
@@ -1914,7 +1965,7 @@
             event.preventDefault();
 
             const responsable = document.getElementById('corteResponsable').value.trim();
-            const fondo = redondear(parseFloat(document.getElementById('corteFondo').value) || 0);
+            const fondo = redondear(fondoCaja);
             const retiros = redondear(parseFloat(document.getElementById('corteRetiros').value) || 0);
             const contadoTexto = document.getElementById('corteContado').value;
             const contado = redondear(parseFloat(contadoTexto));
@@ -1927,7 +1978,7 @@
                 alert('Captura el efectivo contado en caja.');
                 return;
             }
-            if (fondo < 0 || retiros < 0) {
+            if (retiros < 0) {
                 alert('Los montos no pueden ser negativos.');
                 return;
             }
@@ -1937,22 +1988,30 @@
             const textoDiferencia = diferencia === 0
                 ? 'La caja está cuadrada.'
                 : (diferencia > 0 ? `Hay un sobrante de ${dineroTexto(diferencia)}.` : `Hay un faltante de ${dineroTexto(Math.abs(diferencia))}.`);
+            const textoPeriodo = rangoCorte
+                ? `del ${formatoFechaISO(rangoCorte.desde)} al ${formatoFechaISO(rangoCorte.hasta)}`
+                : 'de todo lo pendiente';
 
-            if (!confirm(`¿Realizar el corte con ${cajaPendiente.cantidad} venta(s) por ${dineroTexto(cajaPendiente.total)}?\n\n${textoDiferencia}\n\nEl corte no se puede modificar después.`)) {
+            if (!confirm(`¿Realizar el corte ${textoPeriodo} con ${cajaPendiente.cantidad} venta(s) por ${dineroTexto(cajaPendiente.total)}?\n\n${textoDiferencia}\n\nEl corte no se puede modificar después.`)) {
                 return;
             }
 
             const boton = document.getElementById('btnRealizarCorte');
             if (boton) boton.disabled = true;
 
+            const cuerpo = {
+                responsable,
+                retiros,
+                efectivo_contado: contado,
+                observaciones: document.getElementById('corteObs').value.trim()
+            };
+            if (rangoCorte) {
+                cuerpo.desde = rangoCorte.desde;
+                cuerpo.hasta = rangoCorte.hasta;
+            }
+
             try {
-                const corte = await enviar('POST', '/api/caja/cortes', {
-                    responsable,
-                    fondo_inicial: fondo,
-                    retiros,
-                    efectivo_contado: contado,
-                    observaciones: document.getElementById('corteObs').value.trim()
-                });
+                const corte = await enviar('POST', '/api/caja/cortes', cuerpo);
                 mostrarCorte(corte, true);
             } catch (e) {
                 if (boton) boton.disabled = false;
@@ -2011,7 +2070,7 @@
                 </div>
                 <div class="summary-box">
                     <h3>Cuadre de efectivo</h3>
-                    <div class="summary-row"><span>Fondo inicial:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
+                    <div class="summary-row"><span>Fondo de caja:</span><span>${formatearMoneda(k.fondo_inicial)}</span></div>
                     <div class="summary-row"><span>Ventas en efectivo:</span><span>${formatearMoneda(k.ventas_efectivo)}</span></div>
                     <div class="summary-row"><span>Retiros:</span><span>${formatearMoneda(k.retiros)}</span></div>
                     <div class="summary-row total"><span>Efectivo esperado en caja:</span><span>${formatearMoneda(k.efectivo_esperado)}</span></div>
