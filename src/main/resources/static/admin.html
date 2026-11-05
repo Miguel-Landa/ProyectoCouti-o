@@ -440,6 +440,16 @@
             font-size: 0.8rem;
         }
 
+        .celda-decision {
+            width: 100px;
+            padding: 8px;
+            background: var(--panel);
+            border: 1px solid var(--border-soft);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
         .report-filter-actions {
             display: flex;
             flex-wrap: wrap;
@@ -568,6 +578,9 @@
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('historial_cobros', this)">
                     📊 Historial de Mantenimientos
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('decisiones', this)">
+                    🧠 Toma de Decisiones
                 </button>
             </div>
 
@@ -745,6 +758,9 @@
                     cobrosCache = await api('/api/cobros');
                     rangoCobros = null;
                     mostrarHistorialCobros();
+                } else if (vista === 'decisiones') {
+                    catalogoCache = await api('/api/productos');
+                    renderizarDecisiones();
                 }
             } catch (e) {
                 mostrarErrorCarga(e, vista);
@@ -2038,9 +2054,161 @@
             mostrarHistorialCobros(fechaInicio, fechaFin);
         }
 
+        function renderizarDecisiones() {
+            const opciones = catalogoCache.map(a =>
+                `<option value="${a.id}">[${esc(a.sku)}] ${esc(a.nombre)} - Costo $${dinero(a.costo_compra)} / Precio $${dinero(a.precio)}</option>`).join('');
+
+            const cantidades = [5, 10, 20];
+            const filasAlternativas = cantidades.map((q, k) => `
+                <tr>
+                    <td>Alternativa ${k + 1}</td>
+                    <td><input type="number" class="celda-decision" id="decAlt${k}" value="${q}" min="0" step="1"></td>
+                </tr>`).join('');
+
+            const demandas = [5, 10, 20];
+            const probs = [0.3, 0.5, 0.2];
+            const nombres = ['Demanda baja', 'Demanda media', 'Demanda alta'];
+            const filasEscenarios = demandas.map((d, k) => `
+                <tr>
+                    <td>${nombres[k]}</td>
+                    <td><input type="number" class="celda-decision" id="decEsc${k}" value="${d}" min="0" step="1"></td>
+                    <td><input type="number" class="celda-decision" id="decProb${k}" value="${probs[k]}" min="0" max="1" step="0.01"></td>
+                </tr>`).join('');
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Toma de Decisiones: ¿cuántas piezas surtir?</h2>
+                    <p class="no-print">Decide cuántas piezas de una refacción conviene surtir según la demanda que puedes enfrentar. El costo y el precio salen del catálogo.</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="input-group">
+                        <label>Refacción a analizar</label>
+                        <select id="decProducto">${opciones || '<option value="">No hay productos</option>'}</select>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
+                            <input type="number" id="decRescate" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <input type="number" id="decAlfa" value="0.5" min="0" max="1" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div>
+                            <h3 style="font-size:0.9rem;">Alternativas: piezas a surtir</h3>
+                            <table class="data-table"><tbody>${filasAlternativas}</tbody></table>
+                        </div>
+                        <div>
+                            <h3 style="font-size:0.9rem;">Escenarios: demanda y probabilidad</h3>
+                            <table class="data-table">
+                                <thead><tr><th>Escenario</th><th>Demanda</th><th>Probabilidad</th></tr></thead>
+                                <tbody>${filasEscenarios}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
+                    <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
+                </div>
+                <div id="resultadoDecision"></div>
+            `;
+        }
+
+        function leerCampos(prefijo) {
+            const valores = [];
+            for (let k = 0; k < 3; k++) {
+                valores.push(document.getElementById(prefijo + k).value);
+            }
+            return valores;
+        }
+
+        async function calcularDecision() {
+            const cuerpo = {
+                producto_id: document.getElementById('decProducto').value,
+                rescate: document.getElementById('decRescate').value,
+                alfa: document.getElementById('decAlfa').value,
+                alternativas: leerCampos('decAlt'),
+                escenarios: leerCampos('decEsc'),
+                probabilidades: leerCampos('decProb')
+            };
+            const boton = document.getElementById('btnCalcularDecision');
+            if (boton) boton.disabled = true;
+            try {
+                const r = await enviar('POST', '/api/decisiones/calcular', cuerpo);
+                mostrarResultadoDecision(r);
+            } catch (e) {
+                alert('No se pudo calcular: ' + e.message);
+            }
+            if (boton) boton.disabled = false;
+        }
+
+        function tablaMatriz(r, matriz, resaltar) {
+            const encabezado = r.escenarios.map(d => `<th>Demanda ${d}</th>`).join('');
+            const filas = matriz.map((fila, i) => `
+                <tr>
+                    <td><strong>Surtir ${r.alternativas[i]} pzas</strong></td>
+                    ${fila.map(v => `<td class="${resaltar && v < 0 ? 'dif-falta' : ''}">${formatearMoneda(v)}</td>`).join('')}
+                </tr>`).join('');
+            return `<div class="table-scroll"><table class="data-table">
+                <thead><tr><th>Alternativa</th>${encabezado}</tr></thead>
+                <tbody>${filas}</tbody></table></div>`;
+        }
+
+        function mostrarResultadoDecision(r) {
+            const encabezadoCriterios = r.criterios.map(c => `<th>${esc(c.nombre)}</th>`).join('');
+            const filasCriterios = r.alternativas.map((q, i) => `
+                <tr>
+                    <td><strong>Surtir ${q} pzas</strong></td>
+                    ${r.criterios.map(c => {
+                        const mejor = c.mejor === i;
+                        return `<td>${mejor ? '✓ <strong>' : ''}${formatearMoneda(c.valores[i])}${mejor ? '</strong>' : ''}</td>`;
+                    }).join('')}
+                </tr>`).join('');
+
+            const recomendaciones = r.criterios.map(c => `
+                <div class="summary-row">
+                    <span>${esc(c.nombre)}: ${esc(c.regla)}</span>
+                    <strong>Surtir ${r.alternativas[c.mejor]} pzas</strong>
+                </div>`).join('');
+
+            document.getElementById('resultadoDecision').innerHTML = `
+                <div class="summary-box">
+                    <h3 style="font-size:0.95rem;">Producto: [${esc(r.sku)}] ${esc(r.producto)}</h3>
+                    <p style="font-size:0.85rem;">Costo por pieza: ${formatearMoneda(r.costo)} | Precio de venta: ${formatearMoneda(r.precio)}</p>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Tabla de pagos (utilidad de cada alternativa en cada escenario)</h3>
+                    ${tablaMatriz(r, r.pagos, true)}
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Tabla de arrepentimiento (Savage)</h3>
+                    ${tablaMatriz(r, r.arrepentimientos, false)}
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resultado de cada criterio (✓ marca la mejor alternativa)</h3>
+                    <div class="table-scroll"><table class="data-table">
+                        <thead><tr><th>Alternativa</th>${encabezadoCriterios}</tr></thead>
+                        <tbody>${filasCriterios}</tbody>
+                    </table></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Recomendación por criterio</h3>
+                    ${recomendaciones}
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Valor de la información perfecta</h3>
+                    <div class="summary-row"><span>Mejor VME sin información:</span><span>${formatearMoneda(r.mejorVME)}</span></div>
+                    <div class="summary-row"><span>Valor esperado con información perfecta:</span><span>${formatearMoneda(r.valorConInformacionPerfecta)}</span></div>
+                    <div class="summary-row total"><span>VEIP (lo máximo que conviene pagar por conocer la demanda):</span><span>${formatearMoneda(r.veip)}</span></div>
+                </div>
+                <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+            `;
+        }
+
         window.onload = function () {
             cambiarVistaAdmin('compras', document.querySelector('.nav-btn'));
         };
     </script>
 </body>
-</html>
+</html> 
