@@ -1126,6 +1126,16 @@
             const filasHTML = citasOrdenadas.map(cita => {
                 const badgeClass = cita.modalidad.includes('Previa') ? 'badge-previa' : 'badge-directa';
                 const fechaHora = obtenerFechaHoraCita(cita);
+                const cobrada = Boolean(cita.pagoRegistradoId);
+                const estado = cobrada
+                    ? '<span class="badge-previa">✓ Cobrada</span>'
+                    : '<span class="badge-directa">Pendiente</span>';
+                const acciones = cobrada
+                    ? '<span style="font-size:0.75rem;">Sin acciones</span>'
+                    : `<div class="action-buttons">
+                            <button class="btn-delete-cita" onclick="eliminarCita('${escaparHtml(cita.folio)}')">Eliminar</button>
+                            <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${escaparHtml(cita.folio)}')">Atender</button>
+                       </div>`;
                 return `
                     <tr>
                         <td style="font-weight:600; color:#ffffff;">${escaparHtml(cita.folio)}</td>
@@ -1136,12 +1146,8 @@
                         <td>${fechaHora ? fechaHora.fechaTexto : 'Sin fecha'}</td>
                         <td>${fechaHora ? fechaHora.horaTexto : 'Sin horario'}</td>
                         <td><span class="${badgeClass}">${escaparHtml(cita.modalidad)}</span></td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn-delete-cita" onclick="eliminarCita('${escaparHtml(cita.folio)}')">Eliminar</button>
-                                <button class="btn-select-cita" onclick="cargarCitaEnFormulario('${escaparHtml(cita.folio)}')">Atender</button>
-                            </div>
-                        </td>
+                        <td>${estado}</td>
+                        <td>${acciones}</td>
                     </tr>
                 `;
             }).join('');
@@ -1164,11 +1170,12 @@
                                 <th>Fecha</th>
                                 <th>Horario</th>
                                 <th>Modalidad</th>
+                                <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filasHTML || '<tr><td colspan="9" style="text-align:center;">No hay citas registradas.</td></tr>'}
+                            ${filasHTML || '<tr><td colspan="10" style="text-align:center;">No hay citas registradas.</td></tr>'}
                         </tbody>
                     </table>
                 </div>

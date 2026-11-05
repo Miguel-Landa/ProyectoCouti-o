@@ -70,10 +70,14 @@ public class ApiController {
     }
 
     private String siguienteFolio() {
-        Integer sig = db.queryForObject(
-                "SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 6) AS INTEGER)), 104) + 1 "
+        Integer enCitas = db.queryForObject(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 6) AS INTEGER)), 104) "
                         + "FROM citas WHERE folio ~ '^CITA-[0-9]+$'", Integer.class);
-        return "CITA-" + sig;
+        Integer enCobros = db.queryForObject(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 6) AS INTEGER)), 104) "
+                        + "FROM cobros WHERE folio ~ '^CITA-[0-9]+$'", Integer.class);
+        int mayor = Math.max(enCitas, enCobros);
+        return "CITA-" + (mayor + 1);
     }
 
     @GetMapping("/proveedores")
@@ -481,6 +485,13 @@ public class ApiController {
 
     @DeleteMapping("/citas/{id}")
     public void borrarCita(@PathVariable long id) {
+        Integer cobradas = db.queryForObject(
+                "SELECT COUNT(*) FROM citas WHERE id = ? AND pago_registrado_id IS NOT NULL",
+                Integer.class, id);
+        if (cobradas != null && cobradas > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Esta cita ya fue cobrada y no se puede eliminar.");
+        }
         db.update("DELETE FROM citas WHERE id = ?", id);
     }
 
