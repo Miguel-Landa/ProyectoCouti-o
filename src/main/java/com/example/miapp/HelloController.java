@@ -1,14 +1,24 @@
 package com.example.miapp;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,9 +26,14 @@ import java.util.Map;
 public class HelloController {
 
     private final JdbcTemplate db;
+    private final AuthenticationManager authManager;
+    private final IntentosLoginService intentos;
+    private final SecurityContextRepository contextoRepo = new HttpSessionSecurityContextRepository();
 
-    public HelloController(JdbcTemplate db) {
+    public HelloController(JdbcTemplate db, AuthenticationManager authManager, IntentosLoginService intentos) {
         this.db = db;
+        this.authManager = authManager;
+        this.intentos = intentos;
     }
 
     public static class LoginRequest {
@@ -54,30 +69,68 @@ public class HelloController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequest request,
+                                                      HttpServletRequest http,
+                                                      HttpServletResponse resp) {
         Map<String, Object> response = new HashMap<>();
 
-        List<Map<String, Object>> r = db.queryForList(
-                "SELECT rol FROM usuarios WHERE username = ? AND password = ? AND activo = TRUE",
-                request.getUsuario(), request.getPassword());
+        String usuario = "";
+        if (request.getUsuario() != null) {
+            usuario = request.getUsuario().trim();
+        }
+        String password = "";
+        if (request.getPassword() != null) {
+            password = request.getPassword();
+        }
 
-        if (r.isEmpty()) {
+        if (usuario.isEmpty() || password.isEmpty() || usuario.length() > 100 || password.length() > 200) {
             response.put("success", false);
             response.put("message", "Usuario o contraseña incorrectos.");
             return ResponseEntity.status(401).body(response);
         }
 
-        String rol = r.get(0).get("rol").toString();
-        String pagina = switch (rol) {
-            case "ADMIN" -> "admin.html";
-            case "MECANICO" -> "mecanico.html";
-            default -> "vendedor.html";
-        };
+        long espera = intentos.segundosBloqueado(usuario);
+        if (espera > 0) {
+            long minutos = (espera + 59) / 60;
+            response.put("success", false);
+            response.put("message", "Demasiados intentos fallidos. Intenta de nuevo en " + minutos + " minuto(s).");
+            return ResponseEntity.status(429).body(response);
+        }
 
-        response.put("success", true);
-        response.put("role", rol);
-        response.put("redirectUrl", pagina);
-        return ResponseEntity.ok(response);
+        try {
+            Authentication auth = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(usuario, password));
+            intentos.exito(usuario);
+
+            HttpSession anterior = http.getSession(false);
+            if (anterior != null) {
+                anterior.invalidate();
+            }
+            http.getSession(true);
+
+            SecurityContext contexto = SecurityContextHolder.createEmptyContext();
+            contexto.setAuthentication(auth);
+            SecurityContextHolder.setContext(contexto);
+            contextoRepo.saveContext(contexto, http, resp);
+
+            String rol = auth.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+            String pagina = "vendedor.html";
+            if (rol.equals("ADMIN")) {
+                pagina = "admin.html";
+            } else if (rol.equals("MECANICO")) {
+                pagina = "mecanico.html";
+            }
+
+            response.put("success", true);
+            response.put("role", rol);
+            response.put("redirectUrl", pagina);
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            intentos.fallo(usuario);
+            response.put("success", false);
+            response.put("message", "Usuario o contraseña incorrectos.");
+            return ResponseEntity.status(401).body(response);
+        }
     }
 
     @PostMapping("/clientes/registro")
@@ -91,16 +144,27 @@ public class HelloController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        String marca = "";
+        if (request.getMarca() != null) {
+            marca = request.getMarca();
+        }
+        String modelo = "";
+        if (request.getModelo() != null) {
+            modelo = request.getModelo();
+        }
+        String moto = (marca + " " + modelo).trim();
+        if (moto.isBlank()) {
+            moto = "Sin especificar";
+        }
+
         String folio = "REG-" + System.currentTimeMillis();
-        String moto = ((request.getMarca() == null ? "" : request.getMarca()) + " "
-                + (request.getModelo() == null ? "" : request.getModelo())).trim();
         String fechaHora = java.time.LocalDateTime.now().toString();
 
         db.update(
                 "INSERT INTO citas (folio, cliente, telefono, correo, moto, placas, servicio, modalidad, fecha_hora) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 folio, request.getNombre().trim(), request.getTelefono(), request.getCorreo(),
-                moto.isBlank() ? "Sin especificar" : moto, request.getPlacas().trim(),
+                moto, request.getPlacas().trim(),
                 "Registro de cliente", "Sin cita", fechaHora);
 
         response.put("success", true);

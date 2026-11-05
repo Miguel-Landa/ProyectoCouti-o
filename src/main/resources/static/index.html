@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <title>Bienvenido al sistema MRX</title>
-    <!-- Fuente Inter limpia y profesional -->
+    <script src="sesion.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -55,7 +55,6 @@
             overflow: hidden;
         }
 
-        /* Sección Lateral Izquierda (Con la Imagen/Logo centrada) */
         .login-image {
             flex: 1.1;
             background: var(--panel-alt);
@@ -89,7 +88,6 @@
             color: var(--muted);
         }
 
-        /* Formulario de Acceso (Derecha) */
         .card {
             flex: 1;
             padding: 45px 40px;
@@ -165,7 +163,6 @@
             cursor: not-allowed;
         }
 
-        /* Sección de Registro Cuadrada */
         .register-section {
             margin-top: 25px;
             padding-top: 20px;
@@ -208,11 +205,6 @@
             color: var(--muted);
         }
 
-        [style*="color:#ffffff"], [style*="color: #ffffff"],
-        [style*="color:#fff"], [style*="color: #fff"] {
-            color: var(--text) !important;
-        }
-
         @media (max-width: 768px) {
             .login-wrapper {
                 flex-direction: column;
@@ -231,14 +223,12 @@
 <body>
 
     <div class="login-wrapper">
-        <!-- Panel Izquierdo: Imagen / Logo centrados -->
         <div class="login-image">
             <img src="logo.jpg" alt="Logo MRX" class="logo-img">
             <h2>Sistema MRX</h2>
             <p>Gestión y control de taller de mantenimiento.</p>
         </div>
 
-        <!-- Formulario de Acceso (Derecha) -->
         <div class="card">
             <h2>Inicio de Sesión</h2>
 
@@ -284,14 +274,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usuario, password })
                 });
-                const data = await res.json();
+
+                let data = {};
+                try { data = await res.json(); } catch (e) { data = {}; }
 
                 if (data.success) {
                     mensajeElem.innerText = 'Autenticación exitosa. Redirigiendo...';
                     setTimeout(() => { window.location.href = data.redirectUrl; }, 600);
                 } else {
                     mensajeElem.style.color = 'var(--danger)';
-                    mensajeElem.innerText = data.message || 'Usuario o contraseña incorrectos.';
+                    mensajeElem.innerText = data.message ||
+                        (res.status === 403
+                            ? 'Recarga la página e intenta de nuevo.'
+                            : 'Usuario o contraseña incorrectos.');
                     boton.disabled = false;
                 }
             } catch (e) {

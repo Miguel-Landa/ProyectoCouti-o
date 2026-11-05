@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Módulo Mecánico - Sistema MRX</title>
+    <script src="sesion.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -651,7 +652,6 @@
             color: var(--success) !important;
         }
 
-        /* Selector de mecánico dentro de la tabla de cobro */
         .select-mecanico-cita {
             width: 100%;
             min-width: 150px;
@@ -706,7 +706,6 @@
     </div>
 
     <script>
-        // ================= Utilidades =================
         function escaparHtml(valor) {
             return String(valor == null ? '' : valor).replace(/[&<>"']/g, caracter => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -716,7 +715,7 @@
         async function api(url, opciones) {
             const resp = await fetch(url, opciones);
             let datos = null;
-            try { datos = await resp.json(); } catch (e) { /* respuesta sin cuerpo */ }
+            try { datos = await resp.json(); } catch (e) { datos = null; }
             if (!resp.ok) {
                 throw new Error((datos && datos.message) || ('Error del servidor (' + resp.status + ')'));
             }
@@ -745,12 +744,10 @@
             }).format(Number(importe) || 0);
         }
 
-        // Para comparar placas sin importar mayúsculas, espacios o guiones
         function normalizarPlaca(valor) {
             return String(valor == null ? '' : valor).toUpperCase().replace(/[\s-]/g, '');
         }
 
-        // ================= Estado (datos que vienen de la base de datos) =================
         let catalogoCache = [];
         let listaCitas = [];
         let mecanicosActivos = [];
@@ -828,7 +825,6 @@
             };
         }
 
-        // ================= Navegación =================
         async function cambiarVistaMecanico(vista, boton) {
             if (boton) {
                 document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -864,7 +860,6 @@
             }
         }
 
-        /* 1. REGISTRO DE MANTENIMIENTO */
         async function renderizarFormularioMantenimientoOriginal() {
             refaccionesMantenimientoForm = [];
             const { folio } = await api('/api/citas/siguiente-folio');
@@ -1119,7 +1114,6 @@
             }
         }
 
-        /* 2. CITAS Y REGISTRO DE CLIENTES */
         function renderizarTablaCitasOriginal() {
             const citasOrdenadas = [...listaCitas].sort((a, b) => {
                 const fechaA = obtenerFechaHoraCita(a)?.fecha.getTime();
@@ -1236,9 +1230,6 @@
             }
         }
 
-        /* 3. COBRO DE MANTENIMIENTO / SERVICIO */
-
-        // Opciones del selector de mecánico de cada cita (solo mecánicos registrados y activos)
         function opcionesMecanicoCita(actual) {
             const nombres = [...mecanicosActivos];
             if (actual && !nombres.includes(actual)) nombres.push(actual);
@@ -1247,7 +1238,6 @@
             ).join('');
         }
 
-        // Filas de la tabla de servicios, filtradas por placa si hay búsqueda
         function filasServiciosCobro() {
             const q = normalizarPlaca(filtroPlacaCobro);
             const citas = q
@@ -1285,7 +1275,6 @@
             }).join('');
         }
 
-        // Panel con los servicios ya cobrados de la placa buscada
         function htmlHistorialPlaca() {
             const q = normalizarPlaca(filtroPlacaCobro);
             if (!q) return '';
@@ -1355,7 +1344,6 @@
             filtrarCobroPorPlaca('');
         }
 
-        // Guarda en la base de datos el mecánico encargado de la cita
         async function asignarMecanicoCita(folio, select) {
             const cita = listaCitas.find(c => c.folio === folio);
             if (!cita) return;
@@ -1367,7 +1355,6 @@
                 await enviar('PUT', '/api/citas/mecanico/' + encodeURIComponent(folio), { mecanico: nuevo });
                 cita.mecanico = nuevo;
 
-                // Si esa cita está abierta en el formulario de cobro, actualiza también ese selector
                 if (servicioSeleccionadoParaCobro && servicioSeleccionadoParaCobro.folio === folio) {
                     const selectCobro = document.getElementById('cobroMecanicoSelect');
                     if (selectCobro && nuevo &&
@@ -1506,7 +1493,6 @@
             renderizarModuloCobroSeparado();
             cargarRefaccionesOrdenAlCobro(servicio);
 
-            // Preselecciona el mecánico asignado a la cita
             const selectMecanico = document.getElementById('cobroMecanicoSelect');
             if (servicio.mecanico && selectMecanico &&
                 Array.from(selectMecanico.options).some(o => o.value === servicio.mecanico)) {
@@ -1692,14 +1678,12 @@
                 return;
             }
 
-            // El servidor ya descontó el stock y marcó la cita como cobrada
             document.getElementById('alertaCobroExito').style.display = 'block';
             setTimeout(() => {
                 cambiarVistaMecanico('cobro', document.querySelectorAll('.nav-btn')[2]);
             }, 1800);
         }
 
-        /* 4. HISTORIAL DE COBROS */
         async function renderizarHistorialCobros() {
             panelMecanico().innerHTML = `
                 <div class="panel-header">
