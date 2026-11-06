@@ -197,6 +197,11 @@
             background: var(--panel-strong);
         }
 
+        .input-group input[readonly] {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
         .summary-box {
             background: var(--panel-alt);
             border: 1px solid var(--border);
@@ -797,7 +802,7 @@
             const opcionesProveedores = proveedoresCache.map(p =>
                 `<option value="${esc(p.nombre)}">${esc(p.nombre)}</option>`).join('');
             const opcionesArticulos = catalogoCache.map(a =>
-                `<option value="${a.id}">[${esc(a.sku)}] ${esc(a.nombre)} - Costo: $${dinero(a.costo_compra)} (Stock: ${a.stock})</option>`).join('');
+                `<option value="${a.id}">[${esc(a.sku)}] ${esc(a.nombre)} - Último costo: $${dinero(a.costo_compra)} (Stock: ${a.stock})</option>`).join('');
 
             const filasHistorial = comprasCache.map(c => `
                 <tr>
@@ -815,13 +820,13 @@
             panelAdmin().innerHTML = `
                 <div class="panel-header">
                     <h2>Registrar Compra de Mercancía</h2>
-                    <p>Ingreso de facturas de compra y surtido dinámico de stock a almacén.</p>
+                    <p>Ingreso de facturas de compra y surtido dinámico de stock a almacén. El costo por pieza es el que cobra este proveedor en esta factura.</p>
                 </div>
 
                 <div class="form-grid">
                     <div class="input-group">
                         <label>Seleccionar Proveedor Registrado</label>
-                        <select id="compraProveedorSelect">${opcionesProveedores || '<option value="">Primero registra un proveedor</option>'}</select>
+                        <select id="compraProveedorSelect" onchange="precargarCostoCompra()">${opcionesProveedores || '<option value="">Primero registra un proveedor</option>'}</select>
                     </div>
                     <div class="input-group">
                         <label>Número de Factura / Remisión</label>
@@ -829,12 +834,16 @@
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
-                    <div class="input-group" style="margin-bottom:0; flex:2;">
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
+                    <div class="input-group" style="margin-bottom:0; flex:2; min-width:220px;">
                         <label>Artículo Surtido</label>
-                        <select id="selectCompraArticulo">${opcionesArticulos || '<option value="">Primero registra artículos en el catálogo</option>'}</select>
+                        <select id="selectCompraArticulo" onchange="precargarCostoCompra()">${opcionesArticulos || '<option value="">Primero registra artículos en el catálogo</option>'}</select>
                     </div>
-                    <div class="input-group" style="margin-bottom:0; flex:1;">
+                    <div class="input-group" style="margin-bottom:0; flex:1; min-width:120px;">
+                        <label>Costo por pieza (este proveedor)</label>
+                        <input type="number" id="compraCostoInput" value="0" min="0" step="0.01">
+                    </div>
+                    <div class="input-group" style="margin-bottom:0; flex:1; min-width:120px;">
                         <label>Cantidad Comprada</label>
                         <input type="number" id="compraCantidadInput" value="10" min="1">
                     </div>
@@ -877,26 +886,65 @@
                 </div>
             `;
             actualizarTablaCompra();
+            precargarCostoCompra();
+        }
+
+        function costoSugeridoCompra(articulo, proveedor) {
+            for (const c of comprasCache) {
+                if (c.proveedor === proveedor) {
+                    const linea = (c.detalle || []).find(d => d.sku === articulo.sku);
+                    if (linea) return Number(linea.costo);
+                }
+            }
+            return Number(articulo.costo_compra);
+        }
+
+        function precargarCostoCompra() {
+            const sel = document.getElementById('selectCompraArticulo');
+            const prov = document.getElementById('compraProveedorSelect');
+            const campo = document.getElementById('compraCostoInput');
+            if (!sel || !campo) return;
+            const articulo = catalogoCache.find(a => mismoId(a.id, sel.value));
+            if (!articulo) {
+                campo.value = '';
+                return;
+            }
+            campo.value = costoSugeridoCompra(articulo, prov ? prov.value : '');
         }
 
         function agregarArticuloACompra() {
             const sel = document.getElementById('selectCompraArticulo');
             if (!sel || !sel.value) return;
             const cantidad = parseInt(document.getElementById('compraCantidadInput').value) || 1;
+            const costo = parseFloat(document.getElementById('compraCostoInput').value);
+            if (Number.isNaN(costo) || costo <= 0) {
+                alert('Captura el costo por pieza que cobra este proveedor.');
+                return;
+            }
             const articulo = catalogoCache.find(a => mismoId(a.id, sel.value));
             if (!articulo) return;
 
             const existe = itemsCompraActual.find(item => mismoId(item.id, articulo.id));
             if (existe) {
                 existe.cantidad += cantidad;
+                existe.costo = costo;
             } else {
                 itemsCompraActual.push({
                     id: articulo.id,
                     sku: articulo.sku,
                     nombre: articulo.nombre,
-                    costo: Number(articulo.costo_compra),
+                    costo: costo,
                     cantidad: cantidad
                 });
+            }
+            actualizarTablaCompra();
+        }
+
+        function cambiarCostoCompra(id, valor) {
+            const item = itemsCompraActual.find(i => mismoId(i.id, id));
+            const costo = parseFloat(valor);
+            if (item && !Number.isNaN(costo) && costo >= 0) {
+                item.costo = costo;
             }
             actualizarTablaCompra();
         }
@@ -941,6 +989,9 @@
                                 <span style="font-weight:700; color:#ffffff;">${item.cantidad}</span>
                                 <button class="qty-btn" onclick="modificarCantidadCompra(${item.id}, 1)">+</button>
                             </span>
+                            <span style="margin-left:8px;">Costo: $
+                                <input type="number" class="celda-decision" style="width:100px; min-width:100px;" min="0" step="0.01" value="${item.costo}" onchange="cambiarCostoCompra(${item.id}, this.value)">
+                            </span>
                             <button class="btn-remove-item" onclick="removerArticuloCompra(${item.id})">Quitar</button>
                         </div>
                         <span style="color:#ffffff;">$${dinero(importe)} MXN</span>
@@ -962,6 +1013,10 @@
             if (!factura) { alert('Ingresa el número de factura o remisión.'); return; }
             if (!proveedor) { alert('Registra y selecciona un proveedor.'); return; }
             if (itemsCompraActual.length === 0) { alert('Agrega al menos un artículo.'); return; }
+            if (itemsCompraActual.some(item => !(item.costo > 0))) {
+                alert('Todos los artículos deben tener un costo mayor a cero.');
+                return;
+            }
 
             let subtotal = 0;
             const detalle = itemsCompraActual.map(item => {
@@ -1005,7 +1060,7 @@
 
             const itemsHTML = (compra.detalle || []).map(it => `
                 <div class="summary-row">
-                    <span>${esc(it.nombre)} (${esc(it.sku)}) - x${it.cantidad}</span>
+                    <span>${esc(it.nombre)} (${esc(it.sku)}) - x${it.cantidad} a $${dinero(it.costo)}</span>
                     <span>$${dinero(it.importe)} MXN</span>
                 </div>
             `).join('');
@@ -1180,7 +1235,7 @@
             panelAdmin().innerHTML = `
                 <div class="panel-header">
                     <h2>Gestión del Catálogo de Artículos</h2>
-                    <p>Alta de nuevos productos, ajuste de precios, costos y stock global en un solo lugar.</p>
+                    <p>Alta de nuevos productos, ajuste de precios y stock global en un solo lugar. El costo de compra se actualiza solo con cada compra a proveedores.</p>
                 </div>
 
                 <form onsubmit="guardarOActualizarArticulo(event)">
@@ -1201,8 +1256,8 @@
 
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Costo de Compra ($ MXN)</label>
-                            <input type="number" id="artCostoInput" step="0.01" min="0" placeholder="Ej. 120.00" required>
+                            <label>Último costo de compra ($ MXN, opcional: se actualiza con cada compra)</label>
+                            <input type="number" id="artCostoInput" step="0.01" min="0" placeholder="0.00">
                         </div>
                         <div class="input-group">
                             <label>Precio de Venta ($ MXN)</label>
@@ -1230,7 +1285,7 @@
                     <div class="table-scroll">
                     <table class="data-table">
                         <thead>
-                            <tr><th>SKU</th><th>Producto</th><th>Costo Compra</th><th>Precio Venta</th><th>Stock</th><th>Acciones</th></tr>
+                            <tr><th>SKU</th><th>Producto</th><th>Último costo de compra</th><th>Precio Venta</th><th>Stock</th><th>Acciones</th></tr>
                         </thead>
                         <tbody>
                             ${filasHTML.length > 0 ? filasHTML : '<tr><td colspan="6" style="text-align:center;">No hay artículos registrados.</td></tr>'}
@@ -1274,6 +1329,7 @@
             document.getElementById('artSkuInput').value = art.sku;
             document.getElementById('artNombreInput').value = art.nombre;
             document.getElementById('artCostoInput').value = art.costo_compra;
+            document.getElementById('artCostoInput').readOnly = true;
             document.getElementById('artPrecioInput').value = art.precio;
             document.getElementById('artStockInput').value = art.stock;
         }
@@ -2089,7 +2145,7 @@
             },
             proveedor: {
                 nombre: 'Qué proveedor elegir',
-                descripcion: 'Compara proveedores para una misma refacción según su costo por pieza y el pedido que exige cada uno, frente a distintos niveles de demanda.'
+                descripcion: 'Compara proveedores para una misma refacción según su costo por pieza y el pedido que exige cada uno, frente a distintos niveles de demanda. El costo sale de la última compra a cada proveedor.'
             },
             mecanico: {
                 nombre: 'Contratar otro mecánico',
@@ -2102,6 +2158,10 @@
             promocion: {
                 nombre: 'Qué productos promocionar',
                 descripcion: 'Compara productos de baja rotación para promocionar, según el margen con descuento y la parte del stock que se logra vender.'
+            },
+            precio: {
+                nombre: 'A qué precio vender',
+                descripcion: 'Compara distintos precios de venta de una refacción. Para cada precio capturas cuántas piezas esperas vender en cada escenario; el pago es (precio − costo) × piezas.'
             }
         };
 
@@ -2109,7 +2169,9 @@
         let decApoyo = null;
         let decAlternativas = [];
         let decEscenarios = [];
+        let decMatriz = [];
         let decGlobal = {};
+        let decNotaProv = '';
 
         function productoPorId(id) {
             return catalogoCache.find(a => mismoId(a.id, id));
@@ -2161,7 +2223,7 @@
                 <div id="resultadoDecision"></div>
             `;
             await cargarApoyoDecision();
-            aplicarDefaultsDecision();
+            await aplicarDefaultsDecision();
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
@@ -2179,15 +2241,15 @@
 
         async function actualizarApoyoDecision() {
             await cargarApoyoDecision();
-            aplicarDefaultsDecision();
+            await aplicarDefaultsDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
             document.getElementById('resultadoDecision').innerHTML = '';
         }
 
-        function cambiarTipoDecision(valor) {
+        async function cambiarTipoDecision(valor) {
             decTipo = valor;
-            aplicarDefaultsDecision();
+            await aplicarDefaultsDecision();
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
@@ -2199,18 +2261,56 @@
             if (el) el.innerText = TIPOS_DECISION[decTipo].descripcion;
         }
 
-        function aplicarDefaultsDecision() {
+        async function cargarAlternativasProveedor() {
+            let costos = [];
+            try {
+                costos = await api('/api/decisiones/costos-proveedor?producto_id=' + encodeURIComponent(decGlobal.productoId));
+            } catch (e) {
+                costos = [];
+            }
+            const prod = productoPorId(decGlobal.productoId);
+            const costoBase = prod ? Number(prod.costo_compra) : 0;
+            const alts = costos.slice(0, 7).map(c => ({
+                nombre: c.proveedor,
+                valor: 10,
+                costo: c.costo,
+                producto: ''
+            }));
+            if (alts.length > 0) {
+                decNotaProv = 'Los costos salen de la última compra de este producto a cada proveedor. Puedes cambiarlos.';
+            } else {
+                decNotaProv = 'Este producto aún no tiene compras registradas. Captura el costo que ofrece cada proveedor o registra una compra primero.';
+            }
+            if (alts.length < 2) {
+                const usados = alts.map(a => a.nombre);
+                const registrados = decApoyo ? decApoyo.proveedores : [];
+                registrados.forEach(p => {
+                    if (alts.length < 3 && !usados.includes(p.nombre)) {
+                        alts.push({ nombre: p.nombre, valor: 10, costo: redondear(costoBase), producto: '' });
+                        usados.push(p.nombre);
+                    }
+                });
+            }
+            while (alts.length < 2) {
+                alts.push({ nombre: 'Proveedor ' + String.fromCharCode(65 + alts.length), valor: 10, costo: redondear(costoBase), producto: '' });
+            }
+            decAlternativas = alts;
+        }
+
+        async function aplicarDefaultsDecision() {
             const ap = decApoyo;
             const primero = catalogoCache.length > 0 ? catalogoCache[0] : null;
-            const costoBase = primero ? Number(primero.costo_compra) : 100;
             decGlobal = {
                 productoId: primero ? String(primero.id) : '',
                 rescate: 0,
                 alfa: 0.5,
                 ingreso: 500,
                 descuento: 15,
-                costoPromo: 0
+                costoPromo: 0,
+                costo: primero ? Number(primero.costo_compra) : 0
             };
+            decNotaProv = '';
+            decMatriz = [];
             const probs = [0.3, 0.5, 0.2];
             const arma = lista => lista.map((e, k) => ({ nombre: e[0], valor: e[1], prob: probs[k] }));
 
@@ -2218,22 +2318,9 @@
                 decAlternativas = [5, 10, 20].map(q => ({ nombre: '', valor: q, costo: '', producto: '' }));
                 decEscenarios = arma([['Demanda baja', 5], ['Demanda media', 10], ['Demanda alta', 20]]);
             } else if (decTipo === 'proveedor') {
-                const provs = ap ? ap.proveedores.slice(0, 3) : [];
-                if (provs.length >= 2) {
-                    decAlternativas = provs.map(p => ({
-                        nombre: p.nombre,
-                        valor: 10,
-                        costo: p.costoPromedio > 0 ? p.costoPromedio : costoBase,
-                        producto: ''
-                    }));
-                } else {
-                    decAlternativas = [
-                        { nombre: 'Proveedor A', valor: 10, costo: redondear(costoBase), producto: '' },
-                        { nombre: 'Proveedor B', valor: 10, costo: redondear(costoBase * 0.95), producto: '' },
-                        { nombre: 'Proveedor C', valor: 10, costo: redondear(costoBase * 1.05), producto: '' }
-                    ];
-                }
+                decAlternativas = [];
                 decEscenarios = arma([['Demanda baja', 5], ['Demanda media', 10], ['Demanda alta', 20]]);
+                await cargarAlternativasProveedor();
             } else if (decTipo === 'mecanico') {
                 const base = ap && ap.servicios.porMes > 0 ? Math.round(ap.servicios.porMes) : 20;
                 decGlobal.ingreso = ap && ap.servicios.ingresoPromedio > 0 ? Math.round(ap.servicios.ingresoPromedio) : 500;
@@ -2253,6 +2340,14 @@
                 });
                 decAlternativas = candidatos.map(id => ({ nombre: '', valor: '', costo: '', producto: id }));
                 decEscenarios = arma([['Respuesta baja', 20], ['Respuesta media', 40], ['Respuesta alta', 70]]);
+            } else if (decTipo === 'precio') {
+                const precioBase = primero ? Number(primero.precio) : 100;
+                const factores = [0.9, 1, 1.1];
+                decAlternativas = factores.map(f => ({ nombre: '', valor: redondear(precioBase * f), costo: '', producto: '' }));
+                decEscenarios = arma([['Demanda baja', 0], ['Demanda media', 0], ['Demanda alta', 0]]);
+                const demandas = [5, 10, 20];
+                const reaccion = [1.2, 1, 0.8];
+                decMatriz = reaccion.map(r => demandas.map(d => Math.round(d * r)));
             }
         }
 
@@ -2261,6 +2356,33 @@
             if (!cont) return;
             if (decTipo === 'piezas') {
                 cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">Datos de apoyo: el costo y el precio de la refacción salen del catálogo.</p></div>';
+                return;
+            }
+            if (decTipo === 'precio') {
+                const prod = productoPorId(decGlobal.productoId);
+                if (!prod) {
+                    cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No hay productos en el catálogo.</p></div>';
+                    return;
+                }
+                const costo = Number(decGlobal.costo);
+                const precio = Number(prod.precio);
+                let vendidas = 0;
+                let periodoTxt = '';
+                if (decApoyo) {
+                    const fila = decApoyo.rotacion.find(p => mismoId(p.id, prod.id));
+                    vendidas = fila ? Number(fila.vendidas) : 0;
+                    periodoTxt = ` (${formatoFecha(decApoyo.inicio)} al ${formatoFecha(decApoyo.fin)})`;
+                }
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Datos del producto${periodoTxt}</h3>
+                        <div class="report-summary-grid">
+                            <div class="report-total-card">Costo vigente<strong>${formatearMoneda(costo)}</strong></div>
+                            <div class="report-total-card">Precio actual<strong>${formatearMoneda(precio)}</strong></div>
+                            <div class="report-total-card">Margen actual por pieza<strong>${formatearMoneda(precio - costo)}</strong></div>
+                            <div class="report-total-card">Piezas vendidas en el periodo<strong>${vendidas.toFixed(0)}</strong></div>
+                        </div>
+                    </div>`;
                 return;
             }
             if (!decApoyo) {
@@ -2320,6 +2442,7 @@
                             <thead><tr><th>Proveedor</th><th>Productos que surte</th><th>Costo promedio por pieza</th></tr></thead>
                             <tbody>${filas || '<tr><td colspan="3" style="text-align:center;">No hay proveedores registrados.</td></tr>'}</tbody>
                         </table></div>
+                        <p style="font-size:0.8rem; margin-top:8px;">${esc(decNotaProv)}</p>
                     </div>`;
             } else if (decTipo === 'mecanico') {
                 const s = decApoyo.servicios;
@@ -2359,6 +2482,12 @@
                 if (prob) copia.prob = prob.value;
                 return copia;
             });
+            if (decTipo === 'precio') {
+                decMatriz = decMatriz.map((fila, i) => fila.map((celda, j) => {
+                    const campo = document.getElementById('decPz' + i + '_' + j);
+                    return campo ? campo.value : celda;
+                }));
+            }
             const leer = (id, clave) => {
                 const el = document.getElementById(id);
                 if (el) decGlobal[clave] = el.value;
@@ -2369,6 +2498,26 @@
             leer('decIngreso', 'ingreso');
             leer('decDescuento', 'descuento');
             leer('decCostoPromo', 'costoPromo');
+            leer('decCosto', 'costo');
+        }
+
+        async function cambiarProductoDecision() {
+            leerFormularioDecision();
+            if (decTipo === 'proveedor') {
+                await cargarAlternativasProveedor();
+                renderizarApoyoDecision();
+                renderizarFormularioDecision();
+            } else if (decTipo === 'precio') {
+                const prod = productoPorId(decGlobal.productoId);
+                decGlobal.costo = prod ? Number(prod.costo_compra) : 0;
+                if (prod) {
+                    const base = Number(prod.precio);
+                    const factores = [0.9, 1, 1.1];
+                    decAlternativas = decAlternativas.map((a, k) => Object.assign({}, a, { valor: redondear(base * (factores[k] || 1)) }));
+                }
+                renderizarApoyoDecision();
+                renderizarFormularioDecision();
+            }
         }
 
         function entradaDecision(id, valor, tipo, extra) {
@@ -2402,6 +2551,9 @@
                     <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td>
                     <td>${quitar}</td></tr>`;
             }
+            if (decTipo === 'precio') {
+                return `<tr><td>Precio ${k + 1}</td><td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td><td>${quitar}</td></tr>`;
+            }
             return `<tr>
                 <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;">${opcionesProductosDecision(a.producto)}</select></td>
                 <td>${quitar}</td></tr>`;
@@ -2410,6 +2562,12 @@
         function filaEscenarioDecision(e, k) {
             const quitar = decEscenarios.length > 2
                 ? `<button type="button" class="btn-remove-item" onclick="quitarEscenarioDecision(${k})">Quitar</button>` : '';
+            if (decTipo === 'precio') {
+                return `<tr>
+                    <td><input type="text" class="celda-decision" id="decEscNombre${k}" value="${esc(e.nombre)}" maxlength="60"></td>
+                    <td>${entradaDecision('decEscProb' + k, e.prob, 'number', 'min="0" max="1" step="0.01"')}</td>
+                    <td>${quitar}</td></tr>`;
+            }
             let paso = 'min="0" step="1"';
             if (decTipo === 'descanso') paso = 'min="0.1" step="0.05"';
             if (decTipo === 'promocion') paso = 'min="0" max="100" step="1"';
@@ -2418,6 +2576,24 @@
                 <td>${entradaDecision('decEscValor' + k, e.valor, 'number', paso)}</td>
                 <td>${entradaDecision('decEscProb' + k, e.prob, 'number', 'min="0" max="1" step="0.01"')}</td>
                 <td>${quitar}</td></tr>`;
+        }
+
+        function tablaMatrizPiezas() {
+            const encabezado = decEscenarios.map((e, j) => `<th>${esc(e.nombre || ('Escenario ' + (j + 1)))}</th>`).join('');
+            const filas = decAlternativas.map((a, i) => `
+                <tr>
+                    <td><strong>Precio ${formatearMoneda(a.valor)}</strong></td>
+                    ${decEscenarios.map((e, j) => `<td>${entradaDecision('decPz' + i + '_' + j, (decMatriz[i] && decMatriz[i][j] != null) ? decMatriz[i][j] : 0, 'number', 'min="0" step="1"')}</td>`).join('')}
+                </tr>`).join('');
+            return `
+                <div style="margin-top:10px;">
+                    <h3 style="font-size:0.9rem;">Piezas esperadas por precio y escenario</h3>
+                    <div class="table-scroll"><table class="data-table">
+                        <thead><tr><th>Precio</th>${encabezado}</tr></thead>
+                        <tbody>${filas}</tbody>
+                    </table></div>
+                    <p style="font-size:0.8rem;">Normalmente, a mayor precio se esperan menos piezas. El nombre del precio se actualiza al calcular.</p>
+                </div>`;
         }
 
         function renderizarFormularioDecision() {
@@ -2429,12 +2605,28 @@
                 camposGlobales = `
                     <div class="input-group">
                         <label>Refacción a analizar</label>
-                        <select id="decProducto">${opcionesProductosDecision(g.productoId) || '<option value="">No hay productos</option>'}</select>
+                        <select id="decProducto" onchange="cambiarProductoDecision()">${opcionesProductosDecision(g.productoId) || '<option value="">No hay productos</option>'}</select>
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
                             <input type="number" id="decRescate" value="${esc(g.rescate)}" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                        </div>
+                    </div>`;
+            } else if (decTipo === 'precio') {
+                camposGlobales = `
+                    <div class="input-group">
+                        <label>Refacción a analizar</label>
+                        <select id="decProducto" onchange="cambiarProductoDecision()">${opcionesProductosDecision(g.productoId) || '<option value="">No hay productos</option>'}</select>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Costo por pieza ($ MXN, por defecto el último costo de compra)</label>
+                            <input type="number" id="decCosto" value="${esc(g.costo)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
                             <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
@@ -2479,8 +2671,6 @@
 
             let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th></th>';
             let encabezadoEsc = '<th>Escenario</th><th>Demanda (piezas)</th><th>Probabilidad</th><th></th>';
-            let tituloAlt = 'Alternativas';
-            let tituloEsc = 'Escenarios';
             if (decTipo === 'proveedor') {
                 encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza</th><th>Pedido (piezas)</th><th></th>';
             } else if (decTipo === 'mecanico') {
@@ -2492,6 +2682,9 @@
             } else if (decTipo === 'promocion') {
                 encabezadoAlt = '<th>Producto</th><th></th>';
                 encabezadoEsc = '<th>Escenario</th><th>% del stock que se vende</th><th>Probabilidad</th><th></th>';
+            } else if (decTipo === 'precio') {
+                encabezadoAlt = '<th>Alternativa</th><th>Precio de venta ($ MXN)</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>Probabilidad</th><th></th>';
             }
 
             const filasAlt = decAlternativas.map((a, k) => filaAlternativaDecision(a, k)).join('');
@@ -2503,13 +2696,17 @@
             const listaProv = decApoyo
                 ? `<datalist id="listaProveedoresDecision">${decApoyo.proveedores.map(p => `<option value="${esc(p.nombre)}">`).join('')}</datalist>`
                 : '<datalist id="listaProveedoresDecision"></datalist>';
+            const notaProveedor = decTipo === 'proveedor' && decNotaProv
+                ? `<p style="font-size:0.8rem; margin-bottom:10px;">${esc(decNotaProv)}</p>` : '';
+            const bloqueMatriz = decTipo === 'precio' ? tablaMatrizPiezas() : '';
 
             cont.innerHTML = `
                 ${camposGlobales}
                 ${listaProv}
+                ${notaProveedor}
                 <div class="form-grid">
                     <div>
-                        <h3 style="font-size:0.9rem;">${tituloAlt} (2 a 7)</h3>
+                        <h3 style="font-size:0.9rem;">Alternativas (2 a 7)</h3>
                         <div class="table-scroll"><table class="data-table">
                             <thead><tr>${encabezadoAlt}</tr></thead>
                             <tbody>${filasAlt}</tbody>
@@ -2517,7 +2714,7 @@
                         ${botonAlt}
                     </div>
                     <div>
-                        <h3 style="font-size:0.9rem;">${tituloEsc} (2 a 7)</h3>
+                        <h3 style="font-size:0.9rem;">Escenarios (2 a 7)</h3>
                         <div class="table-scroll"><table class="data-table">
                             <thead><tr>${encabezadoEsc}</tr></thead>
                             <tbody>${filasEsc}</tbody>
@@ -2525,6 +2722,7 @@
                         ${botonEsc}
                     </div>
                 </div>
+                ${bloqueMatriz}
                 <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
@@ -2561,6 +2759,11 @@
                 nueva = { nombre: 'Proveedor ' + (decAlternativas.length + 1), valor: 10, costo: primero ? Number(primero.costo_compra) : 0, producto: '' };
             } else if (decTipo === 'mecanico') {
                 nueva = { nombre: 'Opción ' + (decAlternativas.length + 1), valor: 0, costo: 0, producto: '' };
+            } else if (decTipo === 'precio') {
+                const ultimo = decAlternativas.length > 0 ? Number(decAlternativas[decAlternativas.length - 1].valor) : 0;
+                nueva = { nombre: '', valor: redondear(ultimo * 1.1), costo: '', producto: '' };
+                const filaAnterior = decMatriz.length > 0 ? decMatriz[decMatriz.length - 1] : decEscenarios.map(() => 0);
+                decMatriz.push(filaAnterior.map(v => Math.round(Number(v) * 0.9)));
             } else {
                 nueva = { nombre: '', valor: 0, costo: '', producto: '' };
             }
@@ -2572,6 +2775,7 @@
             leerFormularioDecision();
             if (decAlternativas.length <= 2) return;
             decAlternativas.splice(k, 1);
+            if (decTipo === 'precio') decMatriz.splice(k, 1);
             renderizarFormularioDecision();
         }
 
@@ -2580,6 +2784,9 @@
             if (decEscenarios.length >= 7) return;
             const valorBase = decTipo === 'descanso' ? 1 : 0;
             decEscenarios.push({ nombre: 'Escenario ' + (decEscenarios.length + 1), valor: valorBase, prob: 0 });
+            if (decTipo === 'precio') {
+                decMatriz = decMatriz.map(fila => fila.concat([0]));
+            }
             renderizarFormularioDecision();
         }
 
@@ -2587,6 +2794,9 @@
             leerFormularioDecision();
             if (decEscenarios.length <= 2) return;
             decEscenarios.splice(k, 1);
+            if (decTipo === 'precio') {
+                decMatriz = decMatriz.map(fila => fila.filter((v, j) => j !== k));
+            }
             renderizarFormularioDecision();
         }
 
@@ -2597,7 +2807,7 @@
                 alfa: decGlobal.alfa,
                 nombres_alternativas: decAlternativas.map(a => a.nombre),
                 nombres_escenarios: decEscenarios.map(e => e.nombre),
-                escenarios: decEscenarios.map(e => e.valor),
+                escenarios: decEscenarios.map((e, k) => decTipo === 'precio' ? k + 1 : e.valor),
                 probabilidades: decEscenarios.map(e => e.prob)
             };
             if (decTipo === 'piezas') {
@@ -2620,6 +2830,11 @@
                 cuerpo.productos = decAlternativas.map(a => a.producto);
                 cuerpo.descuento = decGlobal.descuento;
                 cuerpo.costo_promocion = decGlobal.costoPromo;
+            } else if (decTipo === 'precio') {
+                cuerpo.producto_id = decGlobal.productoId;
+                cuerpo.costo = decGlobal.costo;
+                cuerpo.alternativas = decAlternativas.map(a => a.valor);
+                cuerpo.piezas = decMatriz;
             }
             const boton = document.getElementById('btnCalcularDecision');
             if (boton) boton.disabled = true;

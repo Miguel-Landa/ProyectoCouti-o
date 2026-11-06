@@ -199,10 +199,12 @@ public class ApiController {
     @PutMapping("/productos/{id}")
     public Map<String, Object> editarProducto(@PathVariable long id, @RequestBody Map<String, Object> b) {
         try {
+            BigDecimal costo = s(b, "costo_compra") == null ? null : n(b, "costo_compra");
             List<Map<String, Object>> r = db.queryForList(
-                    "UPDATE productos SET sku = ?, nombre = ?, costo_compra = ?, precio = ?, stock = ?, proveedor_id = ? "
+                    "UPDATE productos SET sku = ?, nombre = ?, costo_compra = COALESCE(CAST(? AS DECIMAL), costo_compra), "
+                            + "precio = ?, stock = ?, proveedor_id = ? "
                             + "WHERE id = ? RETURNING *",
-                    req(b, "sku"), req(b, "nombre"), n(b, "costo_compra"), n(b, "precio"), i(b, "stock"), provId(b), id);
+                    req(b, "sku"), req(b, "nombre"), costo, n(b, "precio"), i(b, "stock"), provId(b), id);
             if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado");
             return r.get(0);
         } catch (DuplicateKeyException e) {
@@ -462,6 +464,12 @@ public class ApiController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public Map<String, Object> crearCompra(@RequestBody Map<String, Object> b) {
+        for (Map<String, Object> d : lista(b, "detalle")) {
+            if (n(d, "costo").signum() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El costo por pieza debe ser mayor a cero.");
+            }
+        }
         Map<String, Object> compra;
         try {
             compra = db.queryForMap(

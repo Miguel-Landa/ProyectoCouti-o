@@ -203,6 +203,28 @@ public class DecisionController {
         return c;
     }
 
+    @GetMapping("/costos-proveedor")
+    public List<Map<String, Object>> costosProveedor(@RequestParam("producto_id") String productoId) {
+        Map<String, Object> p = producto(productoId);
+        List<Map<String, Object>> filas = db.queryForList(
+                "SELECT c.proveedor AS proveedor, d.costo AS costo, c.fecha AS fecha "
+                        + "FROM compra_detalle d JOIN compras c ON c.id = d.compra_id "
+                        + "WHERE d.sku = ? ORDER BY c.id DESC", String.valueOf(p.get("sku")));
+        Map<String, Map<String, Object>> ultimos = new LinkedHashMap<>();
+        for (int k = 0; k < filas.size(); k++) {
+            Map<String, Object> fila = filas.get(k);
+            String proveedor = String.valueOf(fila.get("proveedor"));
+            if (!ultimos.containsKey(proveedor)) {
+                Map<String, Object> nuevo = new LinkedHashMap<>();
+                nuevo.put("proveedor", proveedor);
+                nuevo.put("costo", r(((Number) fila.get("costo")).doubleValue()));
+                nuevo.put("fecha", fila.get("fecha"));
+                ultimos.put(proveedor, nuevo);
+            }
+        }
+        return new ArrayList<>(ultimos.values());
+    }
+
     @GetMapping("/apoyo")
     public Map<String, Object> apoyo(@RequestParam(defaultValue = "90") int dias) {
         if (dias < 7) {
@@ -396,7 +418,7 @@ public class DecisionController {
             }
             tipoProblema = "Cuántas piezas surtir";
             descripcion = "Producto: [" + producto.get("sku") + "] " + producto.get("nombre")
-                    + " | Costo por pieza: $" + num(costo) + " | Precio de venta: $" + num(precio)
+                    + " | Último costo por pieza: $" + num(costo) + " | Precio de venta: $" + num(precio)
                     + ". Pago = precio × piezas vendidas + rescate × sobrantes − costo × piezas surtidas.";
         } else if (tipo.equals("proveedor")) {
             Map<String, Object> producto = producto(b.get("producto_id"));
@@ -499,6 +521,45 @@ public class DecisionController {
             tipoProblema = "Qué productos promocionar";
             descripcion = "Descuento: " + num(descuento) + "% | Costo de la promoción: $" + num(costoPromo)
                     + ". Pago = (precio con descuento − costo) × piezas vendidas por la promoción − costo de la promoción.";
+        } else if (tipo.equals("precio")) {
+            Map<String, Object> producto = producto(b.get("producto_id"));
+            double costo = ((Number) producto.get("costo_compra")).doubleValue();
+            double[] precios = numeros(b, "alternativas");
+            Object matriz = b.get("matriz");
+            if (!(matriz instanceof List) || ((List<?>) matriz).size() != precios.length) {
+                throw invalido("Captura las piezas esperadas para cada precio.");
+            }
+            List<?> filasMatriz = (List<?>) matriz;
+            int n = precios.length;
+            etiquetasAlt = new String[n];
+            pagos = new double[n][m];
+            for (int i = 0; i < n; i++) {
+                if (precios[i] <= 0) {
+                    throw invalido("Cada precio debe ser mayor a cero.");
+                }
+                Object fila = filasMatriz.get(i);
+                if (!(fila instanceof List) || ((List<?>) fila).size() != m) {
+                    throw invalido("Cada precio necesita sus piezas esperadas en todos los escenarios.");
+                }
+                List<?> celdas = (List<?>) fila;
+                etiquetasAlt[i] = "Precio $" + num(precios[i]);
+                for (int j = 0; j < m; j++) {
+                    double piezas;
+                    try {
+                        piezas = Double.parseDouble(String.valueOf(celdas.get(j)));
+                    } catch (NumberFormatException e) {
+                        throw invalido("Número inválido en las piezas esperadas.");
+                    }
+                    if (piezas < 0) {
+                        throw invalido("Las piezas esperadas no pueden ser negativas.");
+                    }
+                    pagos[i][j] = (precios[i] - costo) * piezas;
+                }
+            }
+            tipoProblema = "A qué precio vender";
+            descripcion = "Producto: [" + producto.get("sku") + "] " + producto.get("nombre")
+                    + " | Último costo por pieza: $" + num(costo)
+                    + ". Pago = (precio de venta − costo) × piezas que se esperan vender con ese precio en cada escenario.";
         }
         if (pagos == null) {
             throw invalido("Tipo de problema no válido.");
