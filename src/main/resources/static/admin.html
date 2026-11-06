@@ -2161,17 +2161,18 @@
             },
             precio: {
                 nombre: 'A qué precio vender',
-                descripcion: 'Compara distintos precios de venta de una refacción. Para cada precio capturas cuántas piezas esperas vender en cada escenario; el pago es (precio − costo) × piezas.'
+                descripcion: 'Compara precios de venta de una refacción. El sistema toma la demanda real de tus ventas y calcula las piezas esperadas con cada precio según la elasticidad (supuesto editable); el pago es (precio − costo) × piezas.'
             }
         };
 
         let decTipo = 'piezas';
         let decApoyo = null;
+        let decPrecioApoyo = null;
         let decAlternativas = [];
         let decEscenarios = [];
-        let decMatriz = [];
         let decGlobal = {};
         let decNotaProv = '';
+        let decNotaPrecio = '';
 
         function productoPorId(id) {
             return catalogoCache.find(a => mismoId(a.id, id));
@@ -2229,13 +2230,26 @@
             renderizarFormularioDecision();
         }
 
-        async function cargarApoyoDecision() {
+        function diasDecision() {
             const campo = document.getElementById('decDias');
-            const dias = campo ? (Number(campo.value) || 90) : 90;
+            return campo ? (Number(campo.value) || 90) : 90;
+        }
+
+        async function cargarApoyoDecision() {
             try {
-                decApoyo = await api('/api/decisiones/apoyo?dias=' + dias);
+                decApoyo = await api('/api/decisiones/apoyo?dias=' + diasDecision());
             } catch (e) {
                 decApoyo = null;
+            }
+        }
+
+        async function cargarPrecioApoyo() {
+            decPrecioApoyo = null;
+            if (!decGlobal.productoId) return;
+            try {
+                decPrecioApoyo = await api('/api/decisiones/precio-apoyo?producto_id=' + encodeURIComponent(decGlobal.productoId) + '&dias=' + diasDecision());
+            } catch (e) {
+                decPrecioApoyo = null;
             }
         }
 
@@ -2297,6 +2311,23 @@
             decAlternativas = alts;
         }
 
+        async function prepararPrecioDecision() {
+            await cargarPrecioApoyo();
+            const prod = productoPorId(decGlobal.productoId);
+            const precioBase = prod ? Number(prod.precio) : 100;
+            decGlobal.costo = prod ? Number(prod.costo_compra) : 0;
+            const real = decPrecioApoyo ? Number(decPrecioApoyo.demandaMensual) : 0;
+            if (real > 0) {
+                decGlobal.demandaBase = redondear(real);
+                decNotaPrecio = 'La demanda base sale de las piezas que vendiste de este producto en el periodo, convertidas a piezas por mes.';
+            } else {
+                decGlobal.demandaBase = 10;
+                decNotaPrecio = 'Este producto no tiene ventas en el periodo, así que la demanda base de 10 piezas por mes es un supuesto. Cámbiala si conoces la real.';
+            }
+            const factores = [0.9, 1, 1.1, 1.2];
+            decAlternativas = factores.map(f => ({ nombre: '', valor: redondear(precioBase * f), costo: '', producto: '' }));
+        }
+
         async function aplicarDefaultsDecision() {
             const ap = decApoyo;
             const primero = catalogoCache.length > 0 ? catalogoCache[0] : null;
@@ -2307,10 +2338,12 @@
                 ingreso: 500,
                 descuento: 15,
                 costoPromo: 0,
-                costo: primero ? Number(primero.costo_compra) : 0
+                costo: primero ? Number(primero.costo_compra) : 0,
+                demandaBase: 10,
+                elasticidad: -1
             };
             decNotaProv = '';
-            decMatriz = [];
+            decNotaPrecio = '';
             const probs = [0.3, 0.5, 0.2];
             const arma = lista => lista.map((e, k) => ({ nombre: e[0], valor: e[1], prob: probs[k] }));
 
@@ -2341,13 +2374,8 @@
                 decAlternativas = candidatos.map(id => ({ nombre: '', valor: '', costo: '', producto: id }));
                 decEscenarios = arma([['Respuesta baja', 20], ['Respuesta media', 40], ['Respuesta alta', 70]]);
             } else if (decTipo === 'precio') {
-                const precioBase = primero ? Number(primero.precio) : 100;
-                const factores = [0.9, 1, 1.1];
-                decAlternativas = factores.map(f => ({ nombre: '', valor: redondear(precioBase * f), costo: '', producto: '' }));
-                decEscenarios = arma([['Demanda baja', 0], ['Demanda media', 0], ['Demanda alta', 0]]);
-                const demandas = [5, 10, 20];
-                const reaccion = [1.2, 1, 0.8];
-                decMatriz = reaccion.map(r => demandas.map(d => Math.round(d * r)));
+                decEscenarios = arma([['Demanda baja', 0.7], ['Demanda media', 1], ['Demanda alta', 1.3]]);
+                await prepararPrecioDecision();
             }
         }
 
@@ -2367,11 +2395,12 @@
                 const costo = Number(decGlobal.costo);
                 const precio = Number(prod.precio);
                 let vendidas = 0;
+                let mensual = 0;
                 let periodoTxt = '';
-                if (decApoyo) {
-                    const fila = decApoyo.rotacion.find(p => mismoId(p.id, prod.id));
-                    vendidas = fila ? Number(fila.vendidas) : 0;
-                    periodoTxt = ` (${formatoFecha(decApoyo.inicio)} al ${formatoFecha(decApoyo.fin)})`;
+                if (decPrecioApoyo) {
+                    vendidas = Number(decPrecioApoyo.vendidas);
+                    mensual = Number(decPrecioApoyo.demandaMensual);
+                    periodoTxt = ` (últimos ${decPrecioApoyo.dias} días)`;
                 }
                 cont.innerHTML = `
                     <div class="summary-box">
@@ -2381,7 +2410,9 @@
                             <div class="report-total-card">Precio actual<strong>${formatearMoneda(precio)}</strong></div>
                             <div class="report-total-card">Margen actual por pieza<strong>${formatearMoneda(precio - costo)}</strong></div>
                             <div class="report-total-card">Piezas vendidas en el periodo<strong>${vendidas.toFixed(0)}</strong></div>
+                            <div class="report-total-card">Demanda mensual real<strong>${mensual.toFixed(1)}</strong></div>
                         </div>
+                        <p style="font-size:0.8rem;">${esc(decNotaPrecio)}</p>
                     </div>`;
                 return;
             }
@@ -2482,12 +2513,6 @@
                 if (prob) copia.prob = prob.value;
                 return copia;
             });
-            if (decTipo === 'precio') {
-                decMatriz = decMatriz.map((fila, i) => fila.map((celda, j) => {
-                    const campo = document.getElementById('decPz' + i + '_' + j);
-                    return campo ? campo.value : celda;
-                }));
-            }
             const leer = (id, clave) => {
                 const el = document.getElementById(id);
                 if (el) decGlobal[clave] = el.value;
@@ -2499,6 +2524,8 @@
             leer('decDescuento', 'descuento');
             leer('decCostoPromo', 'costoPromo');
             leer('decCosto', 'costo');
+            leer('decDemandaBase', 'demandaBase');
+            leer('decElasticidad', 'elasticidad');
         }
 
         async function cambiarProductoDecision() {
@@ -2508,13 +2535,7 @@
                 renderizarApoyoDecision();
                 renderizarFormularioDecision();
             } else if (decTipo === 'precio') {
-                const prod = productoPorId(decGlobal.productoId);
-                decGlobal.costo = prod ? Number(prod.costo_compra) : 0;
-                if (prod) {
-                    const base = Number(prod.precio);
-                    const factores = [0.9, 1, 1.1];
-                    decAlternativas = decAlternativas.map((a, k) => Object.assign({}, a, { valor: redondear(base * (factores[k] || 1)) }));
-                }
+                await prepararPrecioDecision();
                 renderizarApoyoDecision();
                 renderizarFormularioDecision();
             }
@@ -2562,38 +2583,15 @@
         function filaEscenarioDecision(e, k) {
             const quitar = decEscenarios.length > 2
                 ? `<button type="button" class="btn-remove-item" onclick="quitarEscenarioDecision(${k})">Quitar</button>` : '';
-            if (decTipo === 'precio') {
-                return `<tr>
-                    <td><input type="text" class="celda-decision" id="decEscNombre${k}" value="${esc(e.nombre)}" maxlength="60"></td>
-                    <td>${entradaDecision('decEscProb' + k, e.prob, 'number', 'min="0" max="1" step="0.01"')}</td>
-                    <td>${quitar}</td></tr>`;
-            }
             let paso = 'min="0" step="1"';
             if (decTipo === 'descanso') paso = 'min="0.1" step="0.05"';
+            if (decTipo === 'precio') paso = 'min="0.1" step="0.05"';
             if (decTipo === 'promocion') paso = 'min="0" max="100" step="1"';
             return `<tr>
                 <td><input type="text" class="celda-decision" id="decEscNombre${k}" value="${esc(e.nombre)}" maxlength="60"></td>
                 <td>${entradaDecision('decEscValor' + k, e.valor, 'number', paso)}</td>
                 <td>${entradaDecision('decEscProb' + k, e.prob, 'number', 'min="0" max="1" step="0.01"')}</td>
                 <td>${quitar}</td></tr>`;
-        }
-
-        function tablaMatrizPiezas() {
-            const encabezado = decEscenarios.map((e, j) => `<th>${esc(e.nombre || ('Escenario ' + (j + 1)))}</th>`).join('');
-            const filas = decAlternativas.map((a, i) => `
-                <tr>
-                    <td><strong>Precio ${formatearMoneda(a.valor)}</strong></td>
-                    ${decEscenarios.map((e, j) => `<td>${entradaDecision('decPz' + i + '_' + j, (decMatriz[i] && decMatriz[i][j] != null) ? decMatriz[i][j] : 0, 'number', 'min="0" step="1"')}</td>`).join('')}
-                </tr>`).join('');
-            return `
-                <div style="margin-top:10px;">
-                    <h3 style="font-size:0.9rem;">Piezas esperadas por precio y escenario</h3>
-                    <div class="table-scroll"><table class="data-table">
-                        <thead><tr><th>Precio</th>${encabezado}</tr></thead>
-                        <tbody>${filas}</tbody>
-                    </table></div>
-                    <p style="font-size:0.8rem;">Normalmente, a mayor precio se esperan menos piezas. El nombre del precio se actualiza al calcular.</p>
-                </div>`;
         }
 
         function renderizarFormularioDecision() {
@@ -2627,6 +2625,16 @@
                         <div class="input-group">
                             <label>Costo por pieza ($ MXN, por defecto el último costo de compra)</label>
                             <input type="number" id="decCosto" value="${esc(g.costo)}" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Demanda base (piezas por mes, de tus ventas reales)</label>
+                            <input type="number" id="decDemandaBase" value="${esc(g.demandaBase)}" min="0" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Elasticidad precio de la demanda (supuesto, negativa: −1 = si el precio sube 10 %, la demanda baja 10 %)</label>
+                            <input type="number" id="decElasticidad" value="${esc(g.elasticidad)}" max="0" step="0.1">
                         </div>
                         <div class="input-group">
                             <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
@@ -2684,7 +2692,7 @@
                 encabezadoEsc = '<th>Escenario</th><th>% del stock que se vende</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'precio') {
                 encabezadoAlt = '<th>Alternativa</th><th>Precio de venta ($ MXN)</th><th></th>';
-                encabezadoEsc = '<th>Escenario</th><th>Probabilidad</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>Factor de demanda (1 = demanda base)</th><th>Probabilidad</th><th></th>';
             }
 
             const filasAlt = decAlternativas.map((a, k) => filaAlternativaDecision(a, k)).join('');
@@ -2698,12 +2706,14 @@
                 : '<datalist id="listaProveedoresDecision"></datalist>';
             const notaProveedor = decTipo === 'proveedor' && decNotaProv
                 ? `<p style="font-size:0.8rem; margin-bottom:10px;">${esc(decNotaProv)}</p>` : '';
-            const bloqueMatriz = decTipo === 'precio' ? tablaMatrizPiezas() : '';
+            const notaPrecio = decTipo === 'precio'
+                ? '<p style="font-size:0.8rem; margin-bottom:10px;">Piezas esperadas = demanda base × factor del escenario × (precio / precio actual) ^ elasticidad. La elasticidad es un supuesto: tus ventas no muestran cómo reacciona la demanda a precios distintos.</p>' : '';
 
             cont.innerHTML = `
                 ${camposGlobales}
                 ${listaProv}
                 ${notaProveedor}
+                ${notaPrecio}
                 <div class="form-grid">
                     <div>
                         <h3 style="font-size:0.9rem;">Alternativas (2 a 7)</h3>
@@ -2722,7 +2732,6 @@
                         ${botonEsc}
                     </div>
                 </div>
-                ${bloqueMatriz}
                 <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
@@ -2762,8 +2771,6 @@
             } else if (decTipo === 'precio') {
                 const ultimo = decAlternativas.length > 0 ? Number(decAlternativas[decAlternativas.length - 1].valor) : 0;
                 nueva = { nombre: '', valor: redondear(ultimo * 1.1), costo: '', producto: '' };
-                const filaAnterior = decMatriz.length > 0 ? decMatriz[decMatriz.length - 1] : decEscenarios.map(() => 0);
-                decMatriz.push(filaAnterior.map(v => Math.round(Number(v) * 0.9)));
             } else {
                 nueva = { nombre: '', valor: 0, costo: '', producto: '' };
             }
@@ -2775,18 +2782,14 @@
             leerFormularioDecision();
             if (decAlternativas.length <= 2) return;
             decAlternativas.splice(k, 1);
-            if (decTipo === 'precio') decMatriz.splice(k, 1);
             renderizarFormularioDecision();
         }
 
         function agregarEscenarioDecision() {
             leerFormularioDecision();
             if (decEscenarios.length >= 7) return;
-            const valorBase = decTipo === 'descanso' ? 1 : 0;
+            const valorBase = (decTipo === 'descanso' || decTipo === 'precio') ? 1 : 0;
             decEscenarios.push({ nombre: 'Escenario ' + (decEscenarios.length + 1), valor: valorBase, prob: 0 });
-            if (decTipo === 'precio') {
-                decMatriz = decMatriz.map(fila => fila.concat([0]));
-            }
             renderizarFormularioDecision();
         }
 
@@ -2794,9 +2797,6 @@
             leerFormularioDecision();
             if (decEscenarios.length <= 2) return;
             decEscenarios.splice(k, 1);
-            if (decTipo === 'precio') {
-                decMatriz = decMatriz.map(fila => fila.filter((v, j) => j !== k));
-            }
             renderizarFormularioDecision();
         }
 
@@ -2807,7 +2807,7 @@
                 alfa: decGlobal.alfa,
                 nombres_alternativas: decAlternativas.map(a => a.nombre),
                 nombres_escenarios: decEscenarios.map(e => e.nombre),
-                escenarios: decEscenarios.map((e, k) => decTipo === 'precio' ? k + 1 : e.valor),
+                escenarios: decEscenarios.map(e => e.valor),
                 probabilidades: decEscenarios.map(e => e.prob)
             };
             if (decTipo === 'piezas') {
@@ -2833,8 +2833,9 @@
             } else if (decTipo === 'precio') {
                 cuerpo.producto_id = decGlobal.productoId;
                 cuerpo.costo = decGlobal.costo;
+                cuerpo.demanda_base = decGlobal.demandaBase;
+                cuerpo.elasticidad = decGlobal.elasticidad;
                 cuerpo.alternativas = decAlternativas.map(a => a.valor);
-                cuerpo.piezas = decMatriz;
             }
             const boton = document.getElementById('btnCalcularDecision');
             if (boton) boton.disabled = true;

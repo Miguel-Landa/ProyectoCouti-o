@@ -218,11 +218,57 @@ public class DecisionController {
                 Map<String, Object> nuevo = new LinkedHashMap<>();
                 nuevo.put("proveedor", proveedor);
                 nuevo.put("costo", r(((Number) fila.get("costo")).doubleValue()));
-                nuevo.put("fecha", fila.get("fecha"));
+                nuevo.put("fecha", String.valueOf(fila.get("fecha")));
                 ultimos.put(proveedor, nuevo);
             }
         }
         return new ArrayList<>(ultimos.values());
+    }
+
+    @GetMapping("/precio-apoyo")
+    public Map<String, Object> precioApoyo(@RequestParam("producto_id") String productoId,
+                                           @RequestParam(defaultValue = "90") int dias) {
+        if (dias < 7) {
+            dias = 7;
+        }
+        if (dias > 365) {
+            dias = 365;
+        }
+        Map<String, Object> p = producto(productoId);
+        LocalDate hoy = LocalDate.now(ZONA);
+        LocalDate inicio = hoy.minusDays(dias - 1L);
+        double vendidas = 0;
+
+        List<Map<String, Object>> ventas = db.queryForList(
+                "SELECT d.cantidad AS cantidad, v.fecha AS fecha "
+                        + "FROM venta_detalle d JOIN ventas v ON v.id = d.venta_id "
+                        + "WHERE v.tipo = 'VENTA' AND d.producto_id = ?", String.valueOf(((Number) p.get("id")).longValue()));
+        for (int k = 0; k < ventas.size(); k++) {
+            Map<String, Object> fila = ventas.get(k);
+            LocalDate f = fechaDe(String.valueOf(fila.get("fecha")));
+            if (f != null && !f.isBefore(inicio) && !f.isAfter(hoy)) {
+                vendidas = vendidas + ((Number) fila.get("cantidad")).doubleValue();
+            }
+        }
+        List<Map<String, Object>> refacciones = db.queryForList(
+                "SELECT r.cantidad AS cantidad, c.fecha_pago AS fecha_pago "
+                        + "FROM cobro_refacciones r JOIN cobros c ON c.id = r.cobro_id WHERE r.sku = ?",
+                String.valueOf(p.get("sku")));
+        for (int k = 0; k < refacciones.size(); k++) {
+            Map<String, Object> fila = refacciones.get(k);
+            LocalDate f = Instant.ofEpochMilli(((Number) fila.get("fecha_pago")).longValue()).atZone(ZONA).toLocalDate();
+            if (!f.isBefore(inicio) && !f.isAfter(hoy)) {
+                vendidas = vendidas + ((Number) fila.get("cantidad")).doubleValue();
+            }
+        }
+
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+        respuesta.put("dias", dias);
+        respuesta.put("vendidas", r(vendidas));
+        respuesta.put("demandaMensual", r(vendidas * 30.0 / dias));
+        respuesta.put("costo", r(((Number) p.get("costo_compra")).doubleValue()));
+        respuesta.put("precio", r(((Number) p.get("precio")).doubleValue()));
+        return respuesta;
     }
 
     @GetMapping("/apoyo")
@@ -523,13 +569,23 @@ public class DecisionController {
                     + ". Pago = (precio con descuento − costo) × piezas vendidas por la promoción − costo de la promoción.";
         } else if (tipo.equals("precio")) {
             Map<String, Object> producto = producto(b.get("producto_id"));
-            double costo = ((Number) producto.get("costo_compra")).doubleValue();
-            double[] precios = numeros(b, "alternativas");
-            Object matriz = b.get("matriz");
-            if (!(matriz instanceof List) || ((List<?>) matriz).size() != precios.length) {
-                throw invalido("Captura las piezas esperadas para cada precio.");
+            double costo = numero(b, "costo", ((Number) producto.get("costo_compra")).doubleValue());
+            if (costo < 0) {
+                throw invalido("El costo no puede ser negativo.");
             }
-            List<?> filasMatriz = (List<?>) matriz;
+            double actual = ((Number) producto.get("precio")).doubleValue();
+            if (actual <= 0) {
+                throw invalido("El producto necesita un precio actual mayor a cero.");
+            }
+            double base = numero(b, "demanda_base", 0);
+            if (base <= 0) {
+                throw invalido("Captura la demanda base mensual (piezas por mes).");
+            }
+            double elasticidad = numero(b, "elasticidad", -1.0);
+            if (elasticidad > 0) {
+                throw invalido("La elasticidad debe ser cero o negativa.");
+            }
+            double[] precios = numeros(b, "alternativas");
             int n = precios.length;
             etiquetasAlt = new String[n];
             pagos = new double[n][m];
@@ -537,29 +593,18 @@ public class DecisionController {
                 if (precios[i] <= 0) {
                     throw invalido("Cada precio debe ser mayor a cero.");
                 }
-                Object fila = filasMatriz.get(i);
-                if (!(fila instanceof List) || ((List<?>) fila).size() != m) {
-                    throw invalido("Cada precio necesita sus piezas esperadas en todos los escenarios.");
-                }
-                List<?> celdas = (List<?>) fila;
                 etiquetasAlt[i] = "Precio $" + num(precios[i]);
+                double efecto = Math.pow(precios[i] / actual, elasticidad);
                 for (int j = 0; j < m; j++) {
-                    double piezas;
-                    try {
-                        piezas = Double.parseDouble(String.valueOf(celdas.get(j)));
-                    } catch (NumberFormatException e) {
-                        throw invalido("Número inválido en las piezas esperadas.");
-                    }
-                    if (piezas < 0) {
-                        throw invalido("Las piezas esperadas no pueden ser negativas.");
-                    }
+                    double piezas = base * escenarios[j] * efecto;
                     pagos[i][j] = (precios[i] - costo) * piezas;
                 }
             }
             tipoProblema = "A qué precio vender";
             descripcion = "Producto: [" + producto.get("sku") + "] " + producto.get("nombre")
-                    + " | Último costo por pieza: $" + num(costo)
-                    + ". Pago = (precio de venta − costo) × piezas que se esperan vender con ese precio en cada escenario.";
+                    + " | Precio actual: $" + num(actual) + " | Costo por pieza: $" + num(costo)
+                    + " | Demanda base: " + num(base) + " pzas/mes | Elasticidad (supuesto): " + num(elasticidad)
+                    + ". Piezas = demanda base × factor del escenario × (precio / precio actual) ^ elasticidad. Pago mensual = (precio − costo) × piezas.";
         }
         if (pagos == null) {
             throw invalido("Tipo de problema no válido.");
@@ -590,7 +635,6 @@ public class DecisionController {
         double[] hurwicz = new double[n];
         double[] savage = new double[n];
         double[] esperado = new double[n];
-        double[] mejoresFila = new double[n];
 
         for (int i = 0; i < n; i++) {
             double suma = 0;
@@ -614,7 +658,6 @@ public class DecisionController {
             laplace[i] = suma / m;
             wald[i] = minimo;
             maximax[i] = maximo;
-            mejoresFila[i] = maximo;
             hurwicz[i] = alfa * maximo + (1 - alfa) * minimo;
             savage[i] = peorArrepentimiento;
             esperado[i] = valorEsperado;
