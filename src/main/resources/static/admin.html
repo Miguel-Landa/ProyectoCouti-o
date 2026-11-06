@@ -441,13 +441,38 @@
         }
 
         .celda-decision {
-            width: 100px;
+            width: 100%;
+            min-width: 90px;
             padding: 8px;
             background: var(--panel);
             border: 1px solid var(--border-soft);
             border-radius: 4px;
             color: var(--text);
             font-size: 0.85rem;
+        }
+
+        .badge-tipo {
+            background: #edf4fc;
+            color: var(--accent-strong);
+            border: 1px solid #c5d9f0;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .formula-box {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .formula-box:last-child {
+            border-bottom: none;
         }
 
         .report-filter-actions {
@@ -538,6 +563,7 @@
             body.reporte-impresion .summary-box,
             body.reporte-impresion .report-total-card,
             body.reporte-impresion .summary-row,
+            body.reporte-impresion .formula-box,
             body.reporte-impresion .data-table th,
             body.reporte-impresion .data-table td {
                 background: #fff !important;
@@ -760,7 +786,7 @@
                     mostrarHistorialCobros();
                 } else if (vista === 'decisiones') {
                     catalogoCache = await api('/api/productos');
-                    renderizarDecisiones();
+                    await renderizarDecisiones();
                 }
             } catch (e) {
                 mostrarErrorCarga(e, vista);
@@ -2054,84 +2080,547 @@
             mostrarHistorialCobros(fechaInicio, fechaFin);
         }
 
-        function renderizarDecisiones() {
-            const opciones = catalogoCache.map(a =>
-                `<option value="${a.id}">[${esc(a.sku)}] ${esc(a.nombre)} - Costo $${dinero(a.costo_compra)} / Precio $${dinero(a.precio)}</option>`).join('');
+        const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-            const cantidades = [5, 10, 20];
-            const filasAlternativas = cantidades.map((q, k) => `
-                <tr>
-                    <td>Alternativa ${k + 1}</td>
-                    <td><input type="number" class="celda-decision" id="decAlt${k}" value="${q}" min="0" step="1"></td>
-                </tr>`).join('');
+        const TIPOS_DECISION = {
+            piezas: {
+                nombre: 'Cuántas piezas surtir',
+                descripcion: 'Decide cuántas piezas de una refacción conviene surtir según la demanda que puedes enfrentar. El costo y el precio salen del catálogo.'
+            },
+            proveedor: {
+                nombre: 'Qué proveedor elegir',
+                descripcion: 'Compara proveedores para una misma refacción según su costo por pieza y el pedido que exige cada uno, frente a distintos niveles de demanda.'
+            },
+            mecanico: {
+                nombre: 'Contratar otro mecánico',
+                descripcion: 'Compara no contratar, medio tiempo o tiempo completo según los servicios por mes que puedes recibir, el ingreso por servicio y el costo mensual.'
+            },
+            descanso: {
+                nombre: 'Qué día descansar',
+                descripcion: 'Elige el día de descanso con menos movimiento. Se cuentan las atenciones por día de la semana: citas previas y clientes sin cita (por su fecha de captura). No usa dinero.'
+            },
+            promocion: {
+                nombre: 'Qué productos promocionar',
+                descripcion: 'Compara productos de baja rotación para promocionar, según el margen con descuento y la parte del stock que se logra vender.'
+            }
+        };
 
-            const demandas = [5, 10, 20];
-            const probs = [0.3, 0.5, 0.2];
-            const nombres = ['Demanda baja', 'Demanda media', 'Demanda alta'];
-            const filasEscenarios = demandas.map((d, k) => `
-                <tr>
-                    <td>${nombres[k]}</td>
-                    <td><input type="number" class="celda-decision" id="decEsc${k}" value="${d}" min="0" step="1"></td>
-                    <td><input type="number" class="celda-decision" id="decProb${k}" value="${probs[k]}" min="0" max="1" step="0.01"></td>
-                </tr>`).join('');
+        let decTipo = 'piezas';
+        let decApoyo = null;
+        let decAlternativas = [];
+        let decEscenarios = [];
+        let decGlobal = {};
+
+        function productoPorId(id) {
+            return catalogoCache.find(a => mismoId(a.id, id));
+        }
+
+        function promedioDia(nombre) {
+            if (!decApoyo) return 0;
+            const d = decApoyo.atenciones.find(x => x.dia === nombre);
+            return d ? d.promedio : 0;
+        }
+
+        function opcionesProductosDecision(seleccionado) {
+            return catalogoCache.map(a =>
+                `<option value="${a.id}" ${mismoId(a.id, seleccionado) ? 'selected' : ''}>[${esc(a.sku)}] ${esc(a.nombre)} - Costo $${dinero(a.costo_compra)} / Precio $${dinero(a.precio)}</option>`).join('');
+        }
+
+        function formatoValorDecision(valor, unidad) {
+            if (unidad === '$') return formatearMoneda(valor);
+            return Number(valor).toFixed(2) + ' atenc.';
+        }
+
+        async function renderizarDecisiones() {
+            const opcionesTipo = Object.keys(TIPOS_DECISION).map(k =>
+                `<option value="${k}" ${k === decTipo ? 'selected' : ''}>${esc(TIPOS_DECISION[k].nombre)}</option>`).join('');
 
             panelAdmin().innerHTML = `
                 <div class="panel-header">
-                    <h2>Toma de Decisiones: ¿cuántas piezas surtir?</h2>
-                    <p class="no-print">Decide cuántas piezas de una refacción conviene surtir según la demanda que puedes enfrentar. El costo y el precio salen del catálogo.</p>
+                    <h2>Toma de Decisiones</h2>
+                    <p class="no-print" id="decDescripcion"></p>
                 </div>
                 <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Tipo de problema</label>
+                            <select id="decTipoSelect" onchange="cambiarTipoDecision(this.value)">${opcionesTipo}</select>
+                        </div>
+                        <div class="input-group">
+                            <label>Periodo de los datos de apoyo (días)</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="number" id="decDias" value="90" min="7" max="365" step="1">
+                                <button type="button" class="btn-secondary" onclick="actualizarApoyoDecision()">Actualizar datos</button>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="font-size:0.8rem;">Al actualizar los datos del periodo se restablecen los valores sugeridos de la tabla.</p>
+                </div>
+                <div id="decApoyo"></div>
+                <div class="summary-box no-print" id="decFormulario"></div>
+                <div id="resultadoDecision"></div>
+            `;
+            await cargarApoyoDecision();
+            aplicarDefaultsDecision();
+            mostrarDescripcionDecision();
+            renderizarApoyoDecision();
+            renderizarFormularioDecision();
+        }
+
+        async function cargarApoyoDecision() {
+            const campo = document.getElementById('decDias');
+            const dias = campo ? (Number(campo.value) || 90) : 90;
+            try {
+                decApoyo = await api('/api/decisiones/apoyo?dias=' + dias);
+            } catch (e) {
+                decApoyo = null;
+            }
+        }
+
+        async function actualizarApoyoDecision() {
+            await cargarApoyoDecision();
+            aplicarDefaultsDecision();
+            renderizarApoyoDecision();
+            renderizarFormularioDecision();
+            document.getElementById('resultadoDecision').innerHTML = '';
+        }
+
+        function cambiarTipoDecision(valor) {
+            decTipo = valor;
+            aplicarDefaultsDecision();
+            mostrarDescripcionDecision();
+            renderizarApoyoDecision();
+            renderizarFormularioDecision();
+            document.getElementById('resultadoDecision').innerHTML = '';
+        }
+
+        function mostrarDescripcionDecision() {
+            const el = document.getElementById('decDescripcion');
+            if (el) el.innerText = TIPOS_DECISION[decTipo].descripcion;
+        }
+
+        function aplicarDefaultsDecision() {
+            const ap = decApoyo;
+            const primero = catalogoCache.length > 0 ? catalogoCache[0] : null;
+            const costoBase = primero ? Number(primero.costo_compra) : 100;
+            decGlobal = {
+                productoId: primero ? String(primero.id) : '',
+                rescate: 0,
+                alfa: 0.5,
+                ingreso: 500,
+                descuento: 15,
+                costoPromo: 0
+            };
+            const probs = [0.3, 0.5, 0.2];
+            const arma = lista => lista.map((e, k) => ({ nombre: e[0], valor: e[1], prob: probs[k] }));
+
+            if (decTipo === 'piezas') {
+                decAlternativas = [5, 10, 20].map(q => ({ nombre: '', valor: q, costo: '', producto: '' }));
+                decEscenarios = arma([['Demanda baja', 5], ['Demanda media', 10], ['Demanda alta', 20]]);
+            } else if (decTipo === 'proveedor') {
+                const provs = ap ? ap.proveedores.slice(0, 3) : [];
+                if (provs.length >= 2) {
+                    decAlternativas = provs.map(p => ({
+                        nombre: p.nombre,
+                        valor: 10,
+                        costo: p.costoPromedio > 0 ? p.costoPromedio : costoBase,
+                        producto: ''
+                    }));
+                } else {
+                    decAlternativas = [
+                        { nombre: 'Proveedor A', valor: 10, costo: redondear(costoBase), producto: '' },
+                        { nombre: 'Proveedor B', valor: 10, costo: redondear(costoBase * 0.95), producto: '' },
+                        { nombre: 'Proveedor C', valor: 10, costo: redondear(costoBase * 1.05), producto: '' }
+                    ];
+                }
+                decEscenarios = arma([['Demanda baja', 5], ['Demanda media', 10], ['Demanda alta', 20]]);
+            } else if (decTipo === 'mecanico') {
+                const base = ap && ap.servicios.porMes > 0 ? Math.round(ap.servicios.porMes) : 20;
+                decGlobal.ingreso = ap && ap.servicios.ingresoPromedio > 0 ? Math.round(ap.servicios.ingresoPromedio) : 500;
+                decAlternativas = [
+                    { nombre: 'No contratar', valor: base, costo: 0, producto: '' },
+                    { nombre: 'Medio tiempo', valor: Math.round(base * 1.5), costo: 6000, producto: '' },
+                    { nombre: 'Tiempo completo', valor: base * 2, costo: 12000, producto: '' }
+                ];
+                decEscenarios = arma([['Pocas citas', Math.round(base * 0.7)], ['Citas normales', base], ['Muchas citas', Math.round(base * 1.3)]]);
+            } else if (decTipo === 'descanso') {
+                decAlternativas = DIAS_SEMANA.map(d => ({ nombre: d, valor: promedioDia(d), costo: '', producto: '' }));
+                decEscenarios = arma([['Afluencia baja', 0.8], ['Afluencia normal', 1], ['Afluencia alta', 1.2]]);
+            } else if (decTipo === 'promocion') {
+                let candidatos = ap ? ap.rotacion.filter(p => p.stock > 0).slice(0, 3).map(p => String(p.id)) : [];
+                catalogoCache.forEach(a => {
+                    if (candidatos.length < 3 && !candidatos.includes(String(a.id))) candidatos.push(String(a.id));
+                });
+                decAlternativas = candidatos.map(id => ({ nombre: '', valor: '', costo: '', producto: id }));
+                decEscenarios = arma([['Respuesta baja', 20], ['Respuesta media', 40], ['Respuesta alta', 70]]);
+            }
+        }
+
+        function renderizarApoyoDecision() {
+            const cont = document.getElementById('decApoyo');
+            if (!cont) return;
+            if (decTipo === 'piezas') {
+                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">Datos de apoyo: el costo y el precio de la refacción salen del catálogo.</p></div>';
+                return;
+            }
+            if (!decApoyo) {
+                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos de apoyo. Puedes capturar los valores manualmente.</p></div>';
+                return;
+            }
+            const periodo = `${formatoFecha(decApoyo.inicio)} al ${formatoFecha(decApoyo.fin)} (${decApoyo.dias} días)`;
+            if (decTipo === 'descanso') {
+                const conDatos = decApoyo.atenciones.filter(d => d.ocurrencias > 0);
+                let menor = null;
+                conDatos.forEach(d => { if (menor === null || d.promedio < menor.promedio) menor = d; });
+                const filas = decApoyo.atenciones.map(d => `
+                    <tr>
+                        <td>${menor && menor.dia === d.dia ? '✓ ' : ''}<strong>${esc(d.dia)}</strong></td>
+                        <td>${d.total}</td>
+                        <td>${d.ocurrencias}</td>
+                        <td>${Number(d.promedio).toFixed(2)}</td>
+                    </tr>`).join('');
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Atenciones por día de la semana (${periodo})</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr><th>Día</th><th>Atenciones registradas</th><th>Veces que ocurrió el día</th><th>Promedio por día</th></tr></thead>
+                            <tbody>${filas}</tbody>
+                        </table></div>
+                        <p style="font-size:0.8rem; margin-top:8px;">✓ marca el día con menor movimiento. Se cuentan citas previas y clientes sin cita por su fecha de captura.</p>
+                    </div>`;
+            } else if (decTipo === 'promocion') {
+                const filas = decApoyo.rotacion.slice(0, 10).map(p => `
+                    <tr>
+                        <td>${esc(p.sku)}</td>
+                        <td>${esc(p.nombre)}</td>
+                        <td>${p.stock}</td>
+                        <td>${Number(p.vendidas).toFixed(0)}</td>
+                        <td>${Number(p.rotacion).toFixed(2)}</td>
+                    </tr>`).join('');
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Productos con menor rotación (${periodo})</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Piezas vendidas</th><th>Rotación (vendidas / stock)</th></tr></thead>
+                            <tbody>${filas || '<tr><td colspan="5" style="text-align:center;">No hay productos registrados.</td></tr>'}</tbody>
+                        </table></div>
+                        <p style="font-size:0.8rem; margin-top:8px;">Cuenta ventas de mostrador y refacciones usadas en servicios cobrados.</p>
+                    </div>`;
+            } else if (decTipo === 'proveedor') {
+                const filas = decApoyo.proveedores.map(p => `
+                    <tr>
+                        <td>${esc(p.nombre)}</td>
+                        <td>${p.productos}</td>
+                        <td>${formatearMoneda(p.costoPromedio)}</td>
+                    </tr>`).join('');
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Proveedores registrados</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr><th>Proveedor</th><th>Productos que surte</th><th>Costo promedio por pieza</th></tr></thead>
+                            <tbody>${filas || '<tr><td colspan="3" style="text-align:center;">No hay proveedores registrados.</td></tr>'}</tbody>
+                        </table></div>
+                    </div>`;
+            } else if (decTipo === 'mecanico') {
+                const s = decApoyo.servicios;
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Servicios del taller (${periodo})</h3>
+                        <div class="report-summary-grid">
+                            <div class="report-total-card">Servicios cobrados<strong>${s.total}</strong></div>
+                            <div class="report-total-card">Servicios por mes<strong>${Number(s.porMes).toFixed(1)}</strong></div>
+                            <div class="report-total-card">Ingreso promedio por servicio<strong>${formatearMoneda(s.ingresoPromedio)}</strong></div>
+                            <div class="report-total-card">Mecánicos activos<strong>${s.mecanicosActivos}</strong></div>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function leerFormularioDecision() {
+            decAlternativas = decAlternativas.map((a, k) => {
+                const copia = Object.assign({}, a);
+                const nombre = document.getElementById('decAltNombre' + k);
+                if (nombre) copia.nombre = nombre.value;
+                const valor = document.getElementById('decAltValor' + k);
+                if (valor) copia.valor = valor.value;
+                const costo = document.getElementById('decAltCosto' + k);
+                if (costo) copia.costo = costo.value;
+                const producto = document.getElementById('decAltProducto' + k);
+                if (producto) copia.producto = producto.value;
+                return copia;
+            });
+            decEscenarios = decEscenarios.map((e, k) => {
+                const copia = Object.assign({}, e);
+                const nombre = document.getElementById('decEscNombre' + k);
+                if (nombre) copia.nombre = nombre.value;
+                const valor = document.getElementById('decEscValor' + k);
+                if (valor) copia.valor = valor.value;
+                const prob = document.getElementById('decEscProb' + k);
+                if (prob) copia.prob = prob.value;
+                return copia;
+            });
+            const leer = (id, clave) => {
+                const el = document.getElementById(id);
+                if (el) decGlobal[clave] = el.value;
+            };
+            leer('decProducto', 'productoId');
+            leer('decRescate', 'rescate');
+            leer('decAlfa', 'alfa');
+            leer('decIngreso', 'ingreso');
+            leer('decDescuento', 'descuento');
+            leer('decCostoPromo', 'costoPromo');
+        }
+
+        function entradaDecision(id, valor, tipo, extra) {
+            return `<input type="${tipo}" class="celda-decision" id="${id}" value="${esc(valor)}" ${extra || ''}>`;
+        }
+
+        function filaAlternativaDecision(a, k) {
+            const quitar = decAlternativas.length > 2
+                ? `<button type="button" class="btn-remove-item" onclick="quitarAlternativaDecision(${k})">Quitar</button>` : '';
+            if (decTipo === 'piezas') {
+                return `<tr><td>Alternativa ${k + 1}</td><td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"')}</td><td>${quitar}</td></tr>`;
+            }
+            if (decTipo === 'proveedor') {
+                return `<tr>
+                    <td><input type="text" class="celda-decision" id="decAltNombre${k}" value="${esc(a.nombre)}" list="listaProveedoresDecision" maxlength="60"></td>
+                    <td>${entradaDecision('decAltCosto' + k, a.costo, 'number', 'min="0" step="0.01"')}</td>
+                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"')}</td>
+                    <td>${quitar}</td></tr>`;
+            }
+            if (decTipo === 'mecanico') {
+                return `<tr>
+                    <td><input type="text" class="celda-decision" id="decAltNombre${k}" value="${esc(a.nombre)}" maxlength="60"></td>
+                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"')}</td>
+                    <td>${entradaDecision('decAltCosto' + k, a.costo, 'number', 'min="0" step="0.01"')}</td>
+                    <td>${quitar}</td></tr>`;
+            }
+            if (decTipo === 'descanso') {
+                const dias = DIAS_SEMANA.map(d => `<option value="${d}" ${d === a.nombre ? 'selected' : ''}>${d}</option>`).join('');
+                return `<tr>
+                    <td><select class="celda-decision" id="decAltNombre${k}" onchange="cambiarDiaDecision(${k})">${dias}</select></td>
+                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td>
+                    <td>${quitar}</td></tr>`;
+            }
+            return `<tr>
+                <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;">${opcionesProductosDecision(a.producto)}</select></td>
+                <td>${quitar}</td></tr>`;
+        }
+
+        function filaEscenarioDecision(e, k) {
+            const quitar = decEscenarios.length > 2
+                ? `<button type="button" class="btn-remove-item" onclick="quitarEscenarioDecision(${k})">Quitar</button>` : '';
+            let paso = 'min="0" step="1"';
+            if (decTipo === 'descanso') paso = 'min="0.1" step="0.05"';
+            if (decTipo === 'promocion') paso = 'min="0" max="100" step="1"';
+            return `<tr>
+                <td><input type="text" class="celda-decision" id="decEscNombre${k}" value="${esc(e.nombre)}" maxlength="60"></td>
+                <td>${entradaDecision('decEscValor' + k, e.valor, 'number', paso)}</td>
+                <td>${entradaDecision('decEscProb' + k, e.prob, 'number', 'min="0" max="1" step="0.01"')}</td>
+                <td>${quitar}</td></tr>`;
+        }
+
+        function renderizarFormularioDecision() {
+            const cont = document.getElementById('decFormulario');
+            if (!cont) return;
+            const g = decGlobal;
+            let camposGlobales = '';
+            if (decTipo === 'piezas' || decTipo === 'proveedor') {
+                camposGlobales = `
                     <div class="input-group">
                         <label>Refacción a analizar</label>
-                        <select id="decProducto">${opciones || '<option value="">No hay productos</option>'}</select>
+                        <select id="decProducto">${opcionesProductosDecision(g.productoId) || '<option value="">No hay productos</option>'}</select>
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
-                            <input type="number" id="decRescate" value="0" min="0" step="0.01">
+                            <input type="number" id="decRescate" value="${esc(g.rescate)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
                             <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
-                            <input type="number" id="decAlfa" value="0.5" min="0" max="1" step="0.1">
+                            <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                         </div>
-                    </div>
+                    </div>`;
+            } else if (decTipo === 'mecanico') {
+                camposGlobales = `
                     <div class="form-grid">
-                        <div>
-                            <h3 style="font-size:0.9rem;">Alternativas: piezas a surtir</h3>
-                            <table class="data-table"><tbody>${filasAlternativas}</tbody></table>
+                        <div class="input-group">
+                            <label>Ingreso promedio por servicio ($ MXN)</label>
+                            <input type="number" id="decIngreso" value="${esc(g.ingreso)}" min="0" step="0.01">
                         </div>
-                        <div>
-                            <h3 style="font-size:0.9rem;">Escenarios: demanda y probabilidad</h3>
-                            <table class="data-table">
-                                <thead><tr><th>Escenario</th><th>Demanda</th><th>Probabilidad</th></tr></thead>
-                                <tbody>${filasEscenarios}</tbody>
-                            </table>
+                        <div class="input-group">
+                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                        </div>
+                    </div>`;
+            } else if (decTipo === 'promocion') {
+                camposGlobales = `
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Descuento de la promoción (%)</label>
+                            <input type="number" id="decDescuento" value="${esc(g.descuento)}" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>Costo de la promoción ($ MXN, por producto)</label>
+                            <input type="number" id="decCostoPromo" value="${esc(g.costoPromo)}" min="0" step="0.01">
                         </div>
                     </div>
-                    <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
-                    <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
+                    <div class="input-group">
+                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                        <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                    </div>`;
+            } else {
+                camposGlobales = `
+                    <div class="input-group">
+                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                        <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                    </div>`;
+            }
+
+            let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th></th>';
+            let encabezadoEsc = '<th>Escenario</th><th>Demanda (piezas)</th><th>Probabilidad</th><th></th>';
+            let tituloAlt = 'Alternativas';
+            let tituloEsc = 'Escenarios';
+            if (decTipo === 'proveedor') {
+                encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza</th><th>Pedido (piezas)</th><th></th>';
+            } else if (decTipo === 'mecanico') {
+                encabezadoAlt = '<th>Opción</th><th>Capacidad (servicios/mes)</th><th>Costo mensual</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>Servicios por mes</th><th>Probabilidad</th><th></th>';
+            } else if (decTipo === 'descanso') {
+                encabezadoAlt = '<th>Día de descanso</th><th>Atenciones promedio</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>Factor de afluencia (1 = normal)</th><th>Probabilidad</th><th></th>';
+            } else if (decTipo === 'promocion') {
+                encabezadoAlt = '<th>Producto</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>% del stock que se vende</th><th>Probabilidad</th><th></th>';
+            }
+
+            const filasAlt = decAlternativas.map((a, k) => filaAlternativaDecision(a, k)).join('');
+            const filasEsc = decEscenarios.map((e, k) => filaEscenarioDecision(e, k)).join('');
+            const botonAlt = decAlternativas.length < 7
+                ? '<button type="button" class="btn-add-item" style="margin-top:10px;" onclick="agregarAlternativaDecision()">+ Agregar alternativa</button>' : '';
+            const botonEsc = decEscenarios.length < 7
+                ? '<button type="button" class="btn-add-item" style="margin-top:10px;" onclick="agregarEscenarioDecision()">+ Agregar escenario</button>' : '';
+            const listaProv = decApoyo
+                ? `<datalist id="listaProveedoresDecision">${decApoyo.proveedores.map(p => `<option value="${esc(p.nombre)}">`).join('')}</datalist>`
+                : '<datalist id="listaProveedoresDecision"></datalist>';
+
+            cont.innerHTML = `
+                ${camposGlobales}
+                ${listaProv}
+                <div class="form-grid">
+                    <div>
+                        <h3 style="font-size:0.9rem;">${tituloAlt} (2 a 7)</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr>${encabezadoAlt}</tr></thead>
+                            <tbody>${filasAlt}</tbody>
+                        </table></div>
+                        ${botonAlt}
+                    </div>
+                    <div>
+                        <h3 style="font-size:0.9rem;">${tituloEsc} (2 a 7)</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr>${encabezadoEsc}</tr></thead>
+                            <tbody>${filasEsc}</tbody>
+                        </table></div>
+                        ${botonEsc}
+                    </div>
                 </div>
-                <div id="resultadoDecision"></div>
+                <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
+                <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
         }
 
-        function leerCampos(prefijo) {
-            const valores = [];
-            for (let k = 0; k < 3; k++) {
-                valores.push(document.getElementById(prefijo + k).value);
+        function cambiarDiaDecision(k) {
+            const sel = document.getElementById('decAltNombre' + k);
+            const campo = document.getElementById('decAltValor' + k);
+            if (sel && campo) campo.value = promedioDia(sel.value);
+        }
+
+        function agregarAlternativaDecision() {
+            leerFormularioDecision();
+            if (decAlternativas.length >= 7) return;
+            let nueva = { nombre: '', valor: '', costo: '', producto: '' };
+            if (decTipo === 'descanso') {
+                const usados = decAlternativas.map(a => a.nombre);
+                const libre = DIAS_SEMANA.find(d => !usados.includes(d));
+                if (!libre) {
+                    alert('Ya están los siete días de la semana.');
+                    return;
+                }
+                nueva = { nombre: libre, valor: promedioDia(libre), costo: '', producto: '' };
+            } else if (decTipo === 'promocion') {
+                const usados = decAlternativas.map(a => String(a.producto));
+                const libre = catalogoCache.find(a => !usados.includes(String(a.id)));
+                if (!libre) {
+                    alert('No hay más productos en el catálogo.');
+                    return;
+                }
+                nueva = { nombre: '', valor: '', costo: '', producto: String(libre.id) };
+            } else if (decTipo === 'proveedor') {
+                const primero = productoPorId(decGlobal.productoId);
+                nueva = { nombre: 'Proveedor ' + (decAlternativas.length + 1), valor: 10, costo: primero ? Number(primero.costo_compra) : 0, producto: '' };
+            } else if (decTipo === 'mecanico') {
+                nueva = { nombre: 'Opción ' + (decAlternativas.length + 1), valor: 0, costo: 0, producto: '' };
+            } else {
+                nueva = { nombre: '', valor: 0, costo: '', producto: '' };
             }
-            return valores;
+            decAlternativas.push(nueva);
+            renderizarFormularioDecision();
+        }
+
+        function quitarAlternativaDecision(k) {
+            leerFormularioDecision();
+            if (decAlternativas.length <= 2) return;
+            decAlternativas.splice(k, 1);
+            renderizarFormularioDecision();
+        }
+
+        function agregarEscenarioDecision() {
+            leerFormularioDecision();
+            if (decEscenarios.length >= 7) return;
+            const valorBase = decTipo === 'descanso' ? 1 : 0;
+            decEscenarios.push({ nombre: 'Escenario ' + (decEscenarios.length + 1), valor: valorBase, prob: 0 });
+            renderizarFormularioDecision();
+        }
+
+        function quitarEscenarioDecision(k) {
+            leerFormularioDecision();
+            if (decEscenarios.length <= 2) return;
+            decEscenarios.splice(k, 1);
+            renderizarFormularioDecision();
         }
 
         async function calcularDecision() {
+            leerFormularioDecision();
             const cuerpo = {
-                producto_id: document.getElementById('decProducto').value,
-                rescate: document.getElementById('decRescate').value,
-                alfa: document.getElementById('decAlfa').value,
-                alternativas: leerCampos('decAlt'),
-                escenarios: leerCampos('decEsc'),
-                probabilidades: leerCampos('decProb')
+                tipo: decTipo,
+                alfa: decGlobal.alfa,
+                nombres_alternativas: decAlternativas.map(a => a.nombre),
+                nombres_escenarios: decEscenarios.map(e => e.nombre),
+                escenarios: decEscenarios.map(e => e.valor),
+                probabilidades: decEscenarios.map(e => e.prob)
             };
+            if (decTipo === 'piezas') {
+                cuerpo.producto_id = decGlobal.productoId;
+                cuerpo.rescate = decGlobal.rescate;
+                cuerpo.alternativas = decAlternativas.map(a => a.valor);
+            } else if (decTipo === 'proveedor') {
+                cuerpo.producto_id = decGlobal.productoId;
+                cuerpo.rescate = decGlobal.rescate;
+                cuerpo.alternativas = decAlternativas.map(a => a.valor);
+                cuerpo.costos = decAlternativas.map(a => a.costo);
+            } else if (decTipo === 'mecanico') {
+                cuerpo.ingreso = decGlobal.ingreso;
+                cuerpo.alternativas = decAlternativas.map(a => a.valor);
+                cuerpo.costos = decAlternativas.map(a => a.costo);
+            } else if (decTipo === 'descanso') {
+                cuerpo.alternativas = decAlternativas.map(a => a.valor);
+                cuerpo.total_semana = decApoyo ? decApoyo.totalSemana : '';
+            } else if (decTipo === 'promocion') {
+                cuerpo.productos = decAlternativas.map(a => a.producto);
+                cuerpo.descuento = decGlobal.descuento;
+                cuerpo.costo_promocion = decGlobal.costoPromo;
+            }
             const boton = document.getElementById('btnCalcularDecision');
             if (boton) boton.disabled = true;
             try {
@@ -2143,12 +2632,12 @@
             if (boton) boton.disabled = false;
         }
 
-        function tablaMatriz(r, matriz, resaltar) {
-            const encabezado = r.escenarios.map(d => `<th>Demanda ${d}</th>`).join('');
+        function tablaMatrizDecision(r, matriz, resaltar) {
+            const encabezado = r.etiquetasEscenarios.map(e => `<th>${esc(e)}</th>`).join('');
             const filas = matriz.map((fila, i) => `
                 <tr>
-                    <td><strong>Surtir ${r.alternativas[i]} pzas</strong></td>
-                    ${fila.map(v => `<td class="${resaltar && v < 0 ? 'dif-falta' : ''}">${formatearMoneda(v)}</td>`).join('')}
+                    <td><strong>${esc(r.etiquetasAlternativas[i])}</strong></td>
+                    ${fila.map(v => `<td class="${resaltar && v < 0 ? 'dif-falta' : ''}">${formatoValorDecision(v, r.unidad)}</td>`).join('')}
                 </tr>`).join('');
             return `<div class="table-scroll"><table class="data-table">
                 <thead><tr><th>Alternativa</th>${encabezado}</tr></thead>
@@ -2156,34 +2645,52 @@
         }
 
         function mostrarResultadoDecision(r) {
-            const encabezadoCriterios = r.criterios.map(c => `<th>${esc(c.nombre)}</th>`).join('');
-            const filasCriterios = r.alternativas.map((q, i) => `
+            const encabezadoCriterios = r.criterios.map(c =>
+                `<th>${esc(c.nombre)}<br><span class="badge-tipo">${esc(c.tipoDecision)}</span></th>`).join('');
+            const filasCriterios = r.etiquetasAlternativas.map((etiqueta, i) => `
                 <tr>
-                    <td><strong>Surtir ${q} pzas</strong></td>
+                    <td><strong>${esc(etiqueta)}</strong></td>
                     ${r.criterios.map(c => {
                         const mejor = c.mejor === i;
-                        return `<td>${mejor ? '✓ <strong>' : ''}${formatearMoneda(c.valores[i])}${mejor ? '</strong>' : ''}</td>`;
+                        return `<td>${mejor ? '✓ <strong>' : ''}${formatoValorDecision(c.valores[i], r.unidad)}${mejor ? '</strong>' : ''}</td>`;
                     }).join('')}
                 </tr>`).join('');
 
             const recomendaciones = r.criterios.map(c => `
                 <div class="summary-row">
-                    <span>${esc(c.nombre)}: ${esc(c.regla)}</span>
-                    <strong>Surtir ${r.alternativas[c.mejor]} pzas</strong>
+                    <span>${esc(c.nombre)} <span class="badge-tipo">${esc(c.tipoDecision)}</span></span>
+                    <strong>${esc(r.etiquetasAlternativas[c.mejor])}</strong>
                 </div>`).join('');
+
+            const votos = {};
+            r.criterios.forEach(c => { votos[c.mejor] = (votos[c.mejor] || 0) + 1; });
+            let ganadora = r.criterios[0].mejor;
+            Object.keys(votos).forEach(k => { if (votos[k] > votos[ganadora]) ganadora = Number(k); });
+
+            const explicaciones = r.criterios.map(c => `
+                <div class="formula-box">
+                    <strong style="color:var(--text);">${esc(c.nombre)}</strong> <span class="badge-tipo">${esc(c.tipoDecision)}</span><br>
+                    Fórmula: ${esc(c.formula)}.<br>
+                    Regla de decisión: ${esc(c.regla)}.<br>
+                    Ejemplo con la alternativa recomendada: ${esc(c.ejemplo)}
+                </div>`).join('') + `
+                <div class="formula-box">
+                    <strong style="color:var(--text);">VEIP</strong> <span class="badge-tipo">Riesgo: valor de la información perfecta</span><br>
+                    Fórmula: ${esc(r.formulaVeip)}.
+                </div>`;
 
             document.getElementById('resultadoDecision').innerHTML = `
                 <div class="summary-box">
-                    <h3 style="font-size:0.95rem;">Producto: [${esc(r.sku)}] ${esc(r.producto)}</h3>
-                    <p style="font-size:0.85rem;">Costo por pieza: ${formatearMoneda(r.costo)} | Precio de venta: ${formatearMoneda(r.precio)}</p>
+                    <h3 style="font-size:0.95rem;">Tipo de problema: ${esc(r.tipoProblema)}</h3>
+                    <p style="font-size:0.85rem;">${esc(r.descripcion)}</p>
                 </div>
                 <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Tabla de pagos (utilidad de cada alternativa en cada escenario)</h3>
-                    ${tablaMatriz(r, r.pagos, true)}
+                    <h3 style="font-size:0.9rem;">Tabla de pagos (${r.unidad === '$' ? 'utilidad' : 'atenciones conservadas'} de cada alternativa en cada escenario)</h3>
+                    ${tablaMatrizDecision(r, r.pagos, true)}
                 </div>
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Tabla de arrepentimiento (Savage)</h3>
-                    ${tablaMatriz(r, r.arrepentimientos, false)}
+                    ${tablaMatrizDecision(r, r.arrepentimientos, false)}
                 </div>
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Resultado de cada criterio (✓ marca la mejor alternativa)</h3>
@@ -2195,12 +2702,20 @@
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Recomendación por criterio</h3>
                     ${recomendaciones}
+                    <div class="summary-row total">
+                        <span>Alternativa recomendada por más criterios (${votos[ganadora]} de ${r.criterios.length}):</span>
+                        <span>${esc(r.etiquetasAlternativas[ganadora])}</span>
+                    </div>
                 </div>
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Valor de la información perfecta</h3>
-                    <div class="summary-row"><span>Mejor VME sin información:</span><span>${formatearMoneda(r.mejorVME)}</span></div>
-                    <div class="summary-row"><span>Valor esperado con información perfecta:</span><span>${formatearMoneda(r.valorConInformacionPerfecta)}</span></div>
-                    <div class="summary-row total"><span>VEIP (lo máximo que conviene pagar por conocer la demanda):</span><span>${formatearMoneda(r.veip)}</span></div>
+                    <div class="summary-row"><span>Mejor VME sin información:</span><span>${formatoValorDecision(r.mejorVME, r.unidad)}</span></div>
+                    <div class="summary-row"><span>Valor esperado con información perfecta:</span><span>${formatoValorDecision(r.valorConInformacionPerfecta, r.unidad)}</span></div>
+                    <div class="summary-row total"><span>VEIP (lo máximo que conviene "pagar" por conocer el escenario):</span><span>${formatoValorDecision(r.veip, r.unidad)}</span></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Cómo se calcula cada criterio</h3>
+                    ${explicaciones}
                 </div>
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
@@ -2211,4 +2726,4 @@
         };
     </script>
 </body>
-</html> 
+</html>
