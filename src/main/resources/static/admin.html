@@ -2732,7 +2732,7 @@
                         ${botonEsc}
                     </div>
                 </div>
-                <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan para el VME y el VEIP; los demás criterios no las necesitan.</p>
+                <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan solo para el VME; los demás criterios no las necesitan.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
         }
@@ -2910,12 +2910,6 @@
                         <span>Alternativa recomendada por más criterios (${votos[ganadora]} de ${r.criterios.length}):</span>
                         <span>${esc(r.etiquetasAlternativas[ganadora])}</span>
                     </div>
-                </div>
-                <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Valor de la información perfecta</h3>
-                    <div class="summary-row"><span>Mejor VME sin información:</span><span>${formatoValorDecision(r.mejorVME, r.unidad)}</span></div>
-                    <div class="summary-row"><span>Valor esperado con información perfecta:</span><span>${formatoValorDecision(r.valorConInformacionPerfecta, r.unidad)}</span></div>
-                    <div class="summary-row total"><span>VEIP (lo máximo que conviene "pagar" por conocer el escenario):</span><span>${formatoValorDecision(r.veip, r.unidad)}</span></div>
                 </div>
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
