@@ -2883,18 +2883,6 @@
             let ganadora = r.criterios[0].mejor;
             Object.keys(votos).forEach(k => { if (votos[k] > votos[ganadora]) ganadora = Number(k); });
 
-            const explicaciones = r.criterios.map(c => `
-                <div class="formula-box">
-                    <strong style="color:var(--text);">${esc(c.nombre)}</strong> <span class="badge-tipo">${esc(c.tipoDecision)}</span><br>
-                    Fórmula: ${esc(c.formula)}.<br>
-                    Regla de decisión: ${esc(c.regla)}.<br>
-                    Ejemplo con la alternativa recomendada: ${esc(c.ejemplo)}
-                </div>`).join('') + `
-                <div class="formula-box">
-                    <strong style="color:var(--text);">VEIP</strong> <span class="badge-tipo">Riesgo: valor de la información perfecta</span><br>
-                    Fórmula: ${esc(r.formulaVeip)}.
-                </div>`;
-
             document.getElementById('resultadoDecision').innerHTML = `
                 <div class="summary-box">
                     <h3 style="font-size:0.95rem;">Tipo de problema: ${esc(r.tipoProblema)}</h3>
@@ -2928,10 +2916,6 @@
                     <div class="summary-row"><span>Mejor VME sin información:</span><span>${formatoValorDecision(r.mejorVME, r.unidad)}</span></div>
                     <div class="summary-row"><span>Valor esperado con información perfecta:</span><span>${formatoValorDecision(r.valorConInformacionPerfecta, r.unidad)}</span></div>
                     <div class="summary-row total"><span>VEIP (lo máximo que conviene "pagar" por conocer el escenario):</span><span>${formatoValorDecision(r.veip, r.unidad)}</span></div>
-                </div>
-                <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Cómo se calcula cada criterio</h3>
-                    ${explicaciones}
                 </div>
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
