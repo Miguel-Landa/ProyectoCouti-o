@@ -82,6 +82,23 @@
             color: var(--button-text);
         }
 
+        .btn-movimientos {
+            background: var(--accent);
+            color: var(--button-text);
+            border: 1px solid var(--accent);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-movimientos:hover {
+            background: var(--accent-strong);
+            border-color: var(--accent-strong);
+        }
+
         .workspace {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -503,6 +520,8 @@
             border-radius: 6px;
             width: 100%;
             max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
             padding: 25px;
             box-shadow: 0 20px 40px var(--shadow);
         }
@@ -583,12 +602,15 @@
     <div class="app-container">
         <div class="topbar">
             <h1>Panel del Administrador</h1>
-            <a href="index.html" class="btn-logout">Cerrar Sesión</a>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" class="btn-movimientos" onclick="abrirMovimientos()">Historial de Movimientos</button>
+                <a href="index.html" class="btn-logout">Cerrar Sesión</a>
+            </div>
         </div>
 
         <div class="workspace">
             <div class="sidebar-buttons">
-                <div class="sidebar-title">Módulos Unificados</div>
+                <div class="sidebar-title">Apartados</div>
                 <button class="nav-btn active" onclick="cambiarVistaAdmin('compras', this)">
                     Compras a Proveedores
                 </button>
@@ -644,6 +666,20 @@
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn-close" onclick="cerrarModalMecanico()">Cerrar Ventana</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalDetalleMovimiento">
+        <div class="modal-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h2 id="modalMovimientoTitulo">Detalle del Movimiento</h2>
+                <p id="modalMovimientoInfo">Fecha y hora</p>
+            </div>
+            <div class="summary-box" id="modalMovimientoContenido" style="margin-top:0;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn-close" onclick="cerrarModalMovimiento()">Cerrar Ventana</button>
             </div>
         </div>
     </div>
@@ -1384,6 +1420,53 @@
             }
         }
 
+        function numeroDeCodigo(codigo) {
+            const texto = String(codigo || '');
+            const partes = texto.split('-');
+            const ultima = partes[partes.length - 1];
+            const numero = parseInt(ultima);
+            if (Number.isNaN(numero)) {
+                return 0;
+            }
+            return numero;
+        }
+
+        function leerUltimoCodigo() {
+            let guardado = 0;
+            try {
+                guardado = parseInt(localStorage.getItem('ultimoCodigoArticulo')) || 0;
+            } catch (e) {
+                guardado = 0;
+            }
+            return guardado;
+        }
+
+        function guardarNumeroCodigo(numero) {
+            try {
+                if (numero > leerUltimoCodigo()) {
+                    localStorage.setItem('ultimoCodigoArticulo', String(numero));
+                }
+            } catch (e) {
+                return;
+            }
+        }
+
+        function siguienteCodigoArticulo() {
+            let mayor = 0;
+            for (let i = 0; i < catalogoCache.length; i++) {
+                const n = numeroDeCodigo(catalogoCache[i].sku);
+                if (n > mayor) {
+                    mayor = n;
+                }
+            }
+            guardarNumeroCodigo(mayor);
+            const guardado = leerUltimoCodigo();
+            if (guardado > mayor) {
+                mayor = guardado;
+            }
+            return 'REF-' + (mayor + 1);
+        }
+
         function renderizarModuloArticulos() {
             let filasHTML = '';
             for (let i = 0; i < catalogoCache.length; i++) {
@@ -1429,8 +1512,8 @@
 
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Código SKU</label>
-                            <input type="text" id="artSkuInput" placeholder="Ej. REF-300" required>
+                            <label>Código (lo asigna el sistema)</label>
+                            <input type="text" id="artSkuInput" value="${siguienteCodigoArticulo()}" readonly>
                         </div>
                         <div class="input-group">
                             <label>Descripción / Nombre del Producto</label>
@@ -1467,7 +1550,7 @@
                     <div class="table-scroll">
                     <table class="data-table">
                         <thead>
-                            <tr><th>SKU</th><th>Producto</th><th>Último costo de compra</th><th>Precio Venta</th><th>Stock</th><th>Acciones</th></tr>
+                            <tr><th>Código</th><th>Producto</th><th>Último costo de compra</th><th>Precio Venta</th><th>Stock</th><th>Acciones</th></tr>
                         </thead>
                         <tbody>
                             ${filasHTML}
@@ -1498,6 +1581,7 @@
                     await enviar('PUT', '/api/productos/' + idProductoEditando, cuerpo);
                 } else {
                     await enviar('POST', '/api/productos', cuerpo);
+                    guardarNumeroCodigo(numeroDeCodigo(cuerpo.sku));
                 }
                 idProductoEditando = null;
                 document.getElementById('alertaArt').style.display = 'block';
@@ -2588,6 +2672,422 @@
                 return;
             }
             mostrarHistorialCobros(fechaInicio, fechaFin);
+        }
+
+        let movimientosTodos = [];
+        let movimientosVista = [];
+        let rangoMovimientos = null;
+        let filtroTipoMovimientos = 'todos';
+
+        const TIPOS_MOVIMIENTO = ['Venta', 'Cotización', 'Cobro de servicio', 'Compra a proveedor', 'Corte de caja'];
+
+        function fechaHace30Dias() {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            return fechaLocalISO(d);
+        }
+
+        function horaDeMs(ms) {
+            const d = new Date(Number(ms));
+            if (Number.isNaN(d.getTime())) {
+                return '—';
+            }
+            return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function filaDetalle(etiqueta, valor) {
+            return '<div class="summary-row"><span>' + etiqueta + '</span><span>' + valor + '</span></div>';
+        }
+
+        async function abrirMovimientos() {
+            const botones = document.querySelectorAll('.nav-btn');
+            for (let i = 0; i < botones.length; i++) {
+                botones[i].classList.remove('active');
+            }
+            mostrarCargando();
+            try {
+                const ventas = await api('/api/ventas');
+                const compras = await api('/api/compras');
+                let cobros = [];
+                try {
+                    cobros = await api('/api/cobros');
+                } catch (e) {
+                    cobros = [];
+                }
+                const cortes = await api('/api/caja/cortes');
+
+                movimientosTodos = [];
+
+                for (let i = 0; i < ventas.length; i++) {
+                    const v = ventas[i];
+                    const fecha = fechaVentaISO(v.fecha);
+                    if (fecha !== '') {
+                        let tipo = 'Venta';
+                        let entrada = Number(v.total || 0);
+                        if (v.tipo === 'COTIZACION') {
+                            tipo = 'Cotización';
+                            entrada = 0;
+                        }
+                        movimientosTodos.push({
+                            fecha: fecha,
+                            ms: 0,
+                            hora: '—',
+                            tipo: tipo,
+                            folio: '#' + v.folio_numero,
+                            responsable: v.cliente,
+                            entrada: entrada,
+                            salida: 0,
+                            orden: Number(v.id),
+                            datos: v
+                        });
+                    }
+                }
+
+                for (let i = 0; i < compras.length; i++) {
+                    const c = compras[i];
+                    const fecha = fechaVentaISO(c.fecha);
+                    if (fecha !== '') {
+                        movimientosTodos.push({
+                            fecha: fecha,
+                            ms: 0,
+                            hora: '—',
+                            tipo: 'Compra a proveedor',
+                            folio: c.factura,
+                            responsable: c.proveedor,
+                            entrada: 0,
+                            salida: Number(c.total || 0),
+                            orden: Number(c.id),
+                            datos: c
+                        });
+                    }
+                }
+
+                for (let i = 0; i < cobros.length; i++) {
+                    const c = cobros[i];
+                    movimientosTodos.push({
+                        fecha: fechaLocalISO(new Date(Number(c.fechaPago))),
+                        ms: Number(c.fechaPago),
+                        hora: horaDeMs(c.fechaPago),
+                        tipo: 'Cobro de servicio',
+                        folio: c.folio,
+                        responsable: c.mecanico,
+                        entrada: Number(c.total || 0),
+                        salida: 0,
+                        orden: Number(c.id || 0),
+                        datos: c
+                    });
+                }
+
+                for (let i = 0; i < cortes.length; i++) {
+                    const k = cortes[i];
+                    movimientosTodos.push({
+                        fecha: fechaLocalISO(new Date(Number(k.fecha_corte))),
+                        ms: Number(k.fecha_corte),
+                        hora: horaDeMs(k.fecha_corte),
+                        tipo: 'Corte de caja',
+                        folio: '#' + k.id,
+                        responsable: k.responsable,
+                        entrada: 0,
+                        salida: 0,
+                        orden: Number(k.id),
+                        datos: k
+                    });
+                }
+
+                for (let a = 0; a < movimientosTodos.length - 1; a++) {
+                    for (let b = a + 1; b < movimientosTodos.length; b++) {
+                        const ma = movimientosTodos[a];
+                        const mb = movimientosTodos[b];
+                        let cambiar = false;
+                        if (mb.fecha > ma.fecha) {
+                            cambiar = true;
+                        } else if (mb.fecha === ma.fecha && mb.ms > ma.ms) {
+                            cambiar = true;
+                        } else if (mb.fecha === ma.fecha && mb.ms === ma.ms && mb.orden > ma.orden) {
+                            cambiar = true;
+                        }
+                        if (cambiar) {
+                            movimientosTodos[a] = mb;
+                            movimientosTodos[b] = ma;
+                        }
+                    }
+                }
+
+                rangoMovimientos = { inicio: fechaHace30Dias(), fin: hoyISO() };
+                filtroTipoMovimientos = 'todos';
+                mostrarMovimientos();
+            } catch (e) {
+                mostrarErrorCarga(e, 'compras');
+            }
+        }
+
+        function mostrarMovimientos() {
+            const inicio = rangoMovimientos.inicio;
+            const fin = rangoMovimientos.fin;
+
+            movimientosVista = [];
+            let totalEntradas = 0;
+            let totalSalidas = 0;
+            for (let i = 0; i < movimientosTodos.length; i++) {
+                const m = movimientosTodos[i];
+                let cumpleTipo = false;
+                if (filtroTipoMovimientos === 'todos' || filtroTipoMovimientos === m.tipo) {
+                    cumpleTipo = true;
+                }
+                if (cumpleTipo && m.fecha >= inicio && m.fecha <= fin) {
+                    movimientosVista.push(m);
+                    totalEntradas = totalEntradas + m.entrada;
+                    totalSalidas = totalSalidas + m.salida;
+                }
+            }
+            const balance = redondear(totalEntradas - totalSalidas);
+            let claseBalance = 'dif-ok';
+            if (balance < 0) {
+                claseBalance = 'dif-falta';
+            }
+
+            let opcionesTipo = '<option value="todos">Todos los movimientos</option>';
+            for (let i = 0; i < TIPOS_MOVIMIENTO.length; i++) {
+                let marca = '';
+                if (TIPOS_MOVIMIENTO[i] === filtroTipoMovimientos) {
+                    marca = 'selected';
+                }
+                opcionesTipo += '<option value="' + TIPOS_MOVIMIENTO[i] + '" ' + marca + '>' + TIPOS_MOVIMIENTO[i] + '</option>';
+            }
+
+            let filas = '';
+            for (let i = 0; i < movimientosVista.length; i++) {
+                const m = movimientosVista[i];
+                let textoEntrada = '—';
+                let textoSalida = '—';
+                if (m.entrada > 0) {
+                    textoEntrada = formatearMoneda(m.entrada);
+                }
+                if (m.salida > 0) {
+                    textoSalida = formatearMoneda(m.salida);
+                }
+                filas += `
+                    <tr>
+                        <td>${formatoFecha(m.fecha)}</td>
+                        <td>${esc(m.hora)}</td>
+                        <td><span class="badge-tipo">${esc(m.tipo)}</span></td>
+                        <td>${esc(m.folio)}</td>
+                        <td>${esc(m.responsable)}</td>
+                        <td class="dif-ok">${textoEntrada}</td>
+                        <td class="dif-falta">${textoSalida}</td>
+                        <td class="no-print"><button type="button" class="btn-edit-item" onclick="verDetalleMovimiento(${i})">Ver detalle</button></td>
+                    </tr>`;
+            }
+            if (filas === '') {
+                filas = '<tr><td colspan="8" style="text-align:center;">No hay movimientos para este periodo.</td></tr>';
+            }
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Movimientos</h2>
+                    <p class="no-print">Registro de ventas, cotizaciones, cobros de servicio, compras a proveedores y cortes de caja. Usa Ver detalle para consultar cada movimiento.</p>
+                    <p>Periodo del reporte: ${formatoFecha(inicio)} al ${formatoFecha(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="movFechaInicio">Desde</label>
+                            <input type="date" id="movFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="movFechaFin">Hasta</label>
+                            <input type="date" id="movFechaFin" value="${esc(fin)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="movTipo">Tipo de movimiento</label>
+                            <select id="movTipo">${opcionesTipo}</select>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoMovimientos('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoMovimientos('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroMovimientos()">Aplicar filtros</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Movimientos en el periodo<strong>${movimientosVista.length}</strong></div>
+                    <div class="report-total-card">Total de entradas<strong class="dif-ok">${formatearMoneda(totalEntradas)}</strong></div>
+                    <div class="report-total-card">Total de salidas<strong class="dif-falta">${formatearMoneda(totalSalidas)}</strong></div>
+                    <div class="report-total-card">Balance<strong class="${claseBalance}">${formatearMoneda(balance)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Listado de movimientos</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo de movimiento</th><th>Folio</th><th>Responsable / Cliente</th><th>Entrada</th><th>Salida</th><th class="no-print">Acciones</th></tr></thead>
+                            <tbody>${filas}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoMovimientos(periodo) {
+            const p = periodoSeleccionado(periodo);
+            rangoMovimientos = { inicio: p.inicio, fin: p.fin };
+            filtroTipoMovimientos = document.getElementById('movTipo').value;
+            mostrarMovimientos();
+        }
+
+        function aplicarFiltroMovimientos() {
+            const fechaInicio = document.getElementById('movFechaInicio').value;
+            const fechaFin = document.getElementById('movFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            rangoMovimientos = { inicio: fechaInicio, fin: fechaFin };
+            filtroTipoMovimientos = document.getElementById('movTipo').value;
+            mostrarMovimientos();
+        }
+
+        function detalleVentaMovimiento(v) {
+            let html = filaDetalle('Cliente', esc(v.cliente));
+            html += filaDetalle('Método de pago', esc(v.pago));
+            html += filaDetalle('Fecha', esc(v.fecha));
+
+            let productos = '';
+            const detalle = v.detalle || [];
+            for (let i = 0; i < detalle.length; i++) {
+                const d = detalle[i];
+                productos += filaDetalle(esc(d.producto) + ' (x' + d.cantidad + ' a ' + formatearMoneda(d.precio) + ')',
+                    formatearMoneda(Number(d.precio) * Number(d.cantidad)));
+            }
+            html += '<h4 style="font-size:0.85rem; margin:10px 0 4px 0;">Productos:</h4>' + productos;
+
+            html += filaDetalle('Subtotal', formatearMoneda(v.subtotal));
+            html += filaDetalle('IVA (16%)', formatearMoneda(v.iva));
+            html += '<div class="summary-row total"><span>Total</span><span>' + formatearMoneda(v.total) + '</span></div>';
+
+            if (v.tipo === 'VENTA' && v.pago === 'Efectivo' && Number(v.monto_recibido || 0) > 0) {
+                html += filaDetalle('Monto recibido', formatearMoneda(v.monto_recibido));
+                html += filaDetalle('Cambio entregado', formatearMoneda(v.cambio));
+            }
+            if (v.tipo === 'VENTA') {
+                let textoCorte = 'Pendiente de corte';
+                if (v.corte_id) {
+                    textoCorte = '#' + esc(v.corte_id);
+                }
+                html += filaDetalle('Corte de caja', textoCorte);
+            }
+            return html;
+        }
+
+        function detalleCobroMovimiento(c) {
+            let html = filaDetalle('Folio', esc(c.folio));
+            html += filaDetalle('Cliente', esc(c.cliente));
+            html += filaDetalle('Motocicleta', esc(c.motocicleta) + ' (' + esc(c.placas) + ')');
+            html += filaDetalle('Servicio solicitado', esc(c.servicioSolicitado));
+            html += filaDetalle('Servicio realizado', esc(c.servicioRealizado));
+            html += filaDetalle('Mecánico', esc(c.mecanico));
+            html += filaDetalle('Mano de obra', formatearMoneda(c.manoObra));
+            if (Number(c.servicioExtraPrecio) > 0) {
+                html += filaDetalle('Extra: ' + esc(c.servicioExtraDescripcion), formatearMoneda(c.servicioExtraPrecio));
+            }
+
+            const refacciones = c.refacciones || [];
+            if (refacciones.length > 0) {
+                html += '<h4 style="font-size:0.85rem; margin:10px 0 4px 0;">Refacciones:</h4>';
+            }
+            for (let i = 0; i < refacciones.length; i++) {
+                const r = refacciones[i];
+                html += filaDetalle(esc(r.nombre) + ' (x' + r.cantidad + ' a ' + formatearMoneda(r.precioUnitario) + ')',
+                    formatearMoneda(r.importe));
+            }
+
+            html += filaDetalle('Subtotal', formatearMoneda(c.subtotal));
+            html += filaDetalle('IVA (16%)', formatearMoneda(c.iva));
+            html += '<div class="summary-row total"><span>Total</span><span>' + formatearMoneda(c.total) + '</span></div>';
+            return html;
+        }
+
+        function detalleCompraMovimiento(c) {
+            let html = filaDetalle('Factura / Remisión', esc(c.factura));
+            html += filaDetalle('Proveedor', esc(c.proveedor));
+            html += filaDetalle('Fecha', esc(c.fecha));
+
+            let articulos = '';
+            const detalle = c.detalle || [];
+            for (let i = 0; i < detalle.length; i++) {
+                const d = detalle[i];
+                articulos += filaDetalle(esc(d.nombre) + ' (' + esc(d.sku) + ') x' + d.cantidad + ' a ' + formatearMoneda(d.costo),
+                    formatearMoneda(d.importe));
+            }
+            html += '<h4 style="font-size:0.85rem; margin:10px 0 4px 0;">Artículos adquiridos:</h4>' + articulos;
+
+            html += filaDetalle('Subtotal', formatearMoneda(c.subtotal));
+            html += filaDetalle('IVA (16%)', formatearMoneda(c.iva));
+            html += '<div class="summary-row total"><span>Total de la factura</span><span>' + formatearMoneda(c.total) + '</span></div>';
+            return html;
+        }
+
+        function detalleCorteMovimiento(k) {
+            const dif = Number(k.diferencia);
+            let etiquetaDif = 'Caja cuadrada';
+            let claseDif = 'dif-ok';
+            if (dif > 0) {
+                etiquetaDif = 'Sobrante';
+            } else if (dif < 0) {
+                etiquetaDif = 'Faltante';
+                claseDif = 'dif-falta';
+            }
+
+            let html = filaDetalle('Responsable', esc(k.responsable));
+            html += filaDetalle('Ventas incluidas', esc(k.num_ventas));
+            html += filaDetalle('Total vendido', formatearMoneda(k.total_ventas));
+            html += filaDetalle('Ventas en efectivo', formatearMoneda(k.ventas_efectivo));
+            html += filaDetalle('Ventas con tarjeta', formatearMoneda(k.ventas_tarjeta));
+            html += filaDetalle('Ventas por transferencia', formatearMoneda(k.ventas_transferencia));
+            html += filaDetalle('Fondo de caja', formatearMoneda(k.fondo_inicial));
+            html += filaDetalle('Retiros', formatearMoneda(k.retiros));
+            html += '<div class="summary-row total"><span>Efectivo esperado</span><span>' + formatearMoneda(k.efectivo_esperado) + '</span></div>';
+            html += filaDetalle('Efectivo contado', formatearMoneda(k.efectivo_contado));
+            html += '<div class="summary-row total"><span>' + etiquetaDif + '</span><span class="' + claseDif + '">'
+                + formatearMoneda(Math.abs(dif)) + '</span></div>';
+            html += filaDetalle('Observaciones', esc(k.observaciones || '—'));
+            return html;
+        }
+
+        async function verDetalleMovimiento(indice) {
+            const m = movimientosVista[indice];
+            if (!m) {
+                return;
+            }
+
+            let fechaTexto = formatoFecha(m.fecha);
+            if (m.hora !== '—') {
+                fechaTexto = fechaTexto + ' ' + m.hora;
+            }
+            document.getElementById('modalMovimientoTitulo').innerText = m.tipo + ' ' + m.folio;
+            document.getElementById('modalMovimientoInfo').innerText = 'Fecha y hora: ' + fechaTexto;
+
+            let html = '';
+            if (m.tipo === 'Venta' || m.tipo === 'Cotización') {
+                html = detalleVentaMovimiento(m.datos);
+            } else if (m.tipo === 'Cobro de servicio') {
+                html = detalleCobroMovimiento(m.datos);
+            } else if (m.tipo === 'Compra a proveedor') {
+                html = detalleCompraMovimiento(m.datos);
+            } else if (m.tipo === 'Corte de caja') {
+                let corte = m.datos;
+                try {
+                    corte = await api('/api/caja/cortes/' + m.datos.id);
+                } catch (e) {
+                    corte = m.datos;
+                }
+                html = detalleCorteMovimiento(corte);
+            }
+
+            document.getElementById('modalMovimientoContenido').innerHTML = html;
+            document.getElementById('modalDetalleMovimiento').style.display = 'flex';
+        }
+
+        function cerrarModalMovimiento() {
+            document.getElementById('modalDetalleMovimiento').style.display = 'none';
         }
 
         const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
