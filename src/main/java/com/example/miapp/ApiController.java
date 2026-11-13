@@ -32,9 +32,14 @@ public class ApiController {
 
     private String s(Map<String, Object> m, String k) {
         Object v = m.get(k);
-        if (v == null) return null;
+        if (v == null) {
+            return null;
+        }
         String t = v.toString().trim();
-        return t.isEmpty() ? null : t;
+        if (t.isEmpty()) {
+            return null;
+        }
+        return t;
     }
 
     private String req(Map<String, Object> m, String k) {
@@ -47,7 +52,9 @@ public class ApiController {
 
     private BigDecimal n(Map<String, Object> m, String k) {
         Object v = m.get(k);
-        if (v == null || v.toString().isBlank()) return BigDecimal.ZERO;
+        if (v == null || v.toString().isBlank()) {
+            return BigDecimal.ZERO;
+        }
         try {
             return new BigDecimal(v.toString());
         } catch (NumberFormatException e) {
@@ -61,18 +68,27 @@ public class ApiController {
 
     private Long provId(Map<String, Object> b) {
         Object prov = b.get("proveedor_id");
-        return (prov == null || prov.toString().isBlank()) ? null : Long.valueOf(prov.toString());
+        if (prov == null || prov.toString().isBlank()) {
+            return null;
+        }
+        return Long.valueOf(prov.toString());
     }
 
     private boolean activoDe(Map<String, Object> b) {
         Object v = b.get("activo");
-        return v == null || Boolean.parseBoolean(v.toString());
+        if (v == null) {
+            return true;
+        }
+        return Boolean.parseBoolean(v.toString());
     }
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> lista(Map<String, Object> m, String k) {
         Object v = m.get(k);
-        return v == null ? List.of() : (List<Map<String, Object>>) v;
+        if (v == null) {
+            return new ArrayList<Map<String, Object>>();
+        }
+        return (List<Map<String, Object>>) v;
     }
 
     private String siguienteFolio() {
@@ -119,7 +135,10 @@ public class ApiController {
     }
 
     private void validarRango(LocalDate desde, LocalDate hasta) {
-        if ((desde == null) != (hasta == null)) {
+        if (desde == null && hasta != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica la fecha inicial y la final.");
+        }
+        if (desde != null && hasta == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica la fecha inicial y la final.");
         }
         if (desde != null && desde.isAfter(hasta)) {
@@ -166,7 +185,9 @@ public class ApiController {
                     "UPDATE proveedores SET nombre = ?, rfc = ?, telefono = ?, email = ?, direccion = ? "
                             + "WHERE id = ? RETURNING *",
                     req(b, "nombre"), s(b, "rfc"), s(b, "telefono"), s(b, "email"), s(b, "direccion"), id);
-            if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no encontrado");
+            if (r.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no encontrado");
+            }
             return r.get(0);
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un proveedor con ese RFC");
@@ -199,13 +220,18 @@ public class ApiController {
     @PutMapping("/productos/{id}")
     public Map<String, Object> editarProducto(@PathVariable long id, @RequestBody Map<String, Object> b) {
         try {
-            BigDecimal costo = s(b, "costo_compra") == null ? null : n(b, "costo_compra");
+            BigDecimal costo = null;
+            if (s(b, "costo_compra") != null) {
+                costo = n(b, "costo_compra");
+            }
             List<Map<String, Object>> r = db.queryForList(
                     "UPDATE productos SET sku = ?, nombre = ?, costo_compra = COALESCE(CAST(? AS DECIMAL), costo_compra), "
                             + "precio = ?, stock = ?, proveedor_id = ? "
                             + "WHERE id = ? RETURNING *",
                     req(b, "sku"), req(b, "nombre"), costo, n(b, "precio"), i(b, "stock"), provId(b), id);
-            if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado");
+            if (r.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado");
+            }
             return r.get(0);
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un producto con ese SKU");
@@ -220,7 +246,8 @@ public class ApiController {
     @GetMapping("/ventas")
     public List<Map<String, Object>> ventas() {
         List<Map<String, Object>> ventas = db.queryForList("SELECT * FROM ventas ORDER BY id DESC");
-        for (Map<String, Object> v : ventas) {
+        for (int k = 0; k < ventas.size(); k++) {
+            Map<String, Object> v = ventas.get(k);
             v.put("detalle", db.queryForList(
                     "SELECT * FROM venta_detalle WHERE venta_id = ? ORDER BY id", v.get("id")));
         }
@@ -266,7 +293,8 @@ public class ApiController {
                 n(b, "subtotal"), n(b, "iva"), total, recibido, cambio);
         Object ventaId = venta.get("id");
 
-        for (Map<String, Object> d : detalle) {
+        for (int k = 0; k < detalle.size(); k++) {
+            Map<String, Object> d = detalle.get(k);
             String pid = s(d, "producto_id");
             db.update(
                     "INSERT INTO venta_detalle (venta_id, producto_id, producto, cantidad, precio, importe) "
@@ -307,8 +335,9 @@ public class ApiController {
         List<Map<String, Object>> todas = db.queryForList(
                 "SELECT id, folio_numero, cliente, pago, fecha, total, monto_recibido, cambio "
                         + "FROM ventas WHERE tipo = 'VENTA' AND corte_id IS NULL ORDER BY id");
-        List<Map<String, Object>> ventas = new ArrayList<>();
-        for (Map<String, Object> v : todas) {
+        List<Map<String, Object>> ventas = new ArrayList<Map<String, Object>>();
+        for (int k = 0; k < todas.size(); k++) {
+            Map<String, Object> v = todas.get(k);
             if (desde == null) {
                 ventas.add(v);
             } else {
@@ -322,7 +351,8 @@ public class ApiController {
         BigDecimal tarjeta = BigDecimal.ZERO;
         BigDecimal transferencia = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
-        for (Map<String, Object> v : ventas) {
+        for (int k = 0; k < ventas.size(); k++) {
+            Map<String, Object> v = ventas.get(k);
             BigDecimal t = new BigDecimal(v.get("total").toString());
             String pago = String.valueOf(v.get("pago"));
             total = total.add(t);
@@ -334,7 +364,7 @@ public class ApiController {
                 transferencia = transferencia.add(t);
             }
         }
-        Map<String, Object> resumen = new LinkedHashMap<>();
+        Map<String, Object> resumen = new LinkedHashMap<String, Object>();
         resumen.put("cantidad", ventas.size());
         resumen.put("total", total);
         resumen.put("efectivo", efectivo);
@@ -352,7 +382,7 @@ public class ApiController {
 
     @GetMapping("/caja/fondo")
     public Map<String, Object> fondo() {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
+        Map<String, Object> respuesta = new LinkedHashMap<String, Object>();
         respuesta.put("fondo", fondoActual());
         return respuesta;
     }
@@ -442,7 +472,8 @@ public class ApiController {
 
         Object corteId = corte.get("id");
         List<Map<String, Object>> incluidas = (List<Map<String, Object>>) pendiente.get("ventas");
-        for (Map<String, Object> v : incluidas) {
+        for (int k = 0; k < incluidas.size(); k++) {
+            Map<String, Object> v = incluidas.get(k);
             db.update("UPDATE ventas SET corte_id = ? WHERE id = ? AND corte_id IS NULL",
                     corteId, v.get("id"));
         }
@@ -453,7 +484,8 @@ public class ApiController {
     @GetMapping("/compras")
     public List<Map<String, Object>> compras() {
         List<Map<String, Object>> compras = db.queryForList("SELECT * FROM compras ORDER BY id DESC");
-        for (Map<String, Object> c : compras) {
+        for (int k = 0; k < compras.size(); k++) {
+            Map<String, Object> c = compras.get(k);
             c.put("detalle", db.queryForList(
                     "SELECT * FROM compra_detalle WHERE compra_id = ? ORDER BY id", c.get("id")));
         }
@@ -464,8 +496,9 @@ public class ApiController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public Map<String, Object> crearCompra(@RequestBody Map<String, Object> b) {
-        for (Map<String, Object> d : lista(b, "detalle")) {
-            if (n(d, "costo").signum() <= 0) {
+        List<Map<String, Object>> detalle = lista(b, "detalle");
+        for (int k = 0; k < detalle.size(); k++) {
+            if (n(detalle.get(k), "costo").signum() <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "El costo por pieza debe ser mayor a cero.");
             }
@@ -482,7 +515,8 @@ public class ApiController {
         }
         Object compraId = compra.get("id");
 
-        for (Map<String, Object> d : lista(b, "detalle")) {
+        for (int k = 0; k < detalle.size(); k++) {
+            Map<String, Object> d = detalle.get(k);
             db.update(
                     "INSERT INTO compra_detalle (compra_id, producto_id, sku, nombre, costo, cantidad, importe) "
                             + "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -499,7 +533,8 @@ public class ApiController {
     public void borrarCompra(@PathVariable long id) {
         List<Map<String, Object>> det = db.queryForList(
                 "SELECT sku, cantidad FROM compra_detalle WHERE compra_id = ?", id);
-        for (Map<String, Object> d : det) {
+        for (int k = 0; k < det.size(); k++) {
+            Map<String, Object> d = det.get(k);
             db.update("UPDATE productos SET stock = GREATEST(0, stock - ?) WHERE sku = ?",
                     ((Number) d.get("cantidad")).intValue(), d.get("sku"));
         }
@@ -513,7 +548,9 @@ public class ApiController {
 
     @GetMapping("/citas/siguiente-folio")
     public Map<String, Object> siguienteFolioCita() {
-        return Map.of("folio", siguienteFolio());
+        Map<String, Object> respuesta = new LinkedHashMap<String, Object>();
+        respuesta.put("folio", siguienteFolio());
+        return respuesta;
     }
 
     @GetMapping("/citas/horarios")
@@ -535,7 +572,10 @@ public class ApiController {
     @PostMapping("/citas")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> crearCita(@RequestBody Map<String, Object> b) {
-        String modalidad = s(b, "modalidad") == null ? "Cita Previa" : s(b, "modalidad");
+        String modalidad = s(b, "modalidad");
+        if (modalidad == null) {
+            modalidad = "Cita Previa";
+        }
         String fechaHora = req(b, "fecha_hora");
 
         if (modalidad.equals("Cita Previa")) {
@@ -547,7 +587,10 @@ public class ApiController {
             }
         }
 
-        String folio = s(b, "folio") != null ? s(b, "folio") : siguienteFolio();
+        String folio = s(b, "folio");
+        if (folio == null) {
+            folio = siguienteFolio();
+        }
         try {
             return db.queryForMap(
                     "INSERT INTO citas (folio, cliente, telefono, correo, mecanico, moto, placas, servicio, modalidad, fecha_hora) "
@@ -580,7 +623,10 @@ public class ApiController {
     @PostMapping("/citas/orden")
     public Map<String, Object> guardarOrden(@RequestBody Map<String, Object> b) {
         String folio = req(b, "folio");
-        Integer km = s(b, "kilometraje") == null ? null : i(b, "kilometraje");
+        Integer km = null;
+        if (s(b, "kilometraje") != null) {
+            km = i(b, "kilometraje");
+        }
 
         List<Map<String, Object>> existe = db.queryForList("SELECT id FROM citas WHERE folio = ?", folio);
         if (!existe.isEmpty()) {
@@ -591,7 +637,10 @@ public class ApiController {
                     km, s(b, "diagnostico"), s(b, "detalle_orden"), folio);
         }
         String ahora = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-        String moto = s(b, "moto") == null ? "Motocicleta ingresada" : s(b, "moto");
+        String moto = s(b, "moto");
+        if (moto == null) {
+            moto = "Motocicleta ingresada";
+        }
         return db.queryForMap(
                 "INSERT INTO citas (folio, cliente, moto, placas, servicio, modalidad, fecha_hora, "
                         + "kilometraje, diagnostico, detalle_orden) "
@@ -657,7 +706,9 @@ public class ApiController {
                             + "fecha_ingreso = ?, activo = ?, notas = ? WHERE id = ? RETURNING *",
                     req(b, "nombre"), s(b, "telefono"), s(b, "email"), s(b, "especialidad"),
                     s(b, "fecha_ingreso"), activoDe(b), s(b, "notas"), id);
-            if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Mecánico no encontrado");
+            if (r.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Mecánico no encontrado");
+            }
             return r.get(0);
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un mecánico con ese nombre");
