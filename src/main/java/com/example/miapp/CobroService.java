@@ -8,7 +8,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -31,25 +33,27 @@ public class CobroService {
         validarTexto(solicitud.servicioSolicitado(), "servicio solicitado", 500);
         validarTexto(solicitud.servicioRealizado(), "servicio realizado", 500);
         validarTexto(solicitud.mecanico(), "mecánico", 200);
+
         Integer cobrosExistentes = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM cobros WHERE folio = ?",
                 Integer.class,
-                solicitud.folio().trim()
-        );
+                solicitud.folio().trim());
         if (cobrosExistentes != null && cobrosExistentes > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Ya existe un cobro registrado para este folio."
-            );
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ya existe un cobro registrado para este folio.");
         }
 
         BigDecimal manoObra = validarImporte(solicitud.manoObra(), "mano de obra", true);
-        BigDecimal precioExtra = solicitud.servicioExtraPrecio() == null
-                ? CERO
-                : validarImporte(solicitud.servicioExtraPrecio(), "servicio extra", true);
-        String descripcionExtra = solicitud.servicioExtraDescripcion() == null
-                ? ""
-                : solicitud.servicioExtraDescripcion().trim();
+
+        BigDecimal precioExtra = CERO;
+        if (solicitud.servicioExtraPrecio() != null) {
+            precioExtra = validarImporte(solicitud.servicioExtraPrecio(), "servicio extra", true);
+        }
+
+        String descripcionExtra = "";
+        if (solicitud.servicioExtraDescripcion() != null) {
+            descripcionExtra = solicitud.servicioExtraDescripcion().trim();
+        }
         if (precioExtra.signum() > 0 && descripcionExtra.isBlank()) {
             throw solicitudInvalida("La descripción del servicio extra es obligatoria.");
         }
@@ -57,47 +61,48 @@ public class CobroService {
             throw solicitudInvalida("La descripción del servicio extra supera los 500 caracteres.");
         }
 
-        List<CobroResponse.Refaccion> refacciones = (solicitud.refacciones() == null
-                ? List.<CobroRequest.Refaccion>of()
-                : solicitud.refacciones()).stream().map(this::validarRefaccion).toList();
+        List<CobroRequest.Refaccion> pedidas = solicitud.refacciones();
+        if (pedidas == null) {
+            pedidas = new ArrayList<CobroRequest.Refaccion>();
+        }
 
-        BigDecimal subtotalRefacciones = refacciones.stream()
-                .map(CobroResponse.Refaccion::importe)
-                .reduce(CERO, BigDecimal::add);
+        List<CobroResponse.Refaccion> refacciones = new ArrayList<CobroResponse.Refaccion>();
+        BigDecimal subtotalRefacciones = CERO;
+        for (int k = 0; k < pedidas.size(); k++) {
+            CobroResponse.Refaccion validada = validarRefaccion(pedidas.get(k));
+            refacciones.add(validada);
+            subtotalRefacciones = subtotalRefacciones.add(validada.importe());
+        }
+
         BigDecimal subtotal = dinero(manoObra.add(precioExtra).add(subtotalRefacciones));
         BigDecimal iva = dinero(subtotal.multiply(IVA));
         BigDecimal total = dinero(subtotal.add(iva));
         String id = UUID.randomUUID().toString();
         long fechaPago = System.currentTimeMillis();
 
-        jdbcTemplate.update("""
-                INSERT INTO cobros (
-                    id, folio, cliente, motocicleta, placas, servicio_solicitado,
-                    servicio_realizado, mecanico, fecha_pago, mano_obra,
-                    servicio_extra_descripcion, servicio_extra_precio, subtotal, iva, total
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+        jdbcTemplate.update(
+                "INSERT INTO cobros (id, folio, cliente, motocicleta, placas, servicio_solicitado, "
+                        + "servicio_realizado, mecanico, fecha_pago, mano_obra, "
+                        + "servicio_extra_descripcion, servicio_extra_precio, subtotal, iva, total) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 id, solicitud.folio().trim(), solicitud.cliente().trim(),
                 solicitud.motocicleta().trim(), solicitud.placas().trim(),
                 solicitud.servicioSolicitado().trim(), solicitud.servicioRealizado().trim(),
                 solicitud.mecanico().trim(), fechaPago, manoObra, descripcionExtra,
-                precioExtra, subtotal, iva, total
-        );
+                precioExtra, subtotal, iva, total);
 
-        for (CobroResponse.Refaccion refaccion : refacciones) {
-            jdbcTemplate.update("""
-                    INSERT INTO cobro_refacciones (
-                        cobro_id, sku, nombre, precio_unitario, cantidad, importe
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    """,
+        for (int k = 0; k < refacciones.size(); k++) {
+            CobroResponse.Refaccion refaccion = refacciones.get(k);
+
+            jdbcTemplate.update(
+                    "INSERT INTO cobro_refacciones (cobro_id, sku, nombre, precio_unitario, cantidad, importe) "
+                            + "VALUES (?, ?, ?, ?, ?, ?)",
                     id, refaccion.sku(), refaccion.nombre(),
-                    refaccion.precioUnitario(), refaccion.cantidad(), refaccion.importe()
-            );
+                    refaccion.precioUnitario(), refaccion.cantidad(), refaccion.importe());
 
             int filas = jdbcTemplate.update(
                     "UPDATE productos SET stock = stock - ? WHERE sku = ? AND stock >= ?",
-                    refaccion.cantidad(), refaccion.sku(), refaccion.cantidad()
-            );
+                    refaccion.cantidad(), refaccion.sku(), refaccion.cantidad());
             if (filas == 0) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Stock insuficiente o producto inexistente: " + refaccion.sku());
@@ -112,41 +117,68 @@ public class CobroService {
                 solicitud.motocicleta().trim(), solicitud.placas().trim(),
                 solicitud.servicioSolicitado().trim(), solicitud.servicioRealizado().trim(),
                 solicitud.mecanico().trim(), fechaPago, manoObra, descripcionExtra,
-                precioExtra, subtotal, iva, total, refacciones
-        );
+                precioExtra, subtotal, iva, total, refacciones);
     }
 
     public List<CobroResponse> listar() {
-        return jdbcTemplate.query("""
-                SELECT id, folio, cliente, motocicleta, placas, servicio_solicitado,
-                       servicio_realizado, mecanico, fecha_pago, mano_obra,
-                       servicio_extra_descripcion, servicio_extra_precio, subtotal, iva, total
-                FROM cobros
-                ORDER BY fecha_pago DESC, id DESC
-                """, (rs, rowNum) -> {
-            String id = rs.getString("id");
-            List<CobroResponse.Refaccion> refacciones = jdbcTemplate.query("""
-                    SELECT sku, nombre, precio_unitario, cantidad, importe
-                    FROM cobro_refacciones
-                    WHERE cobro_id = ?
-                    ORDER BY id
-                    """, (itemRs, itemRowNum) -> new CobroResponse.Refaccion(
-                    itemRs.getString("sku"),
-                    itemRs.getString("nombre"),
-                    itemRs.getBigDecimal("precio_unitario"),
-                    itemRs.getInt("cantidad"),
-                    itemRs.getBigDecimal("importe")
-            ), id);
-            return new CobroResponse(
-                    id, rs.getString("folio"), rs.getString("cliente"),
-                    rs.getString("motocicleta"), rs.getString("placas"),
-                    rs.getString("servicio_solicitado"), rs.getString("servicio_realizado"),
-                    rs.getString("mecanico"), rs.getLong("fecha_pago"),
-                    rs.getBigDecimal("mano_obra"), rs.getString("servicio_extra_descripcion"),
-                    rs.getBigDecimal("servicio_extra_precio"), rs.getBigDecimal("subtotal"),
-                    rs.getBigDecimal("iva"), rs.getBigDecimal("total"), refacciones
-            );
-        });
+        List<Map<String, Object>> filas = jdbcTemplate.queryForList(
+                "SELECT id, folio, cliente, motocicleta, placas, servicio_solicitado, "
+                        + "servicio_realizado, mecanico, fecha_pago, mano_obra, "
+                        + "servicio_extra_descripcion, servicio_extra_precio, subtotal, iva, total "
+                        + "FROM cobros ORDER BY fecha_pago DESC, id DESC");
+
+        List<CobroResponse> resultado = new ArrayList<CobroResponse>();
+        for (int k = 0; k < filas.size(); k++) {
+            Map<String, Object> fila = filas.get(k);
+            String id = texto(fila.get("id"));
+
+            List<Map<String, Object>> filasRef = jdbcTemplate.queryForList(
+                    "SELECT sku, nombre, precio_unitario, cantidad, importe "
+                            + "FROM cobro_refacciones WHERE cobro_id = ? ORDER BY id", id);
+            List<CobroResponse.Refaccion> refacciones = new ArrayList<CobroResponse.Refaccion>();
+            for (int j = 0; j < filasRef.size(); j++) {
+                Map<String, Object> r = filasRef.get(j);
+                refacciones.add(new CobroResponse.Refaccion(
+                        texto(r.get("sku")),
+                        texto(r.get("nombre")),
+                        decimal(r.get("precio_unitario")),
+                        ((Number) r.get("cantidad")).intValue(),
+                        decimal(r.get("importe"))));
+            }
+
+            resultado.add(new CobroResponse(
+                    id,
+                    texto(fila.get("folio")),
+                    texto(fila.get("cliente")),
+                    texto(fila.get("motocicleta")),
+                    texto(fila.get("placas")),
+                    texto(fila.get("servicio_solicitado")),
+                    texto(fila.get("servicio_realizado")),
+                    texto(fila.get("mecanico")),
+                    ((Number) fila.get("fecha_pago")).longValue(),
+                    decimal(fila.get("mano_obra")),
+                    texto(fila.get("servicio_extra_descripcion")),
+                    decimal(fila.get("servicio_extra_precio")),
+                    decimal(fila.get("subtotal")),
+                    decimal(fila.get("iva")),
+                    decimal(fila.get("total")),
+                    refacciones));
+        }
+        return resultado;
+    }
+
+    private String texto(Object valor) {
+        if (valor == null) {
+            return null;
+        }
+        return valor.toString();
+    }
+
+    private BigDecimal decimal(Object valor) {
+        if (valor == null) {
+            return null;
+        }
+        return new BigDecimal(valor.toString());
     }
 
     private CobroResponse.Refaccion validarRefaccion(CobroRequest.Refaccion refaccion) {
@@ -162,8 +194,7 @@ public class CobroService {
         BigDecimal importe = dinero(precio.multiply(BigDecimal.valueOf(refaccion.cantidad())));
         return new CobroResponse.Refaccion(
                 refaccion.sku().trim(), refaccion.nombre().trim(),
-                precio, refaccion.cantidad(), importe
-        );
+                precio, refaccion.cantidad(), importe);
     }
 
     private BigDecimal validarImporte(BigDecimal importe, String campo, boolean permitirCero) {
