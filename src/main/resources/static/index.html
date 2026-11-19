@@ -237,6 +237,69 @@
             color: var(--danger);
         }
 
+        .modal-aviso {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal-aviso-caja {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 28px;
+            text-align: left;
+        }
+
+        .modal-aviso-caja h3 {
+            font-size: 1.2rem;
+            color: var(--text);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .modal-aviso-caja h4 {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-top: 14px;
+            margin-bottom: 4px;
+        }
+
+        .modal-aviso-caja p {
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .modal-aviso-caja button {
+            width: 100%;
+            padding: 11px;
+            margin-top: 22px;
+            background: var(--accent);
+            color: var(--button-text);
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal-aviso-caja button:hover {
+            background: var(--accent-hover);
+        }
+
         @media (max-width: 768px) {
             .login-wrapper {
                 flex-direction: column;
@@ -286,16 +349,48 @@
 
                 <div class="aviso-privacidad">
                     <input type="checkbox" id="chkAviso">
-                    <label for="chkAviso">Acepto el <a href="privacidad.html" target="_blank">aviso de privacidad</a></label>
+                    <label for="chkAviso">Acepto el <a href="#" onclick="abrirAviso(event)">aviso de privacidad</a></label>
                 </div>
                 <p id="mensajeAviso" class="mensaje-aviso"></p>
             </div>
         </div>
     </div>
 
+    <div class="modal-aviso" id="modalAviso">
+        <div class="modal-aviso-caja">
+            <h3>Aviso de privacidad</h3>
+
+            <h4>Responsable</h4>
+            <p>MRX Taller de Motocicletas es responsable de los datos personales que se capturan en este sistema.</p>
+
+            <h4>Datos que se recaban</h4>
+            <p>Nombre del cliente, teléfono, datos de la motocicleta, historial de servicios, ventas y cobros, y los datos de acceso del personal.</p>
+
+            <h4>Finalidad</h4>
+            <p>Se usan solo para registrar ventas, citas, servicios, cobros y control de inventario. No se venden ni se comparten con terceros.</p>
+
+            <h4>Protección</h4>
+            <p>Los datos se guardan en una base de datos protegida y las contraseñas se almacenan cifradas. Solo el personal autorizado puede consultarlos según su rol.</p>
+
+            <h4>Derechos del titular</h4>
+            <p>Puede solicitar el acceso, la corrección o la eliminación de sus datos acudiendo al taller.</p>
+
+            <button type="button" onclick="cerrarAviso()">Entendido</button>
+        </div>
+    </div>
+
     <script>
         function irAlSistema(direccion) {
             window.location.href = direccion;
+        }
+
+        function abrirAviso(event) {
+            event.preventDefault();
+            document.getElementById('modalAviso').style.display = 'flex';
+        }
+
+        function cerrarAviso() {
+            document.getElementById('modalAviso').style.display = 'none';
         }
 
         function irARegistro(event) {
