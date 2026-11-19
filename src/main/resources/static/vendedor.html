@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1155,11 +1155,11 @@
             panel.innerHTML = `
                 <div class="panel-header">
                     <h2>Consulta de Disponibilidad y Stock</h2>
-                    <p>Busca productos por código (SKU) o nombre para verificar existencias antes de cotizar o vender.</p>
+                    <p>Busca productos por código o nombre para verificar existencias antes de cotizar o vender.</p>
                 </div>
 
                 <div class="input-group" style="margin-bottom: 24px;">
-                    <label>Buscar por Código (SKU) o Nombre del Producto</label>
+                    <label>Buscar por Código o Nombre del Producto</label>
                     <input type="text" id="inputBuscarStock" placeholder="Ej. REF-101 o Aceite Motul..." oninput="filtrarProductosStock(this.value)" autofocus>
                 </div>
 
@@ -1287,7 +1287,7 @@
 
                     <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div class="input-group" style="margin-bottom:0; flex:1;">
-                            <label>Filtrar / Buscar por Código SKU</label>
+                            <label>Filtrar / Buscar por Código</label>
                             <input type="text" id="buscarSKUVenta" placeholder="Ej. REF-101..." oninput="filtrarSelectProductos('selectVentaProducto', this.value)">
                         </div>
                         <div class="input-group" style="margin-bottom:0; flex:2;">
@@ -1619,7 +1619,7 @@
                         <input type="text" id="cotizacionCliente" placeholder="Ej. Miguel Landa">
                     </div>
                     <div class="input-group">
-                        <label>Filtrar por Código SKU</label>
+                        <label>Filtrar por Código</label>
                         <input type="text" id="buscarSKUCotizacion" placeholder="Ej. REF-102..." oninput="filtrarSelectProductos('selectCotizacionProducto', this.value)">
                     </div>
                 </div>
