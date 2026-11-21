@@ -726,8 +726,7 @@
     <div class="modal-overlay" id="modalReglasExperto">
         <div class="modal-card">
             <div class="panel-header" style="margin-bottom: 15px;">
-                <h2>Base de conocimiento</h2>
-                <p>Reglas que usa el sistema experto para recomendar el reabastecimiento</p>
+                <p style="font-size:1rem;">Reglas que usa el sistema experto para recomendar el reabastecimiento</p>
             </div>
             <div class="summary-box" id="modalReglasContenido" style="margin-top:0;">
             </div>
@@ -1472,7 +1471,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-    
+        
         function numeroDeCodigo(codigo) {
             const texto = String(codigo || '');
             const partes = texto.split('-');
@@ -3315,6 +3314,7 @@
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
+            renderizarSistemaExperto();
             document.getElementById('resultadoDecision').innerHTML = '';
         }
 
@@ -4260,6 +4260,10 @@
             if (!cont) {
                 return;
             }
+            if (decTipo !== 'piezas' && decTipo !== 'promocion') {
+                cont.innerHTML = '';
+                return;
+            }
             if (!decApoyo || !decApoyo.rotacion) {
                 cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
                 return;
@@ -4306,12 +4310,11 @@
                             <td>${Number(p.vendidas).toFixed(0)}</td>
                             <td>${inf.nivelStock} / ${inf.nivelRot}</td>
                             <td><span class="rec-${inf.regla.color}">${inf.regla.texto}</span></td>
-                            <td>${inf.regla.id}: ${esc(inf.regla.motivo)}</td>
                         </tr>`;
                 }
             }
             if (filas === '') {
-                filas = '<tr><td colspan="7" style="text-align:center;">No hay productos con esta recomendación.</td></tr>';
+                filas = '<tr><td colspan="6" style="text-align:center;">No hay productos con esta recomendación.</td></tr>';
             }
 
             cont.innerHTML = `
@@ -4341,7 +4344,7 @@
                         </div>
                     </div>
                     <div class="report-filter-actions">
-                        <button type="button" class="btn-secondary" onclick="aplicarUmbralesExperto()">Aplicar umbrales</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarUmbralesExperto()">Aplicar</button>
                         <button type="button" class="btn-secondary" onclick="abrirReglasExperto()">Ver reglas</button>
                         <div class="input-group" style="margin:0;">
                             <select id="expFiltro" onchange="cambiarFiltroExperto(this.value)">${opcionesFiltro}</select>
@@ -4351,7 +4354,7 @@
                 <div class="report-summary-grid">${tarjetas}</div>
                 <div class="summary-box">
                     <div class="table-scroll"><table class="data-table">
-                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas en el periodo</th><th>Nivel (stock / rotación)</th><th>Recomendación</th><th>Regla aplicada</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas en el periodo</th><th>Nivel (stock / rotación)</th><th>Recomendación</th></tr></thead>
                         <tbody>${filas}</tbody>
                     </table></div>
                 </div>
