@@ -485,6 +485,45 @@
             margin-top: 4px;
         }
 
+        .rec-rojo, .rec-azul, .rec-amarillo, .rec-gris, .rec-verde {
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            display: inline-block;
+            border: 1px solid;
+        }
+
+        .rec-rojo {
+            background: #fff4f3;
+            color: var(--danger);
+            border-color: #e9b8b5;
+        }
+
+        .rec-azul {
+            background: #edf4fc;
+            color: var(--accent-strong);
+            border-color: #c5d9f0;
+        }
+
+        .rec-amarillo {
+            background: #fff8e7;
+            color: #9b762e;
+            border-color: #ead9a9;
+        }
+
+        .rec-gris {
+            background: var(--panel-alt);
+            color: var(--muted);
+            border-color: var(--border-soft);
+        }
+
+        .rec-verde {
+            background: #edf7ef;
+            color: var(--success);
+            border-color: #b9d9c1;
+        }
+
         .formula-box {
             padding: 12px 0;
             border-bottom: 1px solid var(--border);
@@ -680,6 +719,20 @@
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn-close" onclick="cerrarModalMovimiento()">Cerrar Ventana</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalReglasExperto">
+        <div class="modal-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h2>Base de conocimiento</h2>
+                <p>Reglas que usa el sistema experto para recomendar el reabastecimiento</p>
+            </div>
+            <div class="summary-box" id="modalReglasContenido" style="margin-top:0;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn-close" onclick="cerrarReglasExperto()">Cerrar Ventana</button>
             </div>
         </div>
     </div>
@@ -1419,7 +1472,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-
+    
         function numeroDeCodigo(codigo) {
             const texto = String(codigo || '');
             const partes = texto.split('-');
@@ -3089,7 +3142,7 @@
         function cerrarModalMovimiento() {
             document.getElementById('modalDetalleMovimiento').style.display = 'none';
         }
-
+        
         const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
         const PROBABILIDADES_BASE = [0.3, 0.5, 0.2];
@@ -3209,12 +3262,14 @@
                 <div id="decApoyo"></div>
                 <div class="summary-box no-print" id="decFormulario"></div>
                 <div id="resultadoDecision"></div>
+                <div id="sistemaExperto"></div>
             `;
             await cargarApoyoDecision();
             await aplicarDefaultsDecision();
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
+            renderizarSistemaExperto();
         }
 
         function diasDecision() {
@@ -3250,6 +3305,7 @@
             await aplicarDefaultsDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
+            renderizarSistemaExperto();
             document.getElementById('resultadoDecision').innerHTML = '';
         }
 
@@ -4136,6 +4192,223 @@
                 </div>
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
+        }
+
+        let umbralesExperto = { stockBajo: 5, stockAlto: 20, rotAlta: 6, rotBaja: 1 };
+        let filtroExperto = 'Todas';
+
+        const GRUPOS_EXPERTO = ['Comprar urgente', 'Comprar', 'Programar compra', 'Mantener', 'No comprar'];
+
+        const REGLAS_EXPERTO = [
+            { id: 'R1', stock: 'bajo', rotacion: 'alta', grupo: 'Comprar urgente', texto: 'COMPRAR URGENTE', color: 'rojo', orden: 1, motivo: 'Queda poco y se vende mucho' },
+            { id: 'R2', stock: 'bajo', rotacion: 'media', grupo: 'Comprar', texto: 'COMPRAR', color: 'azul', orden: 2, motivo: 'Queda poco y se vende de forma regular' },
+            { id: 'R3', stock: 'bajo', rotacion: 'baja', grupo: 'Comprar', texto: 'COMPRAR POCO', color: 'azul', orden: 3, motivo: 'Queda poco pero casi no se vende' },
+            { id: 'R4', stock: 'medio', rotacion: 'alta', grupo: 'Programar compra', texto: 'PROGRAMAR COMPRA', color: 'amarillo', orden: 4, motivo: 'Hay stock medio pero se vende mucho' },
+            { id: 'R5', stock: 'medio', rotacion: 'media', grupo: 'Mantener', texto: 'MANTENER', color: 'gris', orden: 5, motivo: 'Stock y ventas equilibrados' },
+            { id: 'R6', stock: 'medio', rotacion: 'baja', grupo: 'Mantener', texto: 'MANTENER', color: 'gris', orden: 6, motivo: 'Stock medio y se vende poco' },
+            { id: 'R7', stock: 'alto', rotacion: 'alta', grupo: 'Mantener', texto: 'MANTENER', color: 'gris', orden: 7, motivo: 'Hay bastante stock y se vende mucho' },
+            { id: 'R8', stock: 'alto', rotacion: 'media', grupo: 'No comprar', texto: 'NO COMPRAR', color: 'verde', orden: 8, motivo: 'Hay bastante stock y se vende de forma regular' },
+            { id: 'R9', stock: 'alto', rotacion: 'baja', grupo: 'No comprar', texto: 'NO COMPRAR Y PROMOCIONAR', color: 'verde', orden: 9, motivo: 'Hay bastante stock y casi no se vende' }
+        ];
+
+        function nivelStockExperto(stock) {
+            if (stock <= umbralesExperto.stockBajo) {
+                return 'bajo';
+            }
+            if (stock >= umbralesExperto.stockAlto) {
+                return 'alto';
+            }
+            return 'medio';
+        }
+
+        function nivelRotacionExperto(vendidas) {
+            if (vendidas >= umbralesExperto.rotAlta) {
+                return 'alta';
+            }
+            if (vendidas <= umbralesExperto.rotBaja) {
+                return 'baja';
+            }
+            return 'media';
+        }
+
+        function aplicarReglasExperto(producto) {
+            const nivelStock = nivelStockExperto(Number(producto.stock));
+            const nivelRot = nivelRotacionExperto(Number(producto.vendidas));
+            for (let i = 0; i < REGLAS_EXPERTO.length; i++) {
+                const regla = REGLAS_EXPERTO[i];
+                if (regla.stock === nivelStock && regla.rotacion === nivelRot) {
+                    return { regla: regla, nivelStock: nivelStock, nivelRot: nivelRot };
+                }
+            }
+            return null;
+        }
+
+        function ordenarResultadosExperto(lista) {
+            for (let a = 0; a < lista.length - 1; a++) {
+                for (let b = a + 1; b < lista.length; b++) {
+                    if (lista[b].inferencia.regla.orden < lista[a].inferencia.regla.orden) {
+                        const temporal = lista[a];
+                        lista[a] = lista[b];
+                        lista[b] = temporal;
+                    }
+                }
+            }
+        }
+
+        function renderizarSistemaExperto() {
+            const cont = document.getElementById('sistemaExperto');
+            if (!cont) {
+                return;
+            }
+            if (!decApoyo || !decApoyo.rotacion) {
+                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
+                return;
+            }
+
+            const resultados = [];
+            const conteos = [0, 0, 0, 0, 0];
+            for (let i = 0; i < decApoyo.rotacion.length; i++) {
+                const p = decApoyo.rotacion[i];
+                const inferencia = aplicarReglasExperto(p);
+                resultados.push({ producto: p, inferencia: inferencia });
+                for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
+                    if (GRUPOS_EXPERTO[j] === inferencia.regla.grupo) {
+                        conteos[j] = conteos[j] + 1;
+                    }
+                }
+            }
+            ordenarResultadosExperto(resultados);
+
+            let tarjetas = '';
+            for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
+                tarjetas += '<div class="report-total-card">' + GRUPOS_EXPERTO[j] + '<strong>' + conteos[j] + '</strong></div>';
+            }
+
+            let opcionesFiltro = '<option value="Todas">Todas las recomendaciones</option>';
+            for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
+                let marca = '';
+                if (GRUPOS_EXPERTO[j] === filtroExperto) {
+                    marca = 'selected';
+                }
+                opcionesFiltro += '<option value="' + GRUPOS_EXPERTO[j] + '" ' + marca + '>' + GRUPOS_EXPERTO[j] + '</option>';
+            }
+
+            let filas = '';
+            for (let i = 0; i < resultados.length; i++) {
+                const p = resultados[i].producto;
+                const inf = resultados[i].inferencia;
+                if (filtroExperto === 'Todas' || filtroExperto === inf.regla.grupo) {
+                    filas += `
+                        <tr>
+                            <td>${esc(p.sku)}</td>
+                            <td><strong>${esc(p.nombre)}</strong></td>
+                            <td>${p.stock}</td>
+                            <td>${Number(p.vendidas).toFixed(0)}</td>
+                            <td>${inf.nivelStock} / ${inf.nivelRot}</td>
+                            <td><span class="rec-${inf.regla.color}">${inf.regla.texto}</span></td>
+                            <td>${inf.regla.id}: ${esc(inf.regla.motivo)}</td>
+                        </tr>`;
+                }
+            }
+            if (filas === '') {
+                filas = '<tr><td colspan="7" style="text-align:center;">No hay productos con esta recomendación.</td></tr>';
+            }
+
+            cont.innerHTML = `
+                <div class="panel-header" style="margin-top:40px;">
+                    <h2>Sistema Experto de Reabastecimiento</h2>
+                    <p>Recomienda qué comprar según el stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días, aplicando las reglas de la base de conocimiento.</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Stock bajo (piezas o menos)</label>
+                            <input type="number" id="expStockBajo" value="${umbralesExperto.stockBajo}" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>Stock alto (piezas o más)</label>
+                            <input type="number" id="expStockAlto" value="${umbralesExperto.stockAlto}" min="1" step="1">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Rotación alta (vendidas o más en el periodo)</label>
+                            <input type="number" id="expRotAlta" value="${umbralesExperto.rotAlta}" min="1" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>Rotación baja (vendidas o menos en el periodo)</label>
+                            <input type="number" id="expRotBaja" value="${umbralesExperto.rotBaja}" min="0" step="1">
+                        </div>
+                    </div>
+                    <div class="report-filter-actions">
+                        <button type="button" class="btn-secondary" onclick="aplicarUmbralesExperto()">Aplicar umbrales</button>
+                        <button type="button" class="btn-secondary" onclick="abrirReglasExperto()">Ver reglas</button>
+                        <div class="input-group" style="margin:0;">
+                            <select id="expFiltro" onchange="cambiarFiltroExperto(this.value)">${opcionesFiltro}</select>
+                        </div>
+                    </div>
+                </div>
+                <div class="report-summary-grid">${tarjetas}</div>
+                <div class="summary-box">
+                    <div class="table-scroll"><table class="data-table">
+                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas en el periodo</th><th>Nivel (stock / rotación)</th><th>Recomendación</th><th>Regla aplicada</th></tr></thead>
+                        <tbody>${filas}</tbody>
+                    </table></div>
+                </div>
+            `;
+        }
+
+        function aplicarUmbralesExperto() {
+            const stockBajo = parseInt(document.getElementById('expStockBajo').value);
+            const stockAlto = parseInt(document.getElementById('expStockAlto').value);
+            const rotAlta = parseInt(document.getElementById('expRotAlta').value);
+            const rotBaja = parseInt(document.getElementById('expRotBaja').value);
+
+            if (Number.isNaN(stockBajo) || Number.isNaN(stockAlto) || Number.isNaN(rotAlta) || Number.isNaN(rotBaja)) {
+                alert('Captura los cuatro umbrales con números.');
+                return;
+            }
+            if (stockBajo >= stockAlto) {
+                alert('El stock bajo debe ser menor que el stock alto.');
+                return;
+            }
+            if (rotBaja >= rotAlta) {
+                alert('La rotación baja debe ser menor que la rotación alta.');
+                return;
+            }
+
+            umbralesExperto = { stockBajo: stockBajo, stockAlto: stockAlto, rotAlta: rotAlta, rotBaja: rotBaja };
+            renderizarSistemaExperto();
+        }
+
+        function cambiarFiltroExperto(valor) {
+            filtroExperto = valor;
+            renderizarSistemaExperto();
+        }
+
+        function abrirReglasExperto() {
+            let filas = '';
+            for (let i = 0; i < REGLAS_EXPERTO.length; i++) {
+                const r = REGLAS_EXPERTO[i];
+                filas += `
+                    <div class="summary-row">
+                        <span>${r.id}: SI el stock es ${r.stock} Y la rotación es ${r.rotacion}</span>
+                        <strong>${r.texto}</strong>
+                    </div>`;
+            }
+            document.getElementById('modalReglasContenido').innerHTML = `
+                <h4 style="font-size:0.85rem; margin-bottom:8px;">Reglas (SI condición ENTONCES recomendación):</h4>
+                ${filas}
+                <div class="formula-box">
+                    Stock bajo: ${umbralesExperto.stockBajo} piezas o menos. Stock alto: ${umbralesExperto.stockAlto} piezas o más. Cualquier otro valor es stock medio.<br>
+                    Rotación alta: ${umbralesExperto.rotAlta} piezas vendidas o más en el periodo. Rotación baja: ${umbralesExperto.rotBaja} o menos. Cualquier otro valor es rotación media.
+                </div>
+            `;
+            document.getElementById('modalReglasExperto').style.display = 'flex';
+        }
+
+        function cerrarReglasExperto() {
+            document.getElementById('modalReglasExperto').style.display = 'none';
         }
 
         window.onload = function () {
