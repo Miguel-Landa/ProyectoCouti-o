@@ -907,6 +907,7 @@
         let cortesHistorial = [];
         let fondoCaja = 0;
         let rangoCorte = null;
+        let empleadosCache = [];
 
         let itemsVentaActual = [];
         let itemsCotizacionActual = [];
@@ -1066,6 +1067,30 @@
                 ventas: ventas
             };
             cortesHistorial = cortes;
+
+            empleadosCache = [];
+            try {
+                const empleados = await api('/api/empleados');
+                for (let i = 0; i < empleados.length; i++) {
+                    if (empleados[i].activo !== false) {
+                        empleadosCache.push(empleados[i]);
+                    }
+                }
+            } catch (e) {
+                empleadosCache = [];
+            }
+        }
+
+        function opcionesEmpleados() {
+            if (empleadosCache.length === 0) {
+                return '<option value="">No hay empleados registrados</option>';
+            }
+            let html = '<option value="">Selecciona al empleado</option>';
+            for (let i = 0; i < empleadosCache.length; i++) {
+                const nombre = empleadosCache[i].nombre;
+                html += '<option value="' + esc(nombre) + '">' + esc(nombre) + '</option>';
+            }
+            return html;
         }
 
         async function aplicarFiltroCorte() {
@@ -1603,8 +1628,7 @@
                 }
             }
         }
-
-        function renderizarModuloCotizaciones() {
+                function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido');
 
             panel.innerHTML = `
@@ -2156,7 +2180,7 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Responsable del Corte</label>
-                            <input type="text" id="corteResponsable" placeholder="Ej. Nombre del vendedor" required>
+                            <select id="corteResponsable" required>${opcionesEmpleados()}</select>
                         </div>
                         <div class="input-group">
                             <label>Fondo de Caja (definido por el administrador)</label>
@@ -2300,7 +2324,7 @@
             const contado = redondear(parseFloat(contadoTexto));
 
             if (!responsable) {
-                alert('Escribe el nombre del responsable del corte.');
+                alert('Selecciona al empleado responsable del corte.');
                 return;
             }
             if (contadoTexto === '' || !Number.isFinite(contado) || contado < 0) {
@@ -2635,4 +2659,4 @@
         };
     </script>
 </body>
-</html> 
+</html>

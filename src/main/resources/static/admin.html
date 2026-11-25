@@ -662,6 +662,9 @@
                 <button class="nav-btn" onclick="cambiarVistaAdmin('mecanicos', this)">
                     Registro de Mecánicos
                 </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('empleados', this)">
+                    Registro de Empleados
+                </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('historial_ventas', this)">
                     Historial de Ventas
                 </button>
@@ -670,6 +673,9 @@
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('historial_cobros', this)">
                     Historial de Mantenimientos
+                </button>
+                <button class="nav-btn" onclick="cambiarVistaAdmin('historial_compras', this)">
+                    Historial de Compras
                 </button>
                 <button class="nav-btn" onclick="cambiarVistaAdmin('decisiones', this)">
                     Toma de Decisiones
@@ -738,7 +744,10 @@
 
     <script>
         function esc(valor) {
-            let texto = String(valor == null ? '' : valor);
+            let texto = '';
+            if (valor !== null && valor !== undefined) {
+                texto = String(valor);
+            }
             texto = texto.replace(/&/g, '&amp;');
             texto = texto.replace(/</g, '&lt;');
             texto = texto.replace(/>/g, '&gt;');
@@ -767,19 +776,23 @@
         }
 
         function buscarPorId(lista, id) {
-            for (let i = 0; i < lista.length; i++) {
+            let i = 0;
+            while (i < lista.length) {
                 if (mismoId(lista[i].id, id)) {
                     return lista[i];
                 }
+                i++;
             }
             return null;
         }
 
         function contiene(lista, valor) {
-            for (let i = 0; i < lista.length; i++) {
+            let i = 0;
+            while (i < lista.length) {
                 if (lista[i] === valor) {
                     return true;
                 }
+                i++;
             }
             return false;
         }
@@ -877,9 +890,13 @@
         let idProductoEditando = null;
         let idMecanicoEditando = null;
         let filtroMecanicos = '';
+        let empleadosCache = [];
+        let idEmpleadoEditando = null;
+        let filtroEmpleados = '';
         let rangoVentas = null;
         let rangoCobros = null;
         let rangoCortes = null;
+        let rangoCompras = null;
 
         function panelAdmin() {
             return document.getElementById('panel-contenido-admin');
@@ -931,6 +948,15 @@
                         cobrosCache = [];
                     }
                     renderizarModuloMecanicos();
+                } else if (vista === 'empleados') {
+                    idEmpleadoEditando = null;
+                    empleadosCache = await api('/api/empleados');
+                    try {
+                        cortesCache = await api('/api/caja/cortes');
+                    } catch (e) {
+                        cortesCache = [];
+                    }
+                    renderizarModuloEmpleados();
                 } else if (vista === 'historial_ventas') {
                     await cargarVentas();
                     rangoVentas = null;
@@ -945,6 +971,10 @@
                     cobrosCache = await api('/api/cobros');
                     rangoCobros = null;
                     mostrarHistorialCobros();
+                } else if (vista === 'historial_compras') {
+                    comprasCache = await api('/api/compras');
+                    rangoCompras = null;
+                    mostrarHistorialCompras();
                 } else if (vista === 'decisiones') {
                     catalogoCache = await api('/api/productos');
                     await renderizarDecisiones();
@@ -966,25 +996,6 @@
                 const a = catalogoCache[i];
                 opcionesArticulos += '<option value="' + a.id + '">[' + esc(a.sku) + '] ' + esc(a.nombre)
                     + ' - Último costo: $' + dinero(a.costo_compra) + ' (Stock: ' + a.stock + ')</option>';
-            }
-
-            let filasHistorial = '';
-            for (let i = 0; i < comprasCache.length; i++) {
-                const c = comprasCache[i];
-                filasHistorial += `
-                    <tr>
-                        <td><strong style="color:#ffffff;">${esc(c.factura)}</strong></td>
-                        <td>${esc(c.proveedor)}</td>
-                        <td>${esc(c.fecha)}</td>
-                        <td><strong style="color:#22c55e;">$${dinero(c.total)} MXN</strong></td>
-                        <td>
-                            <button class="btn-edit-item" onclick="verDetalleCompra(${c.id})">Detalle</button>
-                            <button class="btn-remove-item" onclick="eliminarCompra(${c.id})">Eliminar</button>
-                        </td>
-                    </tr>`;
-            }
-            if (filasHistorial === '') {
-                filasHistorial = '<tr><td colspan="5" style="text-align:center;">No hay compras registradas en el historial.</td></tr>';
             }
 
             if (opcionesProveedores === '') {
@@ -1041,26 +1052,6 @@
 
                 <button class="btn-action" id="btnGuardarCompra" onclick="guardarCompraMercancia()">Guardar Compra e Incrementar Stock</button>
                 <div id="alertaCompra" class="alert-box">Compra registrada correctamente. El stock ha sido incrementado.</div>
-
-                <div class="summary-box" style="margin-top:30px;">
-                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">Historial de Compras Realizadas a Proveedores</h3>
-                    <div class="table-scroll">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Factura / Remisión</th>
-                                <th>Proveedor</th>
-                                <th>Fecha</th>
-                                <th>Monto Total</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filasHistorial}
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
             `;
             actualizarTablaCompra();
             precargarCostoCompra();
@@ -1135,8 +1126,12 @@
         function cambiarCostoCompra(id, valor) {
             const item = buscarPorId(itemsCompraActual, id);
             const costo = parseFloat(valor);
-            if (item && !Number.isNaN(costo) && costo >= 0) {
-                item.costo = costo;
+            if (item) {
+                if (!Number.isNaN(costo)) {
+                    if (costo >= 0) {
+                        item.costo = costo;
+                    }
+                }
             }
             actualizarTablaCompra();
         }
@@ -1328,7 +1323,7 @@
             }
             try {
                 await enviar('DELETE', '/api/compras/' + id);
-                cambiarVistaAdmin('compras');
+                cambiarVistaAdmin('historial_compras');
             } catch (e) {
                 alert('No se pudo eliminar: ' + e.message);
             }
@@ -1471,7 +1466,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-        
+
         function numeroDeCodigo(codigo) {
             const texto = String(codigo || '');
             const partes = texto.split('-');
@@ -1676,8 +1671,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-
-        function resumenMecanico(nombre) {
+             function resumenMecanico(nombre) {
             let servicios = 0;
             let total = 0;
             for (let i = 0; i < cobrosCache.length; i++) {
@@ -1986,6 +1980,279 @@
 
         function cerrarModalMecanico() {
             document.getElementById('modalDetalleMecanico').style.display = 'none';
+        }
+
+        function cortesDeEmpleado(nombre) {
+            let cantidad = 0;
+            for (let i = 0; i < cortesCache.length; i++) {
+                if (cortesCache[i].responsable === nombre) {
+                    cantidad = cantidad + 1;
+                }
+            }
+            return cantidad;
+        }
+
+        function filasEmpleados() {
+            const q = filtroEmpleados.toLowerCase().trim();
+            const lista = [];
+            for (let i = 0; i < empleadosCache.length; i++) {
+                const e = empleadosCache[i];
+                const nombre = (e.nombre || '').toLowerCase();
+                const puesto = (e.puesto || '').toLowerCase();
+                if (q === '' || nombre.indexOf(q) !== -1 || puesto.indexOf(q) !== -1) {
+                    lista.push(e);
+                }
+            }
+
+            if (lista.length === 0) {
+                return '<tr><td colspan="8" style="text-align:center;">No hay empleados registrados.</td></tr>';
+            }
+
+            let html = '';
+            for (let i = 0; i < lista.length; i++) {
+                const e = lista[i];
+                let claseEstado = 'badge-inactivo';
+                let textoEstado = 'Inactivo';
+                let textoCambio = 'Activar';
+                if (e.activo) {
+                    claseEstado = 'badge-activo';
+                    textoEstado = 'Activo';
+                    textoCambio = 'Desactivar';
+                }
+                html += `
+                    <tr>
+                        <td><strong style="color:#ffffff;">${esc(e.nombre)}</strong></td>
+                        <td>${esc(e.puesto || '—')}</td>
+                        <td>${esc(e.telefono || '—')}</td>
+                        <td>${esc(e.email || '—')}</td>
+                        <td>${formatoFecha(e.fecha_ingreso)}</td>
+                        <td>${cortesDeEmpleado(e.nombre)}</td>
+                        <td><span class="${claseEstado}">${textoEstado}</span></td>
+                        <td>
+                            <button class="btn-edit-item" onclick="prepararEdicionEmpleado(${e.id})">Editar</button>
+                            <button class="btn-edit-item" onclick="cambiarEstadoEmpleado(${e.id})">${textoCambio}</button>
+                            <button class="btn-remove-item" onclick="eliminarEmpleado(${e.id})">Eliminar</button>
+                        </td>
+                    </tr>`;
+            }
+            return html;
+        }
+
+        function renderizarModuloEmpleados() {
+            let activos = 0;
+            for (let i = 0; i < empleadosCache.length; i++) {
+                if (empleadosCache[i].activo) {
+                    activos = activos + 1;
+                }
+            }
+
+            let tituloFormulario = 'Registrar Nuevo Empleado';
+            let textoBoton = 'Registrar Empleado';
+            let botonCancelar = '';
+            if (idEmpleadoEditando) {
+                tituloFormulario = 'Modificar Datos del Empleado';
+                textoBoton = 'Actualizar Empleado';
+                botonCancelar = '<button type="button" class="btn-action" style="margin-top:10px; background:#404040; color:#fff;" onclick="cancelarEdicionEmpleado()">Cancelar</button>';
+            }
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Registro de Empleados</h2>
+                    <p>Alta, consulta, modificación y baja del personal de mostrador y caja. Los empleados activos aparecen en el corte de caja del vendedor.</p>
+                </div>
+
+                <form onsubmit="guardarOActualizarEmpleado(event)">
+                    <h3 style="font-size:0.95rem; color:#ffffff; margin-bottom:12px;">${tituloFormulario}</h3>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nombre Completo</label>
+                            <input type="text" id="empNombreInput" placeholder="Ej. Ana López" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Puesto</label>
+                            <input type="text" id="empPuestoInput" list="listaPuestos" placeholder="Ej. Vendedor">
+                            <datalist id="listaPuestos">
+                                <option value="Vendedor">
+                                <option value="Cajero">
+                                <option value="Encargado de mostrador">
+                                <option value="Almacenista">
+                                <option value="Administrativo">
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Teléfono / WhatsApp</label>
+                            <input type="tel" id="empTelefonoInput" placeholder="Ej. 2288123456">
+                        </div>
+                        <div class="input-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" id="empEmailInput" placeholder="empleado@correo.com">
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Fecha de Ingreso</label>
+                            <input type="date" id="empFechaInput" value="${hoyISO()}">
+                        </div>
+                        <div class="input-group">
+                            <label>Estado</label>
+                            <select id="empActivoSelect">
+                                <option value="true">Activo</option>
+                                <option value="false">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Notas / Observaciones (opcional)</label>
+                        <input type="text" id="empNotasInput" maxlength="500" placeholder="Ej. Turno vespertino">
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="submit" class="btn-action" id="btnGuardarEmpleado" style="margin-top:10px;">${textoBoton}</button>
+                        ${botonCancelar}
+                    </div>
+                </form>
+
+                <div id="alertaEmp" class="alert-box">Registro de empleados actualizado correctamente.</div>
+
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem; color:#ffffff; margin-bottom:12px;">
+                        Directorio de Empleados (${empleadosCache.length} registrados - ${activos} activos)
+                    </h3>
+                    <div class="input-group" style="margin-bottom:8px;">
+                        <label>Buscar por nombre o puesto</label>
+                        <input type="text" id="buscarEmpleado" value="${esc(filtroEmpleados)}" placeholder="Ej. Ana o cajero..." oninput="filtrarEmpleados(this.value)">
+                    </div>
+                    <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Puesto</th>
+                                <th>Teléfono</th>
+                                <th>Correo</th>
+                                <th>Ingreso</th>
+                                <th>Cortes</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyEmpleados">${filasEmpleados()}</tbody>
+                    </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function filtrarEmpleados(valor) {
+            filtroEmpleados = valor || '';
+            const cuerpoTabla = document.getElementById('tbodyEmpleados');
+            if (cuerpoTabla) {
+                cuerpoTabla.innerHTML = filasEmpleados();
+            }
+        }
+
+        async function guardarOActualizarEmpleado(event) {
+            event.preventDefault();
+            const cuerpo = {
+                nombre: document.getElementById('empNombreInput').value.trim(),
+                puesto: document.getElementById('empPuestoInput').value.trim(),
+                telefono: document.getElementById('empTelefonoInput').value.trim(),
+                email: document.getElementById('empEmailInput').value.trim(),
+                fecha_ingreso: document.getElementById('empFechaInput').value,
+                activo: document.getElementById('empActivoSelect').value === 'true',
+                notas: document.getElementById('empNotasInput').value.trim()
+            };
+
+            const boton = document.getElementById('btnGuardarEmpleado');
+            if (boton) {
+                boton.disabled = true;
+            }
+            try {
+                if (idEmpleadoEditando) {
+                    await enviar('PUT', '/api/empleados/' + idEmpleadoEditando, cuerpo);
+                } else {
+                    await enviar('POST', '/api/empleados', cuerpo);
+                }
+                idEmpleadoEditando = null;
+                document.getElementById('alertaEmp').style.display = 'block';
+                setTimeout(function () {
+                    cambiarVistaAdmin('empleados');
+                }, 1000);
+            } catch (e) {
+                if (boton) {
+                    boton.disabled = false;
+                }
+                alert('No se pudo guardar el empleado: ' + e.message);
+            }
+        }
+
+        function prepararEdicionEmpleado(id) {
+            const e = buscarPorId(empleadosCache, id);
+            if (!e) {
+                return;
+            }
+            idEmpleadoEditando = id;
+            renderizarModuloEmpleados();
+            document.getElementById('empNombreInput').value = e.nombre || '';
+            document.getElementById('empPuestoInput').value = e.puesto || '';
+            document.getElementById('empTelefonoInput').value = e.telefono || '';
+            document.getElementById('empEmailInput').value = e.email || '';
+            document.getElementById('empFechaInput').value = e.fecha_ingreso || '';
+            if (e.activo) {
+                document.getElementById('empActivoSelect').value = 'true';
+            } else {
+                document.getElementById('empActivoSelect').value = 'false';
+            }
+            document.getElementById('empNotasInput').value = e.notas || '';
+            panelAdmin().scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cancelarEdicionEmpleado() {
+            idEmpleadoEditando = null;
+            renderizarModuloEmpleados();
+        }
+
+        async function cambiarEstadoEmpleado(id) {
+            const e = buscarPorId(empleadosCache, id);
+            if (!e) {
+                return;
+            }
+            try {
+                await enviar('PUT', '/api/empleados/' + id, {
+                    nombre: e.nombre,
+                    puesto: e.puesto,
+                    telefono: e.telefono,
+                    email: e.email,
+                    fecha_ingreso: e.fecha_ingreso,
+                    notas: e.notas,
+                    activo: !e.activo
+                });
+                cambiarVistaAdmin('empleados');
+            } catch (error) {
+                alert('No se pudo cambiar el estado: ' + error.message);
+            }
+        }
+
+        async function eliminarEmpleado(id) {
+            const e = buscarPorId(empleadosCache, id);
+            if (!e) {
+                return;
+            }
+            if (!confirm('¿Desea eliminar al empleado ' + e.nombre + '? Los cortes anteriores conservarán su nombre.')) {
+                return;
+            }
+            try {
+                await enviar('DELETE', '/api/empleados/' + id);
+                cambiarVistaAdmin('empleados');
+            } catch (error) {
+                alert('No se pudo eliminar: ' + error.message);
+            }
         }
 
         function periodoSeleccionado(periodo) {
@@ -2726,6 +2993,194 @@
             mostrarHistorialCobros(fechaInicio, fechaFin);
         }
 
+        function mostrarHistorialCompras(fechaInicio, fechaFin) {
+            const rango = rangoDe(rangoCompras, fechaInicio, fechaFin);
+            const inicio = rango.inicio;
+            const fin = rango.fin;
+            rangoCompras = { inicio: inicio, fin: fin };
+
+            const compras = [];
+            for (let i = 0; i < comprasCache.length; i++) {
+                const c = comprasCache[i];
+                const f = fechaVentaISO(c.fecha);
+                if (f !== '' && f >= inicio && f <= fin) {
+                    compras.push(c);
+                }
+            }
+
+            for (let a = 0; a < compras.length - 1; a++) {
+                for (let b = a + 1; b < compras.length; b++) {
+                    const fa = fechaVentaISO(compras[a].fecha);
+                    const fb = fechaVentaISO(compras[b].fecha);
+                    let cambiar = false;
+                    if (fb > fa) {
+                        cambiar = true;
+                    } else if (fb === fa && Number(compras[b].id) > Number(compras[a].id)) {
+                        cambiar = true;
+                    }
+                    if (cambiar) {
+                        const temporal = compras[a];
+                        compras[a] = compras[b];
+                        compras[b] = temporal;
+                    }
+                }
+            }
+
+            let totalPeriodo = 0;
+            let subtotalPeriodo = 0;
+            let ivaPeriodo = 0;
+            const totalesPorDia = [];
+            const totalesPorProveedor = [];
+            for (let i = 0; i < compras.length; i++) {
+                const c = compras[i];
+                totalPeriodo = totalPeriodo + Number(c.total || 0);
+                subtotalPeriodo = subtotalPeriodo + Number(c.subtotal || 0);
+                ivaPeriodo = ivaPeriodo + Number(c.iva || 0);
+
+                const registroDia = buscarGrupo(totalesPorDia, fechaVentaISO(c.fecha));
+                registroDia.cantidad = registroDia.cantidad + 1;
+                registroDia.total = registroDia.total + Number(c.total || 0);
+
+                const registroProv = buscarGrupo(totalesPorProveedor, c.proveedor);
+                registroProv.cantidad = registroProv.cantidad + 1;
+                registroProv.total = registroProv.total + Number(c.total || 0);
+            }
+
+            ordenarGruposPorClave(totalesPorDia);
+            ordenarGruposPorTotal(totalesPorProveedor);
+
+            let filasDiarias = '';
+            for (let i = 0; i < totalesPorDia.length; i++) {
+                const g = totalesPorDia[i];
+                filasDiarias += `
+                    <tr>
+                        <td>${formatoFecha(g.clave)}</td>
+                        <td>${g.cantidad}</td>
+                        <td>${formatearMoneda(g.total)}</td>
+                    </tr>`;
+            }
+
+            let filasProveedor = '';
+            for (let i = 0; i < totalesPorProveedor.length; i++) {
+                const g = totalesPorProveedor[i];
+                filasProveedor += `
+                    <tr>
+                        <td>${esc(g.clave)}</td>
+                        <td>${g.cantidad}</td>
+                        <td>${formatearMoneda(g.total)}</td>
+                    </tr>`;
+            }
+
+            let filasCompras = '';
+            for (let i = 0; i < compras.length; i++) {
+                const c = compras[i];
+                let articulos = '';
+                const detalle = c.detalle || [];
+                for (let j = 0; j < detalle.length; j++) {
+                    const it = detalle[j];
+                    if (j > 0) {
+                        articulos += '<br>';
+                    }
+                    articulos += esc(it.nombre) + ' (' + it.cantidad + ' × ' + formatearMoneda(it.costo) + ') — ' + formatearMoneda(it.importe);
+                }
+                filasCompras += `
+                    <tr>
+                        <td>${esc(c.fecha)}</td>
+                        <td><strong>${esc(c.factura)}</strong></td>
+                        <td>${esc(c.proveedor)}</td>
+                        <td>${articulos}</td>
+                        <td>${formatearMoneda(c.subtotal)}<br>IVA: ${formatearMoneda(c.iva)}</td>
+                        <td><strong>${formatearMoneda(c.total)}</strong></td>
+                        <td class="no-print">
+                            <button type="button" class="btn-edit-item" onclick="verDetalleCompra(${c.id})">Detalle</button>
+                            <button type="button" class="btn-remove-item" onclick="eliminarCompra(${c.id})">Eliminar</button>
+                        </td>
+                    </tr>`;
+            }
+
+            if (filasDiarias === '') {
+                filasDiarias = '<tr><td colspan="3" style="text-align:center;">No hay compras para este periodo.</td></tr>';
+            }
+            if (filasProveedor === '') {
+                filasProveedor = '<tr><td colspan="3" style="text-align:center;">No hay compras para este periodo.</td></tr>';
+            }
+            if (filasCompras === '') {
+                filasCompras = '<tr><td colspan="7" style="text-align:center;">No hay compras para este periodo.</td></tr>';
+            }
+
+            panelAdmin().innerHTML = `
+                <div class="panel-header">
+                    <h2>Historial de Compras</h2>
+                    <p class="no-print">Elige un periodo para consultar las compras realizadas a proveedores. Usa Imprimir / Guardar PDF para descargar el reporte como PDF.</p>
+                    <p>Periodo del reporte: ${formatoFecha(inicio)} al ${formatoFecha(fin)}</p>
+                </div>
+                <div class="summary-box no-print" style="margin-top:0;">
+                    <div class="report-filter-actions">
+                        <div class="input-group" style="margin:0;">
+                            <label for="comprasFechaInicio">Desde</label>
+                            <input type="date" id="comprasFechaInicio" value="${esc(inicio)}">
+                        </div>
+                        <div class="input-group" style="margin:0;">
+                            <label for="comprasFechaFin">Hasta</label>
+                            <input type="date" id="comprasFechaFin" value="${esc(fin)}">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCompras('hoy')">Hoy</button>
+                        <button type="button" class="btn-secondary" onclick="seleccionarPeriodoCompras('semana')">Esta semana</button>
+                        <button type="button" class="btn-secondary" onclick="aplicarFiltroCompras()">Aplicar fechas</button>
+                        <button type="button" class="btn-action" style="margin-top:0; width:auto;" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
+                    </div>
+                </div>
+                <div class="report-summary-grid">
+                    <div class="report-total-card">Compras en el periodo<strong>${compras.length}</strong></div>
+                    <div class="report-total-card">Total comprado<strong>${formatearMoneda(totalPeriodo)}</strong></div>
+                    <div class="report-total-card">Subtotal sin IVA<strong>${formatearMoneda(subtotalPeriodo)}</strong></div>
+                    <div class="report-total-card">IVA<strong>${formatearMoneda(ivaPeriodo)}</strong></div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen diario</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Día</th><th>Compras</th><th>Total comprado</th></tr></thead>
+                            <tbody>${filasDiarias}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Resumen por proveedor</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Proveedor</th><th>Compras</th><th>Total comprado</th></tr></thead>
+                            <tbody>${filasProveedor}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Detalle de compras realizadas</h3>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th>Factura / Remisión</th><th>Proveedor</th><th>Artículos</th><th>Subtotal / IVA</th><th>Total</th><th class="no-print">Acciones</th></tr></thead>
+                            <tbody>${filasCompras}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarPeriodoCompras(periodo) {
+            const p = periodoSeleccionado(periodo);
+            mostrarHistorialCompras(p.inicio, p.fin);
+        }
+
+        function aplicarFiltroCompras() {
+            const fechaInicio = document.getElementById('comprasFechaInicio').value;
+            const fechaFin = document.getElementById('comprasFechaFin').value;
+            if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+                alert('Selecciona un rango válido: la fecha inicial debe ser igual o anterior a la fecha final.');
+                return;
+            }
+            mostrarHistorialCompras(fechaInicio, fechaFin);
+        }
+
         let movimientosTodos = [];
         let movimientosVista = [];
         let rangoMovimientos = null;
@@ -2872,8 +3327,7 @@
                 mostrarErrorCarga(e, 'compras');
             }
         }
-
-        function mostrarMovimientos() {
+                function mostrarMovimientos() {
             const inicio = rangoMovimientos.inicio;
             const fin = rangoMovimientos.fin;
 
@@ -3141,7 +3595,7 @@
         function cerrarModalMovimiento() {
             document.getElementById('modalDetalleMovimiento').style.display = 'none';
         }
-        
+
         const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
         const PROBABILIDADES_BASE = [0.3, 0.5, 0.2];
@@ -3181,6 +3635,7 @@
         let decGlobal = {};
         let decNotaProv = '';
         let decNotaPrecio = '';
+        let decCostosPiezas = [];
 
         function productoPorId(id) {
             return buscarPorId(catalogoCache, id);
@@ -3268,7 +3723,6 @@
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
-            renderizarSistemaExperto();
         }
 
         function diasDecision() {
@@ -3304,7 +3758,6 @@
             await aplicarDefaultsDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
-            renderizarSistemaExperto();
             document.getElementById('resultadoDecision').innerHTML = '';
         }
 
@@ -3314,7 +3767,6 @@
             mostrarDescripcionDecision();
             renderizarApoyoDecision();
             renderizarFormularioDecision();
-            renderizarSistemaExperto();
             document.getElementById('resultadoDecision').innerHTML = '';
         }
 
@@ -3644,6 +4096,10 @@
                 if (costo) {
                     a.costo = costo.value;
                 }
+                const descuento = document.getElementById('decAltDescuento' + k);
+                if (descuento) {
+                    a.descuento = descuento.value;
+                }
                 const producto = document.getElementById('decAltProducto' + k);
                 if (producto) {
                     a.producto = producto.value;
@@ -3685,6 +4141,12 @@
                 await prepararPrecioDecision();
                 renderizarApoyoDecision();
                 renderizarFormularioDecision();
+            } else if (decTipo === 'piezas') {
+                const prod = productoPorId(decGlobal.productoId);
+                if (prod) {
+                    decGlobal.costo = Number(prod.costo_compra);
+                }
+                renderizarFormularioDecision();
             }
         }
 
@@ -3702,7 +4164,7 @@
                 quitar = '<button type="button" class="btn-remove-item" onclick="quitarAlternativaDecision(' + k + ')">Quitar</button>';
             }
             if (decTipo === 'piezas') {
-                return '<tr><td>Alternativa ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"') + '</td><td>' + quitar + '</td></tr>';
+                return '<tr><td>Alternativa ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"') + '</td><td>' + entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" placeholder="0"') + '</td><td>' + quitar + '</td></tr>';
             }
             if (decTipo === 'proveedor') {
                 return `<tr>
@@ -3736,7 +4198,7 @@
                 return '<tr><td>Precio ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"') + '</td><td>' + quitar + '</td></tr>';
             }
             return `<tr>
-                <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;">${opcionesProductosDecision(a.producto)}</select></td>
+                <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;" onchange="cambiarProductoPromocion()">${opcionesProductosDecision(a.producto)}</select></td>
                 <td>${quitar}</td></tr>`;
         }
 
@@ -3775,7 +4237,27 @@
             }
 
             let camposGlobales = '';
-            if (decTipo === 'piezas' || decTipo === 'proveedor') {
+            if (decTipo === 'piezas') {
+                camposGlobales = `
+                    <div class="input-group">
+                        <label>Refacción a analizar</label>
+                        <select id="decProducto" onchange="cambiarProductoDecision()">${selectorProducto}</select>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Costo por pieza ($ MXN, por defecto el último costo del catálogo)</label>
+                            <input type="number" id="decCosto" value="${esc(g.costo)}" min="0" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
+                            <input type="number" id="decRescate" value="${esc(g.rescate)}" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                        <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                    </div>`;
+            } else if (decTipo === 'proveedor') {
                 camposGlobales = `
                     <div class="input-group">
                         <label>Refacción a analizar</label>
@@ -3853,7 +4335,7 @@
                     </div>`;
             }
 
-            let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th></th>';
+            let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th>Descuento del proveedor (%)</th><th></th>';
             let encabezadoEsc = '<th>Escenario</th><th>Demanda (piezas)</th><th>Probabilidad</th><th></th>';
             if (decTipo === 'proveedor') {
                 encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza</th><th>Pedido (piezas)</th><th></th>';
@@ -3902,6 +4384,10 @@
             if (decTipo === 'proveedor' && decNotaProv) {
                 notaProveedor = '<p style="font-size:0.8rem; margin-bottom:10px;">' + esc(decNotaProv) + '</p>';
             }
+            let notaPiezas = '';
+            if (decTipo === 'piezas') {
+                notaPiezas = '<p style="font-size:0.8rem; margin-bottom:10px;">El costo por pieza se toma de este campo y no del módulo de compras, así que puedes cambiarlo si el proveedor modificó su precio. El descuento es opcional: déjalo vacío si no hay descuento. Costo considerado = costo por pieza × (1 − descuento).</p>';
+            }
             let notaPrecio = '';
             if (decTipo === 'precio') {
                 notaPrecio = '<p style="font-size:0.8rem; margin-bottom:10px;">Piezas esperadas = demanda base × factor del escenario × (precio / precio actual) ^ elasticidad. La elasticidad es un supuesto: tus ventas no muestran cómo reacciona la demanda a precios distintos.</p>';
@@ -3912,6 +4398,7 @@
                 ${listaProv}
                 ${notaProveedor}
                 ${notaPrecio}
+                ${notaPiezas}
                 <div class="form-grid">
                     <div>
                         <h3 style="font-size:0.9rem;">Alternativas (2 a 7)</h3>
@@ -3933,6 +4420,7 @@
                 <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan solo para el VME; los demás criterios no las necesitan.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
+            renderizarSistemaExperto();
         }
 
         function cambiarDiaDecision(k) {
@@ -4031,8 +4519,77 @@
             renderizarFormularioDecision();
         }
 
+        function armarCuerpoPiezas(cuerpo) {
+            const costoBase = parseFloat(decGlobal.costo);
+            if (Number.isNaN(costoBase) || costoBase < 0) {
+                alert('Captura un costo por pieza válido.');
+                return false;
+            }
+            const nombresAlt = [];
+            const costosAlt = [];
+            for (let k = 0; k < decAlternativas.length; k++) {
+                let descuento = parseFloat(decAlternativas[k].descuento);
+                if (Number.isNaN(descuento)) {
+                    descuento = 0;
+                }
+                if (descuento < 0 || descuento > 100) {
+                    alert('El descuento debe estar entre 0 y 100.');
+                    return false;
+                }
+                const costoFinal = Math.round(costoBase * (1 - descuento / 100) * 10000) / 10000;
+                const piezas = decAlternativas[k].valor;
+                const nombre = 'Surtir ' + piezas + ' pzas';
+                nombresAlt.push(nombre);
+                costosAlt.push(costoFinal);
+                decCostosPiezas.push({ nombre: nombre, piezas: Number(piezas), descuento: descuento, costo: costoFinal });
+            }
+            cuerpo.tipo = 'proveedor';
+            cuerpo.producto_id = decGlobal.productoId;
+            cuerpo.rescate = decGlobal.rescate;
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.costos = costosAlt;
+            cuerpo.nombres_alternativas = nombresAlt;
+            return true;
+        }
+
+        function armarCuerpoProveedor(cuerpo) {
+            cuerpo.producto_id = decGlobal.productoId;
+            cuerpo.rescate = decGlobal.rescate;
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.costos = listaDe(decAlternativas, 'costo');
+        }
+
+        function armarCuerpoMecanico(cuerpo) {
+            cuerpo.ingreso = decGlobal.ingreso;
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.costos = listaDe(decAlternativas, 'costo');
+        }
+
+        function armarCuerpoDescanso(cuerpo) {
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.total_semana = '';
+            if (decApoyo) {
+                cuerpo.total_semana = decApoyo.totalSemana;
+            }
+        }
+
+        function armarCuerpoPromocion(cuerpo) {
+            cuerpo.productos = listaDe(decAlternativas, 'producto');
+            cuerpo.descuento = decGlobal.descuento;
+            cuerpo.costo_promocion = decGlobal.costoPromo;
+        }
+
+        function armarCuerpoPrecio(cuerpo) {
+            cuerpo.producto_id = decGlobal.productoId;
+            cuerpo.costo = decGlobal.costo;
+            cuerpo.demanda_base = decGlobal.demandaBase;
+            cuerpo.elasticidad = decGlobal.elasticidad;
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+        }
+
         async function calcularDecision() {
             leerFormularioDecision();
+            decCostosPiezas = [];
             const cuerpo = {
                 tipo: decTipo,
                 alfa: decGlobal.alfa,
@@ -4041,43 +4598,34 @@
                 escenarios: listaDe(decEscenarios, 'valor'),
                 probabilidades: listaDe(decEscenarios, 'prob')
             };
+
             if (decTipo === 'piezas') {
-                cuerpo.producto_id = decGlobal.productoId;
-                cuerpo.rescate = decGlobal.rescate;
-                cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-            } else if (decTipo === 'proveedor') {
-                cuerpo.producto_id = decGlobal.productoId;
-                cuerpo.rescate = decGlobal.rescate;
-                cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-                cuerpo.costos = listaDe(decAlternativas, 'costo');
-            } else if (decTipo === 'mecanico') {
-                cuerpo.ingreso = decGlobal.ingreso;
-                cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-                cuerpo.costos = listaDe(decAlternativas, 'costo');
-            } else if (decTipo === 'descanso') {
-                cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-                if (decApoyo) {
-                    cuerpo.total_semana = decApoyo.totalSemana;
-                } else {
-                    cuerpo.total_semana = '';
+                const correcto = armarCuerpoPiezas(cuerpo);
+                if (!correcto) {
+                    return;
                 }
+            } else if (decTipo === 'proveedor') {
+                armarCuerpoProveedor(cuerpo);
+            } else if (decTipo === 'mecanico') {
+                armarCuerpoMecanico(cuerpo);
+            } else if (decTipo === 'descanso') {
+                armarCuerpoDescanso(cuerpo);
             } else if (decTipo === 'promocion') {
-                cuerpo.productos = listaDe(decAlternativas, 'producto');
-                cuerpo.descuento = decGlobal.descuento;
-                cuerpo.costo_promocion = decGlobal.costoPromo;
+                armarCuerpoPromocion(cuerpo);
             } else if (decTipo === 'precio') {
-                cuerpo.producto_id = decGlobal.productoId;
-                cuerpo.costo = decGlobal.costo;
-                cuerpo.demanda_base = decGlobal.demandaBase;
-                cuerpo.elasticidad = decGlobal.elasticidad;
-                cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+                armarCuerpoPrecio(cuerpo);
             }
+
             const boton = document.getElementById('btnCalcularDecision');
             if (boton) {
                 boton.disabled = true;
             }
             try {
                 const r = await enviar('POST', '/api/decisiones/calcular', cuerpo);
+                if (decTipo === 'piezas') {
+                    r.tipoProblema = TIPOS_DECISION.piezas.nombre;
+                    r.descripcion = TIPOS_DECISION.piezas.descripcion;
+                }
                 mostrarResultadoDecision(r);
             } catch (e) {
                 alert('No se pudo calcular: ' + e.message);
@@ -4162,11 +4710,35 @@
                 tituloPagos = 'utilidad';
             }
 
+            let cajaCostos = '';
+            if (decTipo === 'piezas' && decCostosPiezas.length > 0) {
+                let filasCosto = '';
+                for (let i = 0; i < decCostosPiezas.length; i++) {
+                    const c = decCostosPiezas[i];
+                    filasCosto += `
+                        <tr>
+                            <td><strong>${esc(c.nombre)}</strong></td>
+                            <td>${c.descuento}%</td>
+                            <td>${formatearMoneda(c.costo)}</td>
+                            <td>${formatearMoneda(c.costo * c.piezas)}</td>
+                        </tr>`;
+                }
+                cajaCostos = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Costo considerado en cada alternativa</h3>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr><th>Alternativa</th><th>Descuento del proveedor</th><th>Costo por pieza</th><th>Inversión</th></tr></thead>
+                            <tbody>${filasCosto}</tbody>
+                        </table></div>
+                    </div>`;
+            }
+
             document.getElementById('resultadoDecision').innerHTML = `
                 <div class="summary-box">
                     <h3 style="font-size:0.95rem;">Tipo de problema: ${esc(r.tipoProblema)}</h3>
                     <p style="font-size:0.85rem;">${esc(r.descripcion)}</p>
                 </div>
+                ${cajaCostos}
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Tabla de pagos (${tituloPagos} de cada alternativa en cada escenario)</h3>
                     ${tablaMatrizDecision(r, r.pagos, true)}
@@ -4195,9 +4767,6 @@
         }
 
         let umbralesExperto = { stockBajo: 5, stockAlto: 20, rotAlta: 6, rotBaja: 1 };
-        let filtroExperto = 'Todas';
-
-        const GRUPOS_EXPERTO = ['Comprar urgente', 'Comprar', 'Programar compra', 'Mantener', 'No comprar'];
 
         const REGLAS_EXPERTO = [
             { id: 'R1', stock: 'bajo', rotacion: 'alta', grupo: 'Comprar urgente', texto: 'COMPRAR URGENTE', color: 'rojo', orden: 1, motivo: 'Queda poco y se vende mucho' },
@@ -4243,86 +4812,30 @@
             return null;
         }
 
-        function ordenarResultadosExperto(lista) {
-            for (let a = 0; a < lista.length - 1; a++) {
-                for (let b = a + 1; b < lista.length; b++) {
-                    if (lista[b].inferencia.regla.orden < lista[a].inferencia.regla.orden) {
-                        const temporal = lista[a];
-                        lista[a] = lista[b];
-                        lista[b] = temporal;
-                    }
-                }
+        function textoNivelStock(nivel) {
+            if (nivel === 'bajo') {
+                return 'bajo (' + umbralesExperto.stockBajo + ' piezas o menos)';
             }
+            if (nivel === 'alto') {
+                return 'alto (' + umbralesExperto.stockAlto + ' piezas o más)';
+            }
+            return 'medio (entre ' + (umbralesExperto.stockBajo + 1) + ' y ' + (umbralesExperto.stockAlto - 1) + ' piezas)';
         }
 
-        function renderizarSistemaExperto() {
-            const cont = document.getElementById('sistemaExperto');
-            if (!cont) {
-                return;
+        function textoNivelRotacion(nivel) {
+            if (nivel === 'alta') {
+                return 'alta (' + umbralesExperto.rotAlta + ' vendidas o más)';
             }
-            if (decTipo !== 'piezas' && decTipo !== 'promocion') {
-                cont.innerHTML = '';
-                return;
+            if (nivel === 'baja') {
+                return 'baja (' + umbralesExperto.rotBaja + ' vendidas o menos)';
             }
-            if (!decApoyo || !decApoyo.rotacion) {
-                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
-                return;
-            }
+            return 'media (entre ' + (umbralesExperto.rotBaja + 1) + ' y ' + (umbralesExperto.rotAlta - 1) + ' vendidas)';
+        }
 
-            const resultados = [];
-            const conteos = [0, 0, 0, 0, 0];
-            for (let i = 0; i < decApoyo.rotacion.length; i++) {
-                const p = decApoyo.rotacion[i];
-                const inferencia = aplicarReglasExperto(p);
-                resultados.push({ producto: p, inferencia: inferencia });
-                for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
-                    if (GRUPOS_EXPERTO[j] === inferencia.regla.grupo) {
-                        conteos[j] = conteos[j] + 1;
-                    }
-                }
-            }
-            ordenarResultadosExperto(resultados);
-
-            let tarjetas = '';
-            for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
-                tarjetas += '<div class="report-total-card">' + GRUPOS_EXPERTO[j] + '<strong>' + conteos[j] + '</strong></div>';
-            }
-
-            let opcionesFiltro = '<option value="Todas">Todas las recomendaciones</option>';
-            for (let j = 0; j < GRUPOS_EXPERTO.length; j++) {
-                let marca = '';
-                if (GRUPOS_EXPERTO[j] === filtroExperto) {
-                    marca = 'selected';
-                }
-                opcionesFiltro += '<option value="' + GRUPOS_EXPERTO[j] + '" ' + marca + '>' + GRUPOS_EXPERTO[j] + '</option>';
-            }
-
-            let filas = '';
-            for (let i = 0; i < resultados.length; i++) {
-                const p = resultados[i].producto;
-                const inf = resultados[i].inferencia;
-                if (filtroExperto === 'Todas' || filtroExperto === inf.regla.grupo) {
-                    filas += `
-                        <tr>
-                            <td>${esc(p.sku)}</td>
-                            <td><strong>${esc(p.nombre)}</strong></td>
-                            <td>${p.stock}</td>
-                            <td>${Number(p.vendidas).toFixed(0)}</td>
-                            <td>${inf.nivelStock} / ${inf.nivelRot}</td>
-                            <td><span class="rec-${inf.regla.color}">${inf.regla.texto}</span></td>
-                        </tr>`;
-                }
-            }
-            if (filas === '') {
-                filas = '<tr><td colspan="6" style="text-align:center;">No hay productos con esta recomendación.</td></tr>';
-            }
-
-            cont.innerHTML = `
-                <div class="panel-header" style="margin-top:40px;">
-                    <h2>Sistema Experto de Reabastecimiento</h2>
-                    <p>Recomienda qué comprar según el stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días, aplicando las reglas de la base de conocimiento.</p>
-                </div>
-                <div class="summary-box no-print" style="margin-top:0;">
+        function controlesExperto() {
+            return `
+                <div class="no-print" style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+                    <h3 style="font-size:0.85rem; margin-bottom:10px;">Umbrales del sistema experto</h3>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Stock bajo (piezas o menos)</label>
@@ -4346,19 +4859,92 @@
                     <div class="report-filter-actions">
                         <button type="button" class="btn-secondary" onclick="aplicarUmbralesExperto()">Aplicar</button>
                         <button type="button" class="btn-secondary" onclick="abrirReglasExperto()">Ver reglas</button>
-                        <div class="input-group" style="margin:0;">
-                            <select id="expFiltro" onchange="cambiarFiltroExperto(this.value)">${opcionesFiltro}</select>
-                        </div>
                     </div>
-                </div>
-                <div class="report-summary-grid">${tarjetas}</div>
+                </div>`;
+        }
+
+        function renderizarSistemaExperto() {
+            const cont = document.getElementById('sistemaExperto');
+            if (!cont) {
+                return;
+            }
+            if (decTipo !== 'piezas') {
+                if (decTipo !== 'promocion') {
+                    cont.innerHTML = '';
+                    return;
+                }
+            }
+            if (!decApoyo) {
+                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
+                return;
+            }
+            if (!decApoyo.rotacion) {
+                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
+                return;
+            }
+
+            if (decTipo === 'piezas') {
+                const p = buscarPorId(decApoyo.rotacion, decGlobal.productoId);
+                if (!p) {
+                    cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">Selecciona una refacción para ver la recomendación del sistema experto.</p></div>';
+                    return;
+                }
+                const inf = aplicarReglasExperto(p);
+                const regla = inf.regla;
+                cont.innerHTML = `
+                    <div class="summary-box">
+                        <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
+                        <p style="font-size:0.85rem; margin-bottom:8px;">Producto analizado: <strong>[${esc(p.sku)}] ${esc(p.nombre)}</strong>. Usa el stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días.</p>
+                        <div class="table-scroll"><table class="data-table">
+                            <thead><tr><th>Dato</th><th>Valor</th><th>Nivel</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Stock actual</strong></td><td>${p.stock} piezas</td><td>${textoNivelStock(inf.nivelStock)}</td></tr>
+                                <tr><td><strong>Vendidas en los últimos ${decApoyo.dias} días</strong></td><td>${Number(p.vendidas).toFixed(0)} piezas</td><td>${textoNivelRotacion(inf.nivelRot)}</td></tr>
+                            </tbody>
+                        </table></div>
+                        <div class="summary-row"><span>Regla aplicada</span><span>${regla.id}: SI el stock es ${regla.stock} Y la rotación es ${regla.rotacion}</span></div>
+                        <div class="summary-row"><span>Motivo</span><span>${esc(regla.motivo)}</span></div>
+                        <div class="summary-row total"><span>Recomendación</span><span class="rec-${regla.color}">${regla.texto}</span></div>
+                        ${controlesExperto()}
+                    </div>`;
+                return;
+            }
+
+            let filas = '';
+            for (let k = 0; k < decAlternativas.length; k++) {
+                const p = buscarPorId(decApoyo.rotacion, decAlternativas[k].producto);
+                if (p) {
+                    const inf = aplicarReglasExperto(p);
+                    filas += `
+                        <tr>
+                            <td>${esc(p.sku)}</td>
+                            <td><strong>${esc(p.nombre)}</strong></td>
+                            <td>${p.stock}</td>
+                            <td>${Number(p.vendidas).toFixed(0)}</td>
+                            <td>${inf.nivelStock} / ${inf.nivelRot}</td>
+                            <td>${inf.regla.id}</td>
+                            <td><span class="rec-${inf.regla.color}">${inf.regla.texto}</span></td>
+                        </tr>`;
+                }
+            }
+            if (filas === '') {
+                filas = '<tr><td colspan="7" style="text-align:center;">No hay productos para analizar.</td></tr>';
+            }
+            cont.innerHTML = `
                 <div class="summary-box">
+                    <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
+                    <p style="font-size:0.85rem; margin-bottom:8px;">Recomendación para los productos que estás comparando, según su stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días.</p>
                     <div class="table-scroll"><table class="data-table">
-                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas en el periodo</th><th>Nivel (stock / rotación)</th><th>Recomendación</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas</th><th>Nivel (stock / rotación)</th><th>Regla</th><th>Recomendación</th></tr></thead>
                         <tbody>${filas}</tbody>
                     </table></div>
-                </div>
-            `;
+                    ${controlesExperto()}
+                </div>`;
+        }
+
+        function cambiarProductoPromocion() {
+            leerFormularioDecision();
+            renderizarSistemaExperto();
         }
 
         function aplicarUmbralesExperto() {
@@ -4367,9 +4953,12 @@
             const rotAlta = parseInt(document.getElementById('expRotAlta').value);
             const rotBaja = parseInt(document.getElementById('expRotBaja').value);
 
-            if (Number.isNaN(stockBajo) || Number.isNaN(stockAlto) || Number.isNaN(rotAlta) || Number.isNaN(rotBaja)) {
-                alert('Captura los cuatro umbrales con números.');
-                return;
+            const umbrales = [stockBajo, stockAlto, rotAlta, rotBaja];
+            for (let i = 0; i < umbrales.length; i++) {
+                if (Number.isNaN(umbrales[i])) {
+                    alert('Captura los cuatro umbrales con números.');
+                    return;
+                }
             }
             if (stockBajo >= stockAlto) {
                 alert('El stock bajo debe ser menor que el stock alto.');
@@ -4381,11 +4970,6 @@
             }
 
             umbralesExperto = { stockBajo: stockBajo, stockAlto: stockAlto, rotAlta: rotAlta, rotBaja: rotBaja };
-            renderizarSistemaExperto();
-        }
-
-        function cambiarFiltroExperto(valor) {
-            filtroExperto = valor;
             renderizarSistemaExperto();
         }
 
@@ -4419,4 +5003,4 @@
         };
     </script>
 </body>
-</html>
+</html>   
