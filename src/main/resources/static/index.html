@@ -165,8 +165,6 @@
 
         .register-section {
             margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border);
             text-align: center;
         }
 
@@ -393,15 +391,21 @@
             document.getElementById('modalAviso').style.display = 'none';
         }
 
-        function irARegistro(event) {
+        function avisoAceptado() {
             var casilla = document.getElementById('chkAviso');
             var mensajeAviso = document.getElementById('mensajeAviso');
 
             if (casilla.checked == false) {
+                mensajeAviso.innerText = 'Debes aceptar el aviso de privacidad para continuar.';
+                return false;
+            }
+            mensajeAviso.innerText = '';
+            return true;
+        }
+
+        function irARegistro(event) {
+            if (avisoAceptado() == false) {
                 event.preventDefault();
-                mensajeAviso.innerText = 'Debes aceptar el aviso de privacidad para agendar una cita.';
-            } else {
-                mensajeAviso.innerText = '';
             }
         }
 
@@ -414,6 +418,13 @@
             var boton = document.getElementById('btnLogin');
 
             mensajeElem.innerText = '';
+
+            if (avisoAceptado() == false) {
+                mensajeElem.style.color = 'var(--danger)';
+                mensajeElem.innerText = 'Debes aceptar el aviso de privacidad para iniciar sesión.';
+                return;
+            }
+
             boton.disabled = true;
 
             var datosLogin = {
