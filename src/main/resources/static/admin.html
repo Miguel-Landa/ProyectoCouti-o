@@ -439,6 +439,55 @@
             font-size: 1.35rem;
         }
 
+        .grafica-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .grafica-card {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--text);
+        }
+
+        .grafica-card h4 {
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .grafica-card small {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .grafica-kpi {
+            margin-top: 14px;
+        }
+
+        .grafica-kpi span {
+            display: block;
+            color: var(--muted-strong);
+            font-size: 0.85rem;
+        }
+
+        .grafica-kpi strong {
+            display: block;
+            font-size: 1.6rem;
+        }
+
+        .grafica-vacia {
+            padding: 40px 0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
         .fondo-input {
             width: 100%;
             padding: 8px 10px;
@@ -725,19 +774,6 @@
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn-close" onclick="cerrarModalMovimiento()">Cerrar Ventana</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="modalReglasExperto">
-        <div class="modal-card">
-            <div class="panel-header" style="margin-bottom: 15px;">
-                <p style="font-size:1rem;">Reglas que usa el sistema experto para recomendar el reabastecimiento</p>
-            </div>
-            <div class="summary-box" id="modalReglasContenido" style="margin-top:0;">
-            </div>
-            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <button class="btn-close" onclick="cerrarReglasExperto()">Cerrar Ventana</button>
             </div>
         </div>
     </div>
@@ -1328,8 +1364,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-
-        function renderizarModuloProveedores() {
+                function renderizarModuloProveedores() {
             let filasHTML = '';
             for (let i = 0; i < proveedoresCache.length; i++) {
                 const p = proveedoresCache[i];
@@ -1671,7 +1706,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-    
+
         function resumenMecanico(nombre) {
             let servicios = 0;
             let total = 0;
@@ -2587,8 +2622,7 @@
             }
             return suma;
         }
-
-        function mostrarCortes(fechaInicio, fechaFin) {
+                function mostrarCortes(fechaInicio, fechaFin) {
             const rango = rangoDe(rangoCortes, fechaInicio, fechaFin);
             const inicio = rango.inicio;
             const fin = rango.fin;
@@ -3328,7 +3362,8 @@
                 mostrarErrorCarga(e, 'compras');
             }
         }
-            function mostrarMovimientos() {
+
+        function mostrarMovimientos() {
             const inicio = rangoMovimientos.inicio;
             const fin = rangoMovimientos.fin;
 
@@ -3706,17 +3741,25 @@
                         </div>
                         <div class="input-group">
                             <label>Periodo (días)</label>
-                            <div style="display:flex; gap:10px;">
-                                <input type="number" id="decDias" value="90" min="7" max="365" step="1">
-                                <button type="button" class="btn-secondary" onclick="actualizarApoyoDecision()">Actualizar datos</button>
-                            </div>
+                            <input type="number" id="decDias" value="30" min="1" max="365" step="1" oninput="cambiarDiasDecision()">
                         </div>
                     </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Desde</label>
+                            <input type="date" id="decDesde" value="${fechaMasDias(hoyISO(), -29)}" onchange="cambiarFechasDecision()">
+                        </div>
+                        <div class="input-group">
+                            <label>Hasta</label>
+                            <input type="date" id="decHasta" value="${hoyISO()}" onchange="cambiarFechasDecision()">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="actualizarApoyoDecision()">Actualizar datos</button>
                 </div>
                 <div id="decApoyo"></div>
+                <div id="decGraficas"></div>
                 <div class="summary-box no-print" id="decFormulario"></div>
                 <div id="resultadoDecision"></div>
-                <div id="sistemaExperto"></div>
             `;
             await cargarApoyoDecision();
             await aplicarDefaultsDecision();
@@ -3725,19 +3768,99 @@
             renderizarFormularioDecision();
         }
 
-        function diasDecision() {
-            const campo = document.getElementById('decDias');
-            if (campo) {
-                return Number(campo.value) || 90;
+        function fechaMasDias(fechaISO, n) {
+            const p = fechaISO.split('-');
+            const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+            d.setDate(d.getDate() + n);
+            return fechaLocalISO(d);
+        }
+
+        function diasEntre(inicioISO, finISO) {
+            const a = inicioISO.split('-');
+            const b = finISO.split('-');
+            const d1 = new Date(Number(a[0]), Number(a[1]) - 1, Number(a[2]));
+            const d2 = new Date(Number(b[0]), Number(b[1]) - 1, Number(b[2]));
+            return Math.round((d2 - d1) / 86400000) + 1;
+        }
+
+        function rangoDecision() {
+            const campoIni = document.getElementById('decDesde');
+            const campoFin = document.getElementById('decHasta');
+            let fin = hoyISO();
+            if (campoFin && campoFin.value) {
+                fin = campoFin.value;
             }
-            return 90;
+            let ini = fechaMasDias(fin, -29);
+            if (campoIni && campoIni.value) {
+                ini = campoIni.value;
+            }
+            if (ini > fin) {
+                ini = fin;
+            }
+            return { inicio: ini, fin: fin };
+        }
+
+        function diasDecision() {
+            const r = rangoDecision();
+            return diasEntre(r.inicio, r.fin);
+        }
+
+        function diasApoyoDecision() {
+            const r = rangoDecision();
+            let dias = diasEntre(r.inicio, hoyISO());
+            if (dias < 7) {
+                dias = 7;
+            }
+            if (dias > 365) {
+                dias = 365;
+            }
+            return dias;
+        }
+
+        function cambiarDiasDecision() {
+            const campo = document.getElementById('decDias');
+            let dias = Number(campo.value);
+            if (!dias || dias < 1) {
+                return;
+            }
+            if (dias > 365) {
+                dias = 365;
+            }
+            let hasta = hoyISO();
+            const campoHasta = document.getElementById('decHasta');
+            if (campoHasta && campoHasta.value) {
+                hasta = campoHasta.value;
+            }
+            document.getElementById('decDesde').value = fechaMasDias(hasta, -(dias - 1));
+        }
+
+        function cambiarFechasDecision() {
+            const r = rangoDecision();
+            document.getElementById('decDesde').value = r.inicio;
+            document.getElementById('decHasta').value = r.fin;
+            document.getElementById('decDias').value = diasEntre(r.inicio, r.fin);
         }
 
         async function cargarApoyoDecision() {
             try {
-                decApoyo = await api('/api/decisiones/apoyo?dias=' + diasDecision());
+                decApoyo = await api('/api/decisiones/apoyo?dias=' + diasApoyoDecision());
             } catch (e) {
                 decApoyo = null;
+            }
+            try {
+                decVentas = await api('/api/ventas');
+            } catch (e) {
+                decVentas = [];
+            }
+            try {
+                decCobros = await api('/api/cobros');
+            } catch (e) {
+                decCobros = [];
+            }
+            try {
+                decCompras = await api('/api/compras');
+            } catch (e) {
+                decCompras = [];
             }
         }
 
@@ -3747,7 +3870,7 @@
                 return;
             }
             try {
-                decPrecioApoyo = await api('/api/decisiones/precio-apoyo?producto_id=' + encodeURIComponent(decGlobal.productoId) + '&dias=' + diasDecision());
+                decPrecioApoyo = await api('/api/decisiones/precio-apoyo?producto_id=' + encodeURIComponent(decGlobal.productoId) + '&dias=' + diasApoyoDecision());
             } catch (e) {
                 decPrecioApoyo = null;
             }
@@ -3917,27 +4040,381 @@
                     ['Semana alta', redondear(sumaDias * 1.2)]
                 ]);
             } else if (decTipo === 'promocion') {
-                const candidatos = [];
                 if (ap) {
-                    for (let i = 0; i < ap.rotacion.length && candidatos.length < 3; i++) {
+                    for (let i = 0; i < ap.rotacion.length; i++) {
                         if (ap.rotacion[i].stock > 0) {
-                            candidatos.push(String(ap.rotacion[i].id));
+                            decGlobal.productoId = String(ap.rotacion[i].id);
+                            break;
                         }
                     }
                 }
-                for (let i = 0; i < catalogoCache.length; i++) {
-                    if (candidatos.length < 3 && !contiene(candidatos, String(catalogoCache[i].id))) {
-                        candidatos.push(String(catalogoCache[i].id));
-                    }
-                }
+                const descuentosBase = [10, 15, 20];
                 decAlternativas = [];
-                for (let i = 0; i < candidatos.length; i++) {
-                    decAlternativas.push({ nombre: '', valor: '', costo: '', descuento: decGlobal.descuento, producto: candidatos[i] });
+                for (let i = 0; i < descuentosBase.length; i++) {
+                    decAlternativas.push({ nombre: '', valor: '', costo: '', descuento: descuentosBase[i], producto: decGlobal.productoId });
                 }
                 decEscenarios = armarEscenarios([['Respuesta baja', 20], ['Respuesta media', 40], ['Respuesta alta', 70]]);
             } else if (decTipo === 'precio') {
                 decEscenarios = armarEscenarios([['Demanda baja', 0.7], ['Demanda media', 1], ['Demanda alta', 1.3]]);
                 await prepararPrecioDecision();
+            }
+        }
+                let decVentas = [];
+        let decCobros = [];
+        let decCompras = [];
+
+        function formatoCorto(n) {
+            const v = Number(n) || 0;
+            if (Math.abs(v) >= 1000000) {
+                return (Math.round(v / 100000) / 10) + ' M';
+            }
+            if (Math.abs(v) >= 1000) {
+                return (Math.round(v / 100) / 10) + ' mil';
+            }
+            return String(Math.round(v * 10) / 10);
+        }
+
+        function maximoRedondo(max) {
+            if (max <= 0) {
+                return 1;
+            }
+            const base = Math.pow(10, Math.floor(Math.log10(max)));
+            const f = max / base;
+            let paso = 10;
+            if (f <= 1) {
+                paso = 1;
+            } else if (f <= 2) {
+                paso = 2;
+            } else if (f <= 5) {
+                paso = 5;
+            }
+            return paso * base;
+        }
+
+        function inicioSemanaISO(fechaISO) {
+            const p = fechaISO.split('-');
+            const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+            d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            return fechaLocalISO(d);
+        }
+
+        function semanasDelPeriodo() {
+            const r = rangoDecision();
+            const semanas = [];
+            let cursor = inicioSemanaISO(r.inicio);
+            while (cursor <= r.fin) {
+                semanas.push(cursor);
+                cursor = fechaMasDias(cursor, 7);
+            }
+            return semanas;
+        }
+
+        function sumarPorSemana(registros) {
+            const r = rangoDecision();
+            const semanas = semanasDelPeriodo();
+            const valores = [];
+            for (let i = 0; i < semanas.length; i++) {
+                valores.push(0);
+            }
+            for (let i = 0; i < registros.length; i++) {
+                const f = registros[i].fecha;
+                if (f >= r.inicio && f <= r.fin) {
+                    const indice = semanas.indexOf(inicioSemanaISO(f));
+                    if (indice !== -1) {
+                        valores[indice] = valores[indice] + registros[i].valor;
+                    }
+                }
+            }
+            return { etiquetas: semanas, valores: valores };
+        }
+
+        function sumaLista(lista) {
+            let suma = 0;
+            for (let i = 0; i < lista.length; i++) {
+                suma = suma + Number(lista[i]);
+            }
+            return suma;
+        }
+
+        function etiquetaSemana(fechaISO) {
+            const p = fechaISO.split('-');
+            return p[2] + '/' + p[1];
+        }
+
+        function ventasSemanalesProducto(productoId) {
+            const piezas = [];
+            const ingresos = [];
+            for (let i = 0; i < decVentas.length; i++) {
+                const v = decVentas[i];
+                const fecha = fechaVentaISO(v.fecha);
+                if (v.tipo === 'VENTA' && fecha !== '') {
+                    const detalle = v.detalle || [];
+                    for (let j = 0; j < detalle.length; j++) {
+                        if (mismoId(detalle[j].producto_id, productoId)) {
+                            const cantidad = Number(detalle[j].cantidad || 0);
+                            let importe = Number(detalle[j].importe);
+                            if (Number.isNaN(importe)) {
+                                importe = cantidad * Number(detalle[j].precio || 0);
+                            }
+                            piezas.push({ fecha: fecha, valor: cantidad });
+                            ingresos.push({ fecha: fecha, valor: importe });
+                        }
+                    }
+                }
+            }
+            const a = sumarPorSemana(piezas);
+            const b = sumarPorSemana(ingresos);
+            return { etiquetas: a.etiquetas, piezas: a.valores, ingresos: b.valores };
+        }
+
+        function serviciosSemanales() {
+            const cantidad = [];
+            const ingresos = [];
+            for (let i = 0; i < decCobros.length; i++) {
+                const fecha = fechaLocalISO(new Date(Number(decCobros[i].fechaPago)));
+                cantidad.push({ fecha: fecha, valor: 1 });
+                ingresos.push({ fecha: fecha, valor: Number(decCobros[i].total || 0) });
+            }
+            const a = sumarPorSemana(cantidad);
+            const b = sumarPorSemana(ingresos);
+            return { etiquetas: a.etiquetas, servicios: a.valores, ingresos: b.valores };
+        }
+
+        function comprasSemanales() {
+            const inversion = [];
+            const cantidad = [];
+            for (let i = 0; i < decCompras.length; i++) {
+                const fecha = fechaVentaISO(decCompras[i].fecha);
+                if (fecha !== '') {
+                    inversion.push({ fecha: fecha, valor: Number(decCompras[i].total || 0) });
+                    cantidad.push({ fecha: fecha, valor: 1 });
+                }
+            }
+            const a = sumarPorSemana(inversion);
+            const b = sumarPorSemana(cantidad);
+            return { etiquetas: a.etiquetas, inversion: a.valores, compras: b.valores };
+        }
+
+        function graficaLinea(etiquetas, valores, esDinero) {
+            if (sumaLista(valores) <= 0) {
+                return '<p class="grafica-vacia">Sin datos en el periodo.</p>';
+            }
+            const ancho = 360;
+            const alto = 190;
+            const izq = 44;
+            const der = 10;
+            const arriba = 10;
+            const abajo = 26;
+            let max = 0;
+            for (let i = 0; i < valores.length; i++) {
+                if (valores[i] > max) {
+                    max = valores[i];
+                }
+            }
+            const tope = maximoRedondo(max);
+            const areaAlto = alto - arriba - abajo;
+            const areaAncho = ancho - izq - der;
+
+            let rejilla = '';
+            for (let t = 0; t <= 4; t++) {
+                const y = arriba + areaAlto - (areaAlto * t / 4);
+                rejilla += '<line x1="' + izq + '" y1="' + y + '" x2="' + (ancho - der) + '" y2="' + y + '" style="stroke:var(--border);" stroke-width="1"></line>'
+                    + '<text x="' + (izq - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="10" style="fill:var(--muted);">' + formatoCorto(tope * t / 4) + '</text>';
+            }
+
+            const n = valores.length;
+            let puntos = '';
+            let circulos = '';
+            let ejeX = '';
+            const cadaCuanto = Math.max(1, Math.ceil(n / 5));
+            for (let i = 0; i < n; i++) {
+                let x = izq + areaAncho / 2;
+                if (n > 1) {
+                    x = izq + (areaAncho * i / (n - 1));
+                }
+                const y = arriba + areaAlto - (areaAlto * valores[i] / tope);
+                puntos += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+                let texto = formatoCorto(valores[i]);
+                if (esDinero) {
+                    texto = formatearMoneda(valores[i]);
+                }
+                circulos += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3" style="fill:var(--accent-strong);"><title>Semana del ' + etiquetaSemana(etiquetas[i]) + ' al ' + etiquetaSemana(fechaMasDias(etiquetas[i], 6)) + ': ' + texto + '</title></circle>';
+                if (i % cadaCuanto === 0) {
+                    ejeX += '<text x="' + x.toFixed(1) + '" y="' + (alto - 8) + '" text-anchor="middle" font-size="10" style="fill:var(--muted);">' + etiquetaSemana(etiquetas[i]) + '</text>';
+                }
+            }
+            return '<svg viewBox="0 0 ' + ancho + ' ' + alto + '" width="100%" role="img">' + rejilla
+                + '<path d="' + puntos + '" fill="none" style="stroke:var(--accent-strong);" stroke-width="2"></path>'
+                + circulos + ejeX + '</svg>';
+        }
+
+        function graficaBarras(etiquetas, valores, esDinero) {
+            if (sumaLista(valores) <= 0) {
+                return '<p class="grafica-vacia">Sin datos en el periodo.</p>';
+            }
+            const ancho = 360;
+            const alto = 190;
+            const izq = 44;
+            const der = 10;
+            const arriba = 10;
+            const abajo = 26;
+            let max = 0;
+            for (let i = 0; i < valores.length; i++) {
+                if (valores[i] > max) {
+                    max = valores[i];
+                }
+            }
+            const tope = maximoRedondo(max);
+            const areaAlto = alto - arriba - abajo;
+            const areaAncho = ancho - izq - der;
+
+            let rejilla = '';
+            for (let t = 0; t <= 4; t++) {
+                const y = arriba + areaAlto - (areaAlto * t / 4);
+                rejilla += '<line x1="' + izq + '" y1="' + y + '" x2="' + (ancho - der) + '" y2="' + y + '" style="stroke:var(--border);" stroke-width="1"></line>'
+                    + '<text x="' + (izq - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="10" style="fill:var(--muted);">' + formatoCorto(tope * t / 4) + '</text>';
+            }
+
+            const n = valores.length;
+            const ranura = areaAncho / n;
+            const barra = ranura * 0.6;
+            let barras = '';
+            for (let i = 0; i < n; i++) {
+                const h = areaAlto * valores[i] / tope;
+                const x = izq + ranura * i + (ranura - barra) / 2;
+                const y = arriba + areaAlto - h;
+                let texto = formatoCorto(valores[i]);
+                if (esDinero) {
+                    texto = formatearMoneda(valores[i]);
+                }
+                let corta = String(etiquetas[i]);
+                if (corta.length > 8) {
+                    corta = corta.substring(0, 7) + '…';
+                }
+                barras += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barra.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" style="fill:var(--accent);"><title>' + esc(etiquetas[i]) + ': ' + texto + '</title></rect>'
+                    + '<text x="' + (x + barra / 2).toFixed(1) + '" y="' + (alto - 8) + '" text-anchor="middle" font-size="10" style="fill:var(--muted);">' + esc(corta) + '</text>';
+            }
+            return '<svg viewBox="0 0 ' + ancho + ' ' + alto + '" width="100%" role="img">' + rejilla + barras + '</svg>';
+        }
+
+        function tarjetaGrafica(titulo, subtitulo, contenido) {
+            return '<div class="grafica-card"><h4>' + esc(titulo) + '</h4><small>' + esc(subtitulo) + '</small>' + contenido + '</div>';
+        }
+
+        function tarjetaKpi(subtitulo, datos) {
+            let filas = '';
+            for (let i = 0; i < datos.length; i++) {
+                filas += '<div class="grafica-kpi"><span>' + esc(datos[i][0]) + '</span><strong>' + esc(datos[i][1]) + '</strong></div>';
+            }
+            return '<div class="grafica-card"><small>' + esc(subtitulo) + '</small>' + filas + '</div>';
+        }
+
+        function graficasProducto() {
+            const prod = productoPorId(decGlobal.productoId);
+            if (!prod) {
+                return '';
+            }
+            const s = ventasSemanalesProducto(decGlobal.productoId);
+            const sub = prod.nombre + ' (periodo de ' + diasDecision() + ' días)';
+            let html = tarjetaKpi(sub, [
+                ['Piezas vendidas', sumaLista(s.piezas).toFixed(0)],
+                ['Ingresos', formatearMoneda(sumaLista(s.ingresos))]
+            ]);
+            html += tarjetaGrafica('Ventas', 'piezas por semana', graficaLinea(s.etiquetas, s.piezas, false));
+            html += tarjetaGrafica('Ingresos', 'por semana', graficaLinea(s.etiquetas, s.ingresos, true));
+            if (decTipo === 'promocion' && decApoyo && decApoyo.rotacion) {
+                const etiquetas = [];
+                const valores = [];
+                for (let i = 0; i < decApoyo.rotacion.length && i < 6; i++) {
+                    etiquetas.push(decApoyo.rotacion[i].sku);
+                    valores.push(Number(decApoyo.rotacion[i].stock));
+                }
+                html += tarjetaGrafica('Piezas en stock', 'productos de menor rotación', graficaBarras(etiquetas, valores, false));
+            }
+            return html;
+        }
+
+        function graficasServicios() {
+            const s = serviciosSemanales();
+            let html = tarjetaKpi('Taller (periodo de ' + diasDecision() + ' días)', [
+                ['Servicios cobrados', sumaLista(s.servicios).toFixed(0)],
+                ['Ingresos', formatearMoneda(sumaLista(s.ingresos))]
+            ]);
+            html += tarjetaGrafica('Ingresos de mantenimiento', 'por semana', graficaLinea(s.etiquetas, s.ingresos, true));
+            html += tarjetaGrafica('Servicios', 'por semana', graficaLinea(s.etiquetas, s.servicios, false));
+            return html;
+        }
+
+        function graficasDescanso() {
+            if (!decApoyo || !decApoyo.atenciones) {
+                return '';
+            }
+            const etiquetas = [];
+            const valores = [];
+            let total = 0;
+            let menor = null;
+            for (let i = 0; i < decApoyo.atenciones.length; i++) {
+                const d = decApoyo.atenciones[i];
+                etiquetas.push(d.dia);
+                valores.push(Number(d.promedio));
+                total = total + Number(d.total);
+                if (d.ocurrencias > 0 && (menor === null || d.promedio < menor.promedio)) {
+                    menor = d;
+                }
+            }
+            let nombreMenor = '—';
+            if (menor) {
+                nombreMenor = menor.dia;
+            }
+            let html = tarjetaKpi('Atenciones (periodo de ' + diasDecision() + ' días)', [
+                ['Atenciones registradas', String(total)],
+                ['Día con menos movimiento', nombreMenor]
+            ]);
+            html += tarjetaGrafica('Atenciones', 'promedio por día de la semana', graficaBarras(etiquetas, valores, false));
+            const sem = serviciosSemanales();
+            html += tarjetaGrafica('Ingresos de mantenimiento', 'por semana', graficaLinea(sem.etiquetas, sem.ingresos, true));
+            return html;
+        }
+
+        function graficasProveedor() {
+            if (!decApoyo || !decApoyo.proveedores) {
+                return '';
+            }
+            const etiquetas = [];
+            const valores = [];
+            for (let i = 0; i < decApoyo.proveedores.length && i < 8; i++) {
+                etiquetas.push(decApoyo.proveedores[i].nombre);
+                valores.push(Number(decApoyo.proveedores[i].costoPromedio));
+            }
+            const c = comprasSemanales();
+            let html = tarjetaKpi('Compras (periodo de ' + diasDecision() + ' días)', [
+                ['Inversión con proveedores', formatearMoneda(sumaLista(c.inversion))],
+                ['Compras realizadas', sumaLista(c.compras).toFixed(0)]
+            ]);
+            html += tarjetaGrafica('Inversión con proveedores', 'por semana', graficaLinea(c.etiquetas, c.inversion, true));
+            html += tarjetaGrafica('Costo promedio', 'por pieza y proveedor (MXN)', graficaBarras(etiquetas, valores, true));
+            return html;
+        }
+
+        function renderizarGraficasDecision() {
+            const cont = document.getElementById('decGraficas');
+            if (!cont) {
+                return;
+            }
+            let html = '';
+            if (decTipo === 'piezas' || decTipo === 'precio' || decTipo === 'promocion') {
+                html = graficasProducto();
+            } else if (decTipo === 'mecanico') {
+                html = graficasServicios();
+            } else if (decTipo === 'descanso') {
+                html = graficasDescanso();
+            } else if (decTipo === 'proveedor') {
+                html = graficasProveedor();
+            }
+            if (html === '') {
+                cont.innerHTML = '';
+            } else {
+                cont.innerHTML = '<div class="grafica-grid">' + html + '</div>';
             }
         }
 
@@ -4143,6 +4620,8 @@
                 await prepararPrecioDecision();
                 renderizarApoyoDecision();
                 renderizarFormularioDecision();
+            } else if (decTipo === 'promocion') {
+                renderizarFormularioDecision();
             } else if (decTipo === 'piezas') {
                 const prod = productoPorId(decGlobal.productoId);
                 if (prod) {
@@ -4194,9 +4673,9 @@
             if (decTipo === 'precio') {
                 return '<tr><td>Precio ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"') + '</td><td>' + quitar + '</td></tr>';
             }
-            const datos = datosPromocion(a.producto, a.descuento);
+            const datos = datosPromocion(decGlobal.productoId, a.descuento);
             return `<tr>
-                <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;" onchange="cambiarProductoPromocion()">${opcionesProductosDecision(a.producto)}</select></td>
+                <td>Alternativa ${k + 1}</td>
                 <td><span id="decPrecioActual${k}">${formatearMoneda(datos.precio)}</span></td>
                 <td>${entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" oninput="actualizarFilaPromocion(' + k + ')"')}</td>
                 <td><span id="decPrecioPromo${k}">${formatearMoneda(datos.promo)}</span></td>
@@ -4225,7 +4704,7 @@
         }
 
         function actualizarFilaPromocion(k) {
-            const selector = document.getElementById('decAltProducto' + k);
+            const selector = document.getElementById('decProducto');
             const campo = document.getElementById('decAltDescuento' + k);
             if (!selector || !campo) {
                 return;
@@ -4337,9 +4816,13 @@
                     </div>`;
             } else if (decTipo === 'promocion') {
                 camposGlobales = `
+                    <div class="input-group">
+                        <label>Producto a promocionar</label>
+                        <select id="decProducto" onchange="cambiarProductoDecision()">${selectorProducto}</select>
+                    </div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Costo de la promoción ($ MXN, por producto)</label>
+                            <label>Costo de la promoción ($ MXN)</label>
                             <input type="number" id="decCostoPromo" value="${esc(g.costoPromo)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
@@ -4366,7 +4849,7 @@
                 encabezadoAlt = '<th>Día de descanso</th><th>Atenciones esperadas</th>';
                 encabezadoEsc = '<th>Escenario</th><th>Atenciones totales en la semana</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'promocion') {
-                encabezadoAlt = '<th>Producto</th><th>Precio actual</th><th>Descuento (%)</th><th>Precio promocional</th><th>Pérdida por pieza</th><th></th>';
+                encabezadoAlt = '<th>Alternativa</th><th>Precio actual</th><th>Descuento (%)</th><th>Precio promocional</th><th>Pérdida por pieza</th><th></th>';
                 encabezadoEsc = '<th>Escenario</th><th>% del stock que se vende</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'precio') {
                 encabezadoAlt = '<th>Alternativa</th><th>Precio de venta ($ MXN)</th><th></th>';
@@ -4424,7 +4907,7 @@
                 <p style="font-size:0.8rem;">Las probabilidades deben sumar 1.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
-            renderizarSistemaExperto();
+            renderizarGraficasDecision();
         }
 
         function agregarAlternativaDecision() {
@@ -4447,21 +4930,18 @@
                 }
                 nueva = { nombre: libre, valor: promedioDia(libre), costo: '', producto: '' };
             } else if (decTipo === 'promocion') {
-                const usados = [];
-                for (let i = 0; i < decAlternativas.length; i++) {
-                    usados.push(String(decAlternativas[i].producto));
-                }
-                let libre = null;
-                for (let i = 0; i < catalogoCache.length; i++) {
-                    if (libre === null && !contiene(usados, String(catalogoCache[i].id))) {
-                        libre = catalogoCache[i];
+                let ultimoDesc = 0;
+                if (decAlternativas.length > 0) {
+                    ultimoDesc = parseFloat(decAlternativas[decAlternativas.length - 1].descuento);
+                    if (Number.isNaN(ultimoDesc)) {
+                        ultimoDesc = 0;
                     }
                 }
-                if (libre === null) {
-                    alert('No hay más productos en el catálogo.');
-                    return;
+                let nuevoDesc = ultimoDesc + 5;
+                if (nuevoDesc > 100) {
+                    nuevoDesc = 100;
                 }
-                nueva = { nombre: '', valor: '', costo: '', descuento: decGlobal.descuento, producto: String(libre.id) };
+                nueva = { nombre: '', valor: '', costo: '', descuento: nuevoDesc, producto: decGlobal.productoId };
             } else if (decTipo === 'proveedor') {
                 const primero = productoPorId(decGlobal.productoId);
                 let costoBase = 0;
@@ -4627,7 +5107,12 @@
                 }
                 descuentos.push(descuento);
             }
-            cuerpo.productos = listaDe(decAlternativas, 'producto');
+            const productos = [];
+            for (let k = 0; k < decAlternativas.length; k++) {
+                productos.push(decGlobal.productoId);
+            }
+            cuerpo.producto_id = decGlobal.productoId;
+            cuerpo.productos = productos;
             cuerpo.descuentos = descuentos;
             cuerpo.descuento = descuentos[0];
             cuerpo.costo_promocion = decGlobal.costoPromo;
@@ -4726,7 +5211,7 @@
             let encabezadoCriterios = '';
             for (let c = 0; c < r.criterios.length; c++) {
                 const crit = r.criterios[c];
-                encabezadoCriterios += '<th>' + esc(crit.nombre) + '<br><span class="badge-tipo">' + esc(crit.tipoDecision) + '</span></th>';
+                encabezadoCriterios += '<th>' + esc(crit.nombre) + '</th>';
             }
 
             let filasCriterios = '';
@@ -4749,7 +5234,7 @@
                 const crit = r.criterios[c];
                 recomendaciones += `
                     <div class="summary-row">
-                        <span>${esc(crit.nombre)} <span class="badge-tipo">${esc(crit.tipoDecision)}</span></span>
+                        <span>${esc(crit.nombre)}</span>
                         <strong>${esc(r.etiquetasAlternativas[crit.mejor])}</strong>
                     </div>`;
             }
@@ -4767,6 +5252,21 @@
                 if (votos[clave] > votos[ganadora]) {
                     ganadora = Number(clave);
                 }
+            }
+
+            let bloqueExperto = '';
+            const experto = resultadoExperto();
+            if (experto) {
+                filasCriterios += `
+                    <tr>
+                        <td><strong>Sistema experto</strong></td>
+                        <td colspan="${r.criterios.length}">${experto.resumen} <span class="rec-${experto.regla.color}">${experto.regla.texto}</span></td>
+                    </tr>`;
+                bloqueExperto = `
+                    <div class="summary-row total">
+                        <span>Sistema experto (${experto.regla.id}): ${esc(experto.regla.motivo)}</span>
+                        <span class="rec-${experto.regla.color}">${experto.regla.texto}</span>
+                    </div>`;
             }
 
             let tituloPagos = 'atenciones conservadas';
@@ -4822,6 +5322,7 @@
                         <span>Alternativa recomendada por más criterios (${votos[ganadora]} de ${r.criterios.length}):</span>
                         <span>${esc(r.etiquetasAlternativas[ganadora])}</span>
                     </div>
+                    ${bloqueExperto}
                 </div>
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
@@ -4873,189 +5374,24 @@
             return null;
         }
 
-        function textoNivelStock(nivel) {
-            if (nivel === 'bajo') {
-                return 'bajo (' + umbralesExperto.stockBajo + ' piezas o menos)';
+        function resultadoExperto() {
+            if (decTipo !== 'piezas' && decTipo !== 'promocion') {
+                return null;
             }
-            if (nivel === 'alto') {
-                return 'alto (' + umbralesExperto.stockAlto + ' piezas o más)';
+            if (!decApoyo || !decApoyo.rotacion) {
+                return null;
             }
-            return 'medio (entre ' + (umbralesExperto.stockBajo + 1) + ' y ' + (umbralesExperto.stockAlto - 1) + ' piezas)';
-        }
-
-        function textoNivelRotacion(nivel) {
-            if (nivel === 'alta') {
-                return 'alta (' + umbralesExperto.rotAlta + ' vendidas o más)';
+            const p = buscarPorId(decApoyo.rotacion, decGlobal.productoId);
+            if (!p) {
+                return null;
             }
-            if (nivel === 'baja') {
-                return 'baja (' + umbralesExperto.rotBaja + ' vendidas o menos)';
+            const inf = aplicarReglasExperto(p);
+            if (!inf) {
+                return null;
             }
-            return 'media (entre ' + (umbralesExperto.rotBaja + 1) + ' y ' + (umbralesExperto.rotAlta - 1) + ' vendidas)';
-        }
-
-        function controlesExperto() {
-            return `
-                <div class="no-print" style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
-                    <h3 style="font-size:0.85rem; margin-bottom:10px;">Criterios del sistema experto</h3>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Stock bajo (piezas o menos)</label>
-                            <input type="number" id="expStockBajo" value="${umbralesExperto.stockBajo}" min="0" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label>Stock alto (piezas o más)</label>
-                            <input type="number" id="expStockAlto" value="${umbralesExperto.stockAlto}" min="1" step="1">
-                        </div>
-                    </div>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Rotación alta (vendidas o más en el periodo)</label>
-                            <input type="number" id="expRotAlta" value="${umbralesExperto.rotAlta}" min="1" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label>Rotación baja (vendidas o menos en el periodo)</label>
-                            <input type="number" id="expRotBaja" value="${umbralesExperto.rotBaja}" min="0" step="1">
-                        </div>
-                    </div>
-                    <div class="report-filter-actions">
-                        <button type="button" class="btn-secondary" onclick="aplicarUmbralesExperto()">Aplicar</button>
-                        <button type="button" class="btn-secondary" onclick="abrirReglasExperto()">Ver reglas</button>
-                    </div>
-                </div>`;
-        }
-
-        function renderizarSistemaExperto() {
-            const cont = document.getElementById('sistemaExperto');
-            if (!cont) {
-                return;
-            }
-            if (decTipo !== 'piezas') {
-                if (decTipo !== 'promocion') {
-                    cont.innerHTML = '';
-                    return;
-                }
-            }
-            if (!decApoyo) {
-                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
-                return;
-            }
-            if (!decApoyo.rotacion) {
-                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No se pudieron cargar los datos del sistema experto.</p></div>';
-                return;
-            }
-
-            if (decTipo === 'piezas') {
-                const p = buscarPorId(decApoyo.rotacion, decGlobal.productoId);
-                if (!p) {
-                    cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">Selecciona una refacción para ver la recomendación del sistema experto.</p></div>';
-                    return;
-                }
-                const inf = aplicarReglasExperto(p);
-                const regla = inf.regla;
-                cont.innerHTML = `
-                    <div class="summary-box">
-                        <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
-                        <p style="font-size:0.85rem; margin-bottom:8px;">Producto analizado: <strong>[${esc(p.sku)}] ${esc(p.nombre)}</strong>.</p>
-                        <div class="table-scroll"><table class="data-table">
-                            <thead><tr><th>Dato</th><th>Valor</th><th>Nivel</th></tr></thead>
-                            <tbody>
-                                <tr><td><strong>Stock actual</strong></td><td>${p.stock} piezas</td><td>${textoNivelStock(inf.nivelStock)}</td></tr>
-                                <tr><td><strong>Vendidas en los últimos ${decApoyo.dias} días</strong></td><td>${Number(p.vendidas).toFixed(0)} piezas</td><td>${textoNivelRotacion(inf.nivelRot)}</td></tr>
-                            </tbody>
-                        </table></div>
-                        <div class="summary-row"><span>Regla aplicada</span><span>${regla.id}: SI el stock es ${regla.stock} Y la rotación es ${regla.rotacion}</span></div>
-                        <div class="summary-row"><span>Motivo</span><span>${esc(regla.motivo)}</span></div>
-                        <div class="summary-row total"><span>Recomendación</span><span class="rec-${regla.color}">${regla.texto}</span></div>
-                        ${controlesExperto()}
-                    </div>`;
-                return;
-            }
-
-            let filas = '';
-            for (let k = 0; k < decAlternativas.length; k++) {
-                const p = buscarPorId(decApoyo.rotacion, decAlternativas[k].producto);
-                if (p) {
-                    const inf = aplicarReglasExperto(p);
-                    filas += `
-                        <tr>
-                            <td>${esc(p.sku)}</td>
-                            <td><strong>${esc(p.nombre)}</strong></td>
-                            <td>${p.stock}</td>
-                            <td>${Number(p.vendidas).toFixed(0)}</td>
-                            <td>${inf.nivelStock} / ${inf.nivelRot}</td>
-                            <td>${inf.regla.id}</td>
-                            <td><span class="rec-${inf.regla.color}">${inf.regla.texto}</span></td>
-                        </tr>`;
-                }
-            }
-            if (filas === '') {
-                filas = '<tr><td colspan="7" style="text-align:center;">No hay productos para analizar.</td></tr>';
-            }
-            cont.innerHTML = `
-                <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
-                    <div class="table-scroll"><table class="data-table">
-                        <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas</th><th>Nivel (stock / rotación)</th><th>Regla</th><th>Recomendación</th></tr></thead>
-                        <tbody>${filas}</tbody>
-                    </table></div>
-                    ${controlesExperto()}
-                </div>`;
-        }
-
-        function cambiarProductoPromocion() {
-            leerFormularioDecision();
-            renderizarFormularioDecision();
-        }
-
-        function aplicarUmbralesExperto() {
-            const stockBajo = parseInt(document.getElementById('expStockBajo').value);
-            const stockAlto = parseInt(document.getElementById('expStockAlto').value);
-            const rotAlta = parseInt(document.getElementById('expRotAlta').value);
-            const rotBaja = parseInt(document.getElementById('expRotBaja').value);
-
-            const umbrales = [stockBajo, stockAlto, rotAlta, rotBaja];
-            for (let i = 0; i < umbrales.length; i++) {
-                if (Number.isNaN(umbrales[i])) {
-                    alert('Captura los cuatro criterios con números.');
-                    return;
-                }
-            }
-            if (stockBajo >= stockAlto) {
-                alert('El stock bajo debe ser menor que el stock alto.');
-                return;
-            }
-            if (rotBaja >= rotAlta) {
-                alert('La rotación baja debe ser menor que la rotación alta.');
-                return;
-            }
-
-            umbralesExperto = { stockBajo: stockBajo, stockAlto: stockAlto, rotAlta: rotAlta, rotBaja: rotBaja };
-            renderizarSistemaExperto();
-        }
-
-        function abrirReglasExperto() {
-            let filas = '';
-            for (let i = 0; i < REGLAS_EXPERTO.length; i++) {
-                const r = REGLAS_EXPERTO[i];
-                filas += `
-                    <div class="summary-row">
-                        <span>${r.id}: SI el stock es ${r.stock} Y la rotación es ${r.rotacion}</span>
-                        <strong>${r.texto}</strong>
-                    </div>`;
-            }
-            document.getElementById('modalReglasContenido').innerHTML = `
-                <h4 style="font-size:0.85rem; margin-bottom:8px;">Reglas (SI condición ENTONCES recomendación):</h4>
-                ${filas}
-                <div class="formula-box">
-                    Stock bajo: ${umbralesExperto.stockBajo} piezas o menos. Stock alto: ${umbralesExperto.stockAlto} piezas o más. Cualquier otro valor es stock medio.<br>
-                    Rotación alta: ${umbralesExperto.rotAlta} piezas vendidas o más en el periodo. Rotación baja: ${umbralesExperto.rotBaja} o menos. Cualquier otro valor es rotación media.
-                </div>
-            `;
-            document.getElementById('modalReglasExperto').style.display = 'flex';
-        }
-
-        function cerrarReglasExperto() {
-            document.getElementById('modalReglasExperto').style.display = 'none';
+            const resumen = 'Stock ' + p.stock + ' (' + inf.nivelStock + ') · Vendidas ' + Number(p.vendidas).toFixed(0)
+                + ' en ' + decApoyo.dias + ' días (' + inf.nivelRot + ') · Regla ' + inf.regla.id + ':';
+            return { regla: inf.regla, resumen: resumen };
         }
 
         window.onload = function () {
