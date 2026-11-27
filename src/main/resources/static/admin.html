@@ -1671,7 +1671,7 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-             function resumenMecanico(nombre) {
+                function resumenMecanico(nombre) {
             let servicios = 0;
             let total = 0;
             for (let i = 0; i < cobrosCache.length; i++) {
@@ -3877,7 +3877,7 @@
                 const cantidades = [5, 10, 20];
                 decAlternativas = [];
                 for (let i = 0; i < cantidades.length; i++) {
-                    decAlternativas.push({ nombre: '', valor: cantidades[i], costo: '', producto: '' });
+                    decAlternativas.push({ nombre: '', valor: cantidades[i], costo: decGlobal.costo, descuento: '', producto: '' });
                 }
                 decEscenarios = armarEscenarios([['Demanda baja', 5], ['Demanda media', 10], ['Demanda alta', 20]]);
             } else if (decTipo === 'proveedor') {
@@ -3939,7 +3939,7 @@
                 return;
             }
             if (decTipo === 'piezas') {
-                cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">Datos de apoyo: el costo y el precio de la refacción salen del catálogo.</p></div>';
+                cont.innerHTML = '';
                 return;
             }
             if (decTipo === 'precio') {
@@ -4145,6 +4145,9 @@
                 const prod = productoPorId(decGlobal.productoId);
                 if (prod) {
                     decGlobal.costo = Number(prod.costo_compra);
+                    for (let k = 0; k < decAlternativas.length; k++) {
+                        decAlternativas[k].costo = Number(prod.costo_compra);
+                    }
                 }
                 renderizarFormularioDecision();
             }
@@ -4164,7 +4167,7 @@
                 quitar = '<button type="button" class="btn-remove-item" onclick="quitarAlternativaDecision(' + k + ')">Quitar</button>';
             }
             if (decTipo === 'piezas') {
-                return '<tr><td>Alternativa ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"') + '</td><td>' + entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" placeholder="0"') + '</td><td>' + quitar + '</td></tr>';
+                return '<tr><td>Alternativa ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"') + '</td><td>' + entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" placeholder="0"') + '</td><td>' + entradaDecision('decAltCosto' + k, a.costo, 'number', 'min="0" step="0.01"') + '</td><td>' + quitar + '</td></tr>';
             }
             if (decTipo === 'proveedor') {
                 return `<tr>
@@ -4242,16 +4245,6 @@
                     <div class="input-group">
                         <label>Refacción a analizar</label>
                         <select id="decProducto" onchange="cambiarProductoDecision()">${selectorProducto}</select>
-                    </div>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Costo por pieza ($ MXN, por defecto el último costo del catálogo)</label>
-                            <input type="number" id="decCosto" value="${esc(g.costo)}" min="0" step="0.01">
-                        </div>
-                        <div class="input-group">
-                            <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
-                            <input type="number" id="decRescate" value="${esc(g.rescate)}" min="0" step="0.01">
-                        </div>
                     </div>
                     <div class="input-group">
                         <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
@@ -4335,7 +4328,7 @@
                     </div>`;
             }
 
-            let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th>Descuento del proveedor (%)</th><th></th>';
+            let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th>Descuento del proveedor (%)</th><th>Costo por pieza ($ MXN)</th><th></th>';
             let encabezadoEsc = '<th>Escenario</th><th>Demanda (piezas)</th><th>Probabilidad</th><th></th>';
             if (decTipo === 'proveedor') {
                 encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza</th><th>Pedido (piezas)</th><th></th>';
@@ -4385,9 +4378,6 @@
                 notaProveedor = '<p style="font-size:0.8rem; margin-bottom:10px;">' + esc(decNotaProv) + '</p>';
             }
             let notaPiezas = '';
-            if (decTipo === 'piezas') {
-                notaPiezas = '<p style="font-size:0.8rem; margin-bottom:10px;">El costo por pieza se toma de este campo y no del módulo de compras, así que puedes cambiarlo si el proveedor modificó su precio. El descuento es opcional: déjalo vacío si no hay descuento. Costo considerado = costo por pieza × (1 − descuento).</p>';
-            }
             let notaPrecio = '';
             if (decTipo === 'precio') {
                 notaPrecio = '<p style="font-size:0.8rem; margin-bottom:10px;">Piezas esperadas = demanda base × factor del escenario × (precio / precio actual) ^ elasticidad. La elasticidad es un supuesto: tus ventas no muestran cómo reacciona la demanda a precios distintos.</p>';
@@ -4482,7 +4472,7 @@
                 }
                 nueva = { nombre: '', valor: redondear(ultimo * 1.1), costo: '', producto: '' };
             } else {
-                nueva = { nombre: '', valor: 0, costo: '', producto: '' };
+                nueva = { nombre: '', valor: 10, costo: decGlobal.costo, descuento: '', producto: '' };
             }
             decAlternativas.push(nueva);
             renderizarFormularioDecision();
@@ -4520,32 +4510,32 @@
         }
 
         function armarCuerpoPiezas(cuerpo) {
-            const costoBase = parseFloat(decGlobal.costo);
-            if (Number.isNaN(costoBase) || costoBase < 0) {
-                alert('Captura un costo por pieza válido.');
-                return false;
-            }
             const nombresAlt = [];
             const costosAlt = [];
             for (let k = 0; k < decAlternativas.length; k++) {
+                const costoBase = parseFloat(decAlternativas[k].costo);
+                if (Number.isNaN(costoBase) || costoBase < 0) {
+                    alert('Captura un costo por pieza válido en la alternativa ' + (k + 1) + '.');
+                    return false;
+                }
                 let descuento = parseFloat(decAlternativas[k].descuento);
                 if (Number.isNaN(descuento)) {
                     descuento = 0;
                 }
                 if (descuento < 0 || descuento > 100) {
-                    alert('El descuento debe estar entre 0 y 100.');
+                    alert('El descuento de la alternativa ' + (k + 1) + ' debe estar entre 0 y 100.');
                     return false;
                 }
                 const costoFinal = Math.round(costoBase * (1 - descuento / 100) * 10000) / 10000;
                 const piezas = decAlternativas[k].valor;
-                const nombre = 'Surtir ' + piezas + ' pzas';
+                const nombre = 'Alternativa ' + (k + 1) + ' (' + piezas + ' pzas)';
                 nombresAlt.push(nombre);
                 costosAlt.push(costoFinal);
-                decCostosPiezas.push({ nombre: nombre, piezas: Number(piezas), descuento: descuento, costo: costoFinal });
+                decCostosPiezas.push({ nombre: nombre, piezas: Number(piezas), descuento: descuento, costoBase: costoBase, costo: costoFinal });
             }
             cuerpo.tipo = 'proveedor';
             cuerpo.producto_id = decGlobal.productoId;
-            cuerpo.rescate = decGlobal.rescate;
+            cuerpo.rescate = 0;
             cuerpo.alternativas = listaDe(decAlternativas, 'valor');
             cuerpo.costos = costosAlt;
             cuerpo.nombres_alternativas = nombresAlt;
@@ -4718,6 +4708,7 @@
                     filasCosto += `
                         <tr>
                             <td><strong>${esc(c.nombre)}</strong></td>
+                            <td>${formatearMoneda(c.costoBase)}</td>
                             <td>${c.descuento}%</td>
                             <td>${formatearMoneda(c.costo)}</td>
                             <td>${formatearMoneda(c.costo * c.piezas)}</td>
@@ -4727,17 +4718,13 @@
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Costo considerado en cada alternativa</h3>
                         <div class="table-scroll"><table class="data-table">
-                            <thead><tr><th>Alternativa</th><th>Descuento del proveedor</th><th>Costo por pieza</th><th>Inversión</th></tr></thead>
+                            <thead><tr><th>Alternativa</th><th>Costo por pieza</th><th>Descuento</th><th>Costo con descuento</th><th>Inversión</th></tr></thead>
                             <tbody>${filasCosto}</tbody>
                         </table></div>
                     </div>`;
             }
 
             document.getElementById('resultadoDecision').innerHTML = `
-                <div class="summary-box">
-                    <h3 style="font-size:0.95rem;">Tipo de problema: ${esc(r.tipoProblema)}</h3>
-                    <p style="font-size:0.85rem;">${esc(r.descripcion)}</p>
-                </div>
                 ${cajaCostos}
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Tabla de pagos (${tituloPagos} de cada alternativa en cada escenario)</h3>
@@ -4835,7 +4822,7 @@
         function controlesExperto() {
             return `
                 <div class="no-print" style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
-                    <h3 style="font-size:0.85rem; margin-bottom:10px;">Umbrales del sistema experto</h3>
+                    <h3 style="font-size:0.85rem; margin-bottom:10px;">Criterios del sistema experto</h3>
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Stock bajo (piezas o menos)</label>
@@ -4956,7 +4943,7 @@
             const umbrales = [stockBajo, stockAlto, rotAlta, rotBaja];
             for (let i = 0; i < umbrales.length; i++) {
                 if (Number.isNaN(umbrales[i])) {
-                    alert('Captura los cuatro umbrales con números.');
+                    alert('Captura los cuatro criterios con números.');
                     return;
                 }
             }
@@ -5003,4 +4990,4 @@
         };
     </script>
 </body>
-</html>   
+</html>
