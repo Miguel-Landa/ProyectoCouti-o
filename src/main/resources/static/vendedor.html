@@ -1173,8 +1173,7 @@
                     </div>`;
             }
         }
-
-        function renderizarConsultaStock() {
+                function renderizarConsultaStock() {
             const panel = document.getElementById('panel-contenido');
 
             panel.innerHTML = `
@@ -1303,13 +1302,6 @@
                         </div>
                     </div>
 
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label>Monto Recibido del Cliente ($ MXN)</label>
-                            <input type="number" id="ventaMontoRecibido" min="0" step="0.01" placeholder="Ej. 500.00" oninput="actualizarCambioVenta()">
-                        </div>
-                    </div>
-
                     <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;">
                         <div class="input-group" style="margin-bottom:0; flex:1;">
                             <label>Filtrar / Buscar por Código</label>
@@ -1335,7 +1327,13 @@
                             <div class="summary-row"><span>Subtotal:</span><span id="lblSubtotal">$0.00 MXN</span></div>
                             <div class="summary-row"><span>IVA (16%):</span><span id="lblIva">$0.00 MXN</span></div>
                             <div class="summary-row total"><span>Total a Cobrar:</span><span id="lblTotal" style="color: #22c55e;">$0.00 MXN</span></div>
-                            <div class="summary-row"><span>Monto Recibido:</span><span id="lblRecibido">$0.00 MXN</span></div>
+                            <div class="summary-row" style="align-items:center;">
+                                <span>Monto Recibido ($ MXN):</span>
+                                <div class="input-group" style="width:130px; margin-bottom:0;">
+                                    <input type="number" id="ventaMontoRecibido" min="0" step="0.01" placeholder="0.00" oninput="actualizarCambioVenta()" style="text-align:right; padding:6px 8px; font-size:0.85rem;">
+                                </div>
+                            </div>
+                            <span id="lblRecibido" style="display:none;">$0.00 MXN</span>
                             <div class="summary-row total"><span id="lblCambioTitulo">Cambio a Entregar:</span><span id="lblCambio" class="cambio-ok">$0.00 MXN</span></div>
                         </div>
                     </div>
@@ -1628,7 +1626,8 @@
                 }
             }
         }
-                function renderizarModuloCotizaciones() {
+
+        function renderizarModuloCotizaciones() {
             const panel = document.getElementById('panel-contenido');
 
             panel.innerHTML = `
@@ -1891,7 +1890,6 @@
             }
             document.getElementById('contenedorListaHistorial').innerHTML = html;
         }
-
         function mostrarHistorialVentas(fechaInicio, fechaFin) {
             const hoy = fechaLocalISO(new Date());
             let inicio = hoy;
