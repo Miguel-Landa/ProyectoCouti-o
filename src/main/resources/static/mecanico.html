@@ -1006,7 +1006,7 @@
                     </div>`;
             }
         }
-                async function renderizarFormularioMantenimientoOriginal() {
+            async function renderizarFormularioMantenimientoOriginal() {
             refaccionesMantenimientoForm = [];
             const respuestaFolio = await api('/api/citas/siguiente-folio');
             const folio = respuestaFolio.folio;
@@ -1821,8 +1821,8 @@
                             <div class="summary-row total"><span>Total a Cobrar al Cliente:</span><span id="lblCobroTotal" style="color: #22c55e;">$348.00 MXN</span></div>
                             <div class="summary-row" style="align-items:center;">
                                 <span>Monto Recibido ($ MXN):</span>
-                                <div class="input-group" style="width:180px;">
-                                    <input type="number" id="cobroMontoRecibido" min="0" step="0.01" placeholder="Ej. 500.00" oninput="actualizarCambioCobro()" style="text-align:right;">
+                                <div class="input-group" style="width:130px; margin-bottom:0;">
+                                    <input type="number" id="cobroMontoRecibido" min="0" step="0.01" placeholder="0.00" oninput="actualizarCambioCobro()" style="text-align:right; padding:6px 8px; font-size:0.85rem;">
                                 </div>
                             </div>
                             <div class="summary-row total"><span id="lblCobroCambioTitulo">Cambio a Entregar:</span><span id="lblCobroCambio" style="color: #22c55e;">$0.00 MXN</span></div>
