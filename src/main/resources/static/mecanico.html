@@ -773,6 +773,7 @@
         let servicioSeleccionadoParaCobro = null;
         let historialCobros = [];
         let filtroPlacaCobro = '';
+        let totalCobroActual = 0;
 
         function buscarPorId(lista, id) {
             for (let i = 0; i < lista.length; i++) {
@@ -1005,8 +1006,7 @@
                     </div>`;
             }
         }
-
-        async function renderizarFormularioMantenimientoOriginal() {
+                async function renderizarFormularioMantenimientoOriginal() {
             refaccionesMantenimientoForm = [];
             const respuestaFolio = await api('/api/citas/siguiente-folio');
             const folio = respuestaFolio.folio;
@@ -1819,6 +1819,13 @@
                             <div class="summary-row"><span>Subtotal General:</span><span id="lblCobroSubtotal">$300.00 MXN</span></div>
                             <div class="summary-row"><span>IVA (16%):</span><span id="lblCobroIva">$48.00 MXN</span></div>
                             <div class="summary-row total"><span>Total a Cobrar al Cliente:</span><span id="lblCobroTotal" style="color: #22c55e;">$348.00 MXN</span></div>
+                            <div class="summary-row" style="align-items:center;">
+                                <span>Monto Recibido ($ MXN):</span>
+                                <div class="input-group" style="width:180px;">
+                                    <input type="number" id="cobroMontoRecibido" min="0" step="0.01" placeholder="Ej. 500.00" oninput="actualizarCambioCobro()" style="text-align:right;">
+                                </div>
+                            </div>
+                            <div class="summary-row total"><span id="lblCobroCambioTitulo">Cambio a Entregar:</span><span id="lblCobroCambio" style="color: #22c55e;">$0.00 MXN</span></div>
                         </div>
                     </div>
 
@@ -1830,8 +1837,7 @@
                 actualizarTotalesCobroModulo();
             }
         }
-
-        function seleccionarServicioParaCobrar(folio) {
+                function seleccionarServicioParaCobrar(folio) {
             const servicio = buscarCitaPorFolio(folio);
             if (!servicio) {
                 return;
@@ -1970,6 +1976,34 @@
             document.getElementById('lblCobroSubtotal').innerText = '$' + subtotalGen.toFixed(2) + ' MXN';
             document.getElementById('lblCobroIva').innerText = '$' + iva.toFixed(2) + ' MXN';
             document.getElementById('lblCobroTotal').innerText = '$' + total.toFixed(2) + ' MXN';
+            totalCobroActual = total;
+            actualizarCambioCobro();
+        }
+
+        function actualizarCambioCobro() {
+            const campo = document.getElementById('cobroMontoRecibido');
+            const lblTitulo = document.getElementById('lblCobroCambioTitulo');
+            const lblCambio = document.getElementById('lblCobroCambio');
+            if (!campo || !lblTitulo || !lblCambio) {
+                return;
+            }
+            const total = Math.round(totalCobroActual * 100) / 100;
+            const capturado = campo.value !== '';
+            const recibido = Math.round((parseFloat(campo.value) || 0) * 100) / 100;
+
+            if (capturado && recibido < total) {
+                lblTitulo.innerText = 'Faltan por Cobrar:';
+                lblCambio.innerText = '$' + (Math.round((total - recibido) * 100) / 100).toFixed(2) + ' MXN';
+                lblCambio.style.color = '#c76363';
+            } else {
+                lblTitulo.innerText = 'Cambio a Entregar:';
+                let cambio = 0;
+                if (capturado) {
+                    cambio = Math.round((recibido - total) * 100) / 100;
+                }
+                lblCambio.innerText = '$' + cambio.toFixed(2) + ' MXN';
+                lblCambio.style.color = '#22c55e';
+            }
         }
 
         async function finalizarCobroMantenimiento(boton) {
@@ -1986,6 +2020,13 @@
 
             if (!document.getElementById('cobroMecanicoSelect').value) {
                 alert('Registra al menos un mecánico activo en el panel del administrador.');
+                return;
+            }
+
+            const campoRecibido = document.getElementById('cobroMontoRecibido');
+            if (campoRecibido && campoRecibido.value !== ''
+                && Math.round(parseFloat(campoRecibido.value) * 100) < Math.round(totalCobroActual * 100)) {
+                alert('El monto recibido es menor al total a cobrar. Captura el monto con el que paga el cliente.');
                 return;
             }
 
