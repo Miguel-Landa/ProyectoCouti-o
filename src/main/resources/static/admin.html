@@ -1671,7 +1671,8 @@
                 alert('No se pudo eliminar: ' + e.message);
             }
         }
-                function resumenMecanico(nombre) {
+    
+        function resumenMecanico(nombre) {
             let servicios = 0;
             let total = 0;
             for (let i = 0; i < cobrosCache.length; i++) {
@@ -3327,7 +3328,7 @@
                 mostrarErrorCarga(e, 'compras');
             }
         }
-                function mostrarMovimientos() {
+            function mostrarMovimientos() {
             const inicio = rangoMovimientos.inicio;
             const fin = rangoMovimientos.fin;
 
@@ -3603,27 +3604,27 @@
         const TIPOS_DECISION = {
             piezas: {
                 nombre: 'Cuántas piezas surtir',
-                descripcion: 'Decide cuántas piezas de una refacción conviene surtir según la demanda que puedes enfrentar. El costo y el precio salen del catálogo.'
+                descripcion: 'Cuántas piezas de una refacción conviene surtir.'
             },
             proveedor: {
                 nombre: 'Qué proveedor elegir',
-                descripcion: 'Compara proveedores para una misma refacción según su costo por pieza y el pedido que exige cada uno, frente a distintos niveles de demanda. El costo sale de la última compra a cada proveedor.'
+                descripcion: 'Compara proveedores según costo, descuento y pedido.'
             },
             mecanico: {
                 nombre: 'Contratar otro mecánico',
-                descripcion: 'Compara no contratar, medio tiempo o tiempo completo según los servicios por mes que puedes recibir, el ingreso por servicio y el costo mensual.'
+                descripcion: 'Compara no contratar, medio tiempo o tiempo completo.'
             },
             descanso: {
                 nombre: 'Qué día descansar',
-                descripcion: 'Elige el día de descanso con menos movimiento. Se cuentan las atenciones por día de la semana: citas previas y clientes sin cita (por su fecha de captura). No usa dinero.'
+                descripcion: 'Elige el día de descanso con menos movimiento.'
             },
             promocion: {
                 nombre: 'Qué productos promocionar',
-                descripcion: 'Compara productos de baja rotación para promocionar, según el margen con descuento y la parte del stock que se logra vender.'
+                descripcion: 'Compara productos de baja rotación para promocionar.'
             },
             precio: {
                 nombre: 'A qué precio vender',
-                descripcion: 'Compara precios de venta de una refacción. El sistema toma la demanda real de tus ventas y calcula las piezas esperadas con cada precio según la elasticidad (supuesto editable); el pago es (precio − costo) × piezas.'
+                descripcion: 'Compara precios de venta de una refacción.'
             }
         };
 
@@ -3704,14 +3705,13 @@
                             <select id="decTipoSelect" onchange="cambiarTipoDecision(this.value)">${opcionesTipo}</select>
                         </div>
                         <div class="input-group">
-                            <label>Periodo de los datos de apoyo (días)</label>
+                            <label>Periodo (días)</label>
                             <div style="display:flex; gap:10px;">
                                 <input type="number" id="decDias" value="90" min="7" max="365" step="1">
                                 <button type="button" class="btn-secondary" onclick="actualizarApoyoDecision()">Actualizar datos</button>
                             </div>
                         </div>
                     </div>
-                    <p style="font-size:0.8rem;">Al actualizar los datos del periodo se restablecen los valores sugeridos de la tabla.</p>
                 </div>
                 <div id="decApoyo"></div>
                 <div class="summary-box no-print" id="decFormulario"></div>
@@ -3793,7 +3793,7 @@
             const alts = [];
             const usados = [];
             for (let i = 0; i < costos.length && i < 7; i++) {
-                alts.push({ nombre: costos[i].proveedor, valor: 10, costo: costos[i].costo, producto: '' });
+                alts.push({ nombre: costos[i].proveedor, valor: 10, costo: costos[i].costo, descuento: '', producto: '' });
                 usados.push(costos[i].proveedor);
             }
 
@@ -3810,14 +3810,14 @@
                 }
                 for (let i = 0; i < registrados.length; i++) {
                     if (alts.length < 3 && !contiene(usados, registrados[i].nombre)) {
-                        alts.push({ nombre: registrados[i].nombre, valor: 10, costo: redondear(costoBase), producto: '' });
+                        alts.push({ nombre: registrados[i].nombre, valor: 10, costo: redondear(costoBase), descuento: '', producto: '' });
                         usados.push(registrados[i].nombre);
                     }
                 }
             }
 
             while (alts.length < 2) {
-                alts.push({ nombre: 'Proveedor ' + String.fromCharCode(65 + alts.length), valor: 10, costo: redondear(costoBase), producto: '' });
+                alts.push({ nombre: 'Proveedor ' + String.fromCharCode(65 + alts.length), valor: 10, costo: redondear(costoBase), descuento: '', producto: '' });
             }
             decAlternativas = alts;
         }
@@ -3907,7 +3907,15 @@
                 for (let i = 0; i < DIAS_SEMANA.length; i++) {
                     decAlternativas.push({ nombre: DIAS_SEMANA[i], valor: promedioDia(DIAS_SEMANA[i]), costo: '', producto: '' });
                 }
-                decEscenarios = armarEscenarios([['Afluencia baja', 0.8], ['Afluencia normal', 1], ['Afluencia alta', 1.2]]);
+                let sumaDias = 0;
+                for (let i = 0; i < DIAS_SEMANA.length; i++) {
+                    sumaDias = sumaDias + Number(promedioDia(DIAS_SEMANA[i]));
+                }
+                decEscenarios = armarEscenarios([
+                    ['Semana baja', redondear(sumaDias * 0.8)],
+                    ['Semana normal', redondear(sumaDias)],
+                    ['Semana alta', redondear(sumaDias * 1.2)]
+                ]);
             } else if (decTipo === 'promocion') {
                 const candidatos = [];
                 if (ap) {
@@ -3924,7 +3932,7 @@
                 }
                 decAlternativas = [];
                 for (let i = 0; i < candidatos.length; i++) {
-                    decAlternativas.push({ nombre: '', valor: '', costo: '', producto: candidatos[i] });
+                    decAlternativas.push({ nombre: '', valor: '', costo: '', descuento: decGlobal.descuento, producto: candidatos[i] });
                 }
                 decEscenarios = armarEscenarios([['Respuesta baja', 20], ['Respuesta media', 40], ['Respuesta alta', 70]]);
             } else if (decTipo === 'precio') {
@@ -3968,7 +3976,6 @@
                             <div class="report-total-card">Piezas vendidas en el periodo<strong>${vendidas.toFixed(0)}</strong></div>
                             <div class="report-total-card">Demanda mensual real<strong>${mensual.toFixed(1)}</strong></div>
                         </div>
-                        <p style="font-size:0.8rem;">${esc(decNotaPrecio)}</p>
                     </div>`;
                 return;
             }
@@ -3998,7 +4005,6 @@
                         <tr>
                             <td>${marca}<strong>${esc(d.dia)}</strong></td>
                             <td>${d.total}</td>
-                            <td>${d.ocurrencias}</td>
                             <td>${Number(d.promedio).toFixed(2)}</td>
                         </tr>`;
                 }
@@ -4006,10 +4012,9 @@
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Atenciones por día de la semana (${periodo})</h3>
                         <div class="table-scroll"><table class="data-table">
-                            <thead><tr><th>Día</th><th>Atenciones registradas</th><th>Veces que ocurrió el día</th><th>Promedio por día</th></tr></thead>
+                            <thead><tr><th>Día</th><th>Atenciones registradas</th><th>Promedio por día</th></tr></thead>
                             <tbody>${filas}</tbody>
                         </table></div>
-                        <p style="font-size:0.8rem; margin-top:8px;">(menor) marca el día con menor movimiento. Se cuentan citas previas y clientes sin cita por su fecha de captura.</p>
                     </div>`;
             } else if (decTipo === 'promocion') {
                 let filas = '';
@@ -4021,20 +4026,18 @@
                             <td>${esc(p.nombre)}</td>
                             <td>${p.stock}</td>
                             <td>${Number(p.vendidas).toFixed(0)}</td>
-                            <td>${Number(p.rotacion).toFixed(2)}</td>
                         </tr>`;
                 }
                 if (filas === '') {
-                    filas = '<tr><td colspan="5" style="text-align:center;">No hay productos registrados.</td></tr>';
+                    filas = '<tr><td colspan="4" style="text-align:center;">No hay productos registrados.</td></tr>';
                 }
                 cont.innerHTML = `
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Productos con menor rotación (${periodo})</h3>
                         <div class="table-scroll"><table class="data-table">
-                            <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Piezas vendidas</th><th>Rotación (vendidas / stock)</th></tr></thead>
+                            <thead><tr><th>SKU</th><th>Producto</th><th>Stock</th><th>Piezas vendidas</th></tr></thead>
                             <tbody>${filas}</tbody>
                         </table></div>
-                        <p style="font-size:0.8rem; margin-top:8px;">Cuenta ventas de mostrador y refacciones usadas en servicios cobrados.</p>
                     </div>`;
             } else if (decTipo === 'proveedor') {
                 let filas = '';
@@ -4057,7 +4060,6 @@
                             <thead><tr><th>Proveedor</th><th>Productos que surte</th><th>Costo promedio por pieza</th></tr></thead>
                             <tbody>${filas}</tbody>
                         </table></div>
-                        <p style="font-size:0.8rem; margin-top:8px;">${esc(decNotaProv)}</p>
                     </div>`;
             } else if (decTipo === 'mecanico') {
                 const s = decApoyo.servicios;
@@ -4163,7 +4165,7 @@
 
         function filaAlternativaDecision(a, k) {
             let quitar = '';
-            if (decAlternativas.length > 2) {
+            if (decAlternativas.length > 2 && decTipo !== 'descanso') {
                 quitar = '<button type="button" class="btn-remove-item" onclick="quitarAlternativaDecision(' + k + ')">Quitar</button>';
             }
             if (decTipo === 'piezas') {
@@ -4173,6 +4175,7 @@
                 return `<tr>
                     <td><input type="text" class="celda-decision" id="decAltNombre${k}" value="${esc(a.nombre)}" list="listaProveedoresDecision" maxlength="60"></td>
                     <td>${entradaDecision('decAltCosto' + k, a.costo, 'number', 'min="0" step="0.01"')}</td>
+                    <td>${entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" placeholder="0"')}</td>
                     <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"')}</td>
                     <td>${quitar}</td></tr>`;
             }
@@ -4184,25 +4187,53 @@
                     <td>${quitar}</td></tr>`;
             }
             if (decTipo === 'descanso') {
-                let dias = '';
-                for (let i = 0; i < DIAS_SEMANA.length; i++) {
-                    let marca = '';
-                    if (DIAS_SEMANA[i] === a.nombre) {
-                        marca = 'selected';
-                    }
-                    dias += '<option value="' + DIAS_SEMANA[i] + '" ' + marca + '>' + DIAS_SEMANA[i] + '</option>';
-                }
                 return `<tr>
-                    <td><select class="celda-decision" id="decAltNombre${k}" onchange="cambiarDiaDecision(${k})">${dias}</select></td>
-                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td>
-                    <td>${quitar}</td></tr>`;
+                    <td><strong>${esc(a.nombre)}</strong><input type="hidden" id="decAltNombre${k}" value="${esc(a.nombre)}"></td>
+                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td></tr>`;
             }
             if (decTipo === 'precio') {
                 return '<tr><td>Precio ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"') + '</td><td>' + quitar + '</td></tr>';
             }
+            const datos = datosPromocion(a.producto, a.descuento);
             return `<tr>
                 <td><select class="celda-decision" id="decAltProducto${k}" style="width:100%;" onchange="cambiarProductoPromocion()">${opcionesProductosDecision(a.producto)}</select></td>
+                <td><span id="decPrecioActual${k}">${formatearMoneda(datos.precio)}</span></td>
+                <td>${entradaDecision('decAltDescuento' + k, a.descuento, 'number', 'min="0" max="100" step="0.1" oninput="actualizarFilaPromocion(' + k + ')"')}</td>
+                <td><span id="decPrecioPromo${k}">${formatearMoneda(datos.promo)}</span></td>
+                <td><strong class="dif-falta" id="decPerdidaPieza${k}">${formatearMoneda(datos.perdida)}</strong></td>
                 <td>${quitar}</td></tr>`;
+        }
+
+        function datosPromocion(productoId, descuento) {
+            const prod = productoPorId(productoId);
+            let precio = 0;
+            if (prod) {
+                precio = Number(prod.precio);
+            }
+            let d = parseFloat(descuento);
+            if (Number.isNaN(d)) {
+                d = 0;
+            }
+            if (d < 0) {
+                d = 0;
+            }
+            if (d > 100) {
+                d = 100;
+            }
+            const promo = precio * (1 - d / 100);
+            return { precio: precio, promo: promo, perdida: precio - promo };
+        }
+
+        function actualizarFilaPromocion(k) {
+            const selector = document.getElementById('decAltProducto' + k);
+            const campo = document.getElementById('decAltDescuento' + k);
+            if (!selector || !campo) {
+                return;
+            }
+            const datos = datosPromocion(selector.value, campo.value);
+            document.getElementById('decPrecioActual' + k).innerText = formatearMoneda(datos.precio);
+            document.getElementById('decPrecioPromo' + k).innerText = formatearMoneda(datos.promo);
+            document.getElementById('decPerdidaPieza' + k).innerText = formatearMoneda(datos.perdida);
         }
 
         function filaEscenarioDecision(e, k) {
@@ -4212,7 +4243,7 @@
             }
             let paso = 'min="0" step="1"';
             if (decTipo === 'descanso') {
-                paso = 'min="0.1" step="0.05"';
+                paso = 'min="0" step="0.1"';
             }
             if (decTipo === 'precio') {
                 paso = 'min="0.1" step="0.05"';
@@ -4247,7 +4278,7 @@
                         <select id="decProducto" onchange="cambiarProductoDecision()">${selectorProducto}</select>
                     </div>
                     <div class="input-group">
-                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                        <label>Optimismo α (Hurwicz, 0 a 1)</label>
                         <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                     </div>`;
             } else if (decTipo === 'proveedor') {
@@ -4258,11 +4289,11 @@
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Valor de rescate por pieza sobrante ($ MXN, 0 si no se recupera nada)</label>
+                            <label>Valor de rescate por pieza ($ MXN)</label>
                             <input type="number" id="decRescate" value="${esc(g.rescate)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
-                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <label>Optimismo α (Hurwicz, 0 a 1)</label>
                             <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                         </div>
                     </div>`;
@@ -4274,21 +4305,21 @@
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Costo por pieza ($ MXN, por defecto el último costo de compra)</label>
+                            <label>Costo por pieza ($ MXN)</label>
                             <input type="number" id="decCosto" value="${esc(g.costo)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
-                            <label>Demanda base (piezas por mes, de tus ventas reales)</label>
+                            <label>Demanda base (piezas por mes)</label>
                             <input type="number" id="decDemandaBase" value="${esc(g.demandaBase)}" min="0" step="0.1">
                         </div>
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Elasticidad precio de la demanda (supuesto, negativa: −1 = si el precio sube 10 %, la demanda baja 10 %)</label>
+                            <label>Elasticidad precio (demanda)</label>
                             <input type="number" id="decElasticidad" value="${esc(g.elasticidad)}" max="0" step="0.1">
                         </div>
                         <div class="input-group">
-                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <label>Optimismo α (Hurwicz, 0 a 1)</label>
                             <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                         </div>
                     </div>`;
@@ -4300,7 +4331,7 @@
                             <input type="number" id="decIngreso" value="${esc(g.ingreso)}" min="0" step="0.01">
                         </div>
                         <div class="input-group">
-                            <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                            <label>Optimismo α (Hurwicz, 0 a 1)</label>
                             <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                         </div>
                     </div>`;
@@ -4308,22 +4339,18 @@
                 camposGlobales = `
                     <div class="form-grid">
                         <div class="input-group">
-                            <label>Descuento de la promoción (%)</label>
-                            <input type="number" id="decDescuento" value="${esc(g.descuento)}" min="0" max="100" step="1">
-                        </div>
-                        <div class="input-group">
                             <label>Costo de la promoción ($ MXN, por producto)</label>
                             <input type="number" id="decCostoPromo" value="${esc(g.costoPromo)}" min="0" step="0.01">
                         </div>
-                    </div>
-                    <div class="input-group">
-                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
-                        <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                        <div class="input-group">
+                            <label>Optimismo α (Hurwicz, 0 a 1)</label>
+                            <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
+                        </div>
                     </div>`;
             } else {
                 camposGlobales = `
                     <div class="input-group">
-                        <label>Coeficiente de optimismo α de Hurwicz (0 a 1)</label>
+                        <label>Optimismo α (Hurwicz, 0 a 1)</label>
                         <input type="number" id="decAlfa" value="${esc(g.alfa)}" min="0" max="1" step="0.1">
                     </div>`;
             }
@@ -4331,19 +4358,19 @@
             let encabezadoAlt = '<th>Alternativa</th><th>Piezas a surtir</th><th>Descuento del proveedor (%)</th><th>Costo por pieza ($ MXN)</th><th></th>';
             let encabezadoEsc = '<th>Escenario</th><th>Demanda (piezas)</th><th>Probabilidad</th><th></th>';
             if (decTipo === 'proveedor') {
-                encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza</th><th>Pedido (piezas)</th><th></th>';
+                encabezadoAlt = '<th>Proveedor</th><th>Costo por pieza ($ MXN)</th><th>Descuento (%)</th><th>Pedido (piezas)</th><th></th>';
             } else if (decTipo === 'mecanico') {
                 encabezadoAlt = '<th>Opción</th><th>Capacidad (servicios/mes)</th><th>Costo mensual</th><th></th>';
                 encabezadoEsc = '<th>Escenario</th><th>Servicios por mes</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'descanso') {
-                encabezadoAlt = '<th>Día de descanso</th><th>Atenciones promedio</th><th></th>';
-                encabezadoEsc = '<th>Escenario</th><th>Factor de afluencia (1 = normal)</th><th>Probabilidad</th><th></th>';
+                encabezadoAlt = '<th>Día de descanso</th><th>Atenciones esperadas</th>';
+                encabezadoEsc = '<th>Escenario</th><th>Atenciones totales en la semana</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'promocion') {
-                encabezadoAlt = '<th>Producto</th><th></th>';
+                encabezadoAlt = '<th>Producto</th><th>Precio actual</th><th>Descuento (%)</th><th>Precio promocional</th><th>Pérdida por pieza</th><th></th>';
                 encabezadoEsc = '<th>Escenario</th><th>% del stock que se vende</th><th>Probabilidad</th><th></th>';
             } else if (decTipo === 'precio') {
                 encabezadoAlt = '<th>Alternativa</th><th>Precio de venta ($ MXN)</th><th></th>';
-                encabezadoEsc = '<th>Escenario</th><th>Factor de demanda (1 = demanda base)</th><th>Probabilidad</th><th></th>';
+                encabezadoEsc = '<th>Escenario</th><th>Factor de demanda</th><th>Probabilidad</th><th></th>';
             }
 
             let filasAlt = '';
@@ -4356,7 +4383,7 @@
             }
 
             let botonAlt = '';
-            if (decAlternativas.length < 7) {
+            if (decAlternativas.length < 7 && decTipo !== 'descanso') {
                 botonAlt = '<button type="button" class="btn-add-item" style="margin-top:10px;" onclick="agregarAlternativaDecision()">+ Agregar alternativa</button>';
             }
             let botonEsc = '';
@@ -4373,22 +4400,9 @@
                 listaProv = '<datalist id="listaProveedoresDecision">' + opcionesProv + '</datalist>';
             }
 
-            let notaProveedor = '';
-            if (decTipo === 'proveedor' && decNotaProv) {
-                notaProveedor = '<p style="font-size:0.8rem; margin-bottom:10px;">' + esc(decNotaProv) + '</p>';
-            }
-            let notaPiezas = '';
-            let notaPrecio = '';
-            if (decTipo === 'precio') {
-                notaPrecio = '<p style="font-size:0.8rem; margin-bottom:10px;">Piezas esperadas = demanda base × factor del escenario × (precio / precio actual) ^ elasticidad. La elasticidad es un supuesto: tus ventas no muestran cómo reacciona la demanda a precios distintos.</p>';
-            }
-
             cont.innerHTML = `
                 ${camposGlobales}
                 ${listaProv}
-                ${notaProveedor}
-                ${notaPrecio}
-                ${notaPiezas}
                 <div class="form-grid">
                     <div>
                         <h3 style="font-size:0.9rem;">Alternativas (2 a 7)</h3>
@@ -4407,18 +4421,10 @@
                         ${botonEsc}
                     </div>
                 </div>
-                <p style="font-size:0.8rem;">Las probabilidades deben sumar 1. Se usan solo para el VME; los demás criterios no las necesitan.</p>
+                <p style="font-size:0.8rem;">Las probabilidades deben sumar 1.</p>
                 <button type="button" class="btn-action" id="btnCalcularDecision" onclick="calcularDecision()">Calcular decisión</button>
             `;
             renderizarSistemaExperto();
-        }
-
-        function cambiarDiaDecision(k) {
-            const sel = document.getElementById('decAltNombre' + k);
-            const campo = document.getElementById('decAltValor' + k);
-            if (sel && campo) {
-                campo.value = promedioDia(sel.value);
-            }
         }
 
         function agregarAlternativaDecision() {
@@ -4455,14 +4461,14 @@
                     alert('No hay más productos en el catálogo.');
                     return;
                 }
-                nueva = { nombre: '', valor: '', costo: '', producto: String(libre.id) };
+                nueva = { nombre: '', valor: '', costo: '', descuento: decGlobal.descuento, producto: String(libre.id) };
             } else if (decTipo === 'proveedor') {
                 const primero = productoPorId(decGlobal.productoId);
                 let costoBase = 0;
                 if (primero) {
                     costoBase = Number(primero.costo_compra);
                 }
-                nueva = { nombre: 'Proveedor ' + (decAlternativas.length + 1), valor: 10, costo: costoBase, producto: '' };
+                nueva = { nombre: 'Proveedor ' + (decAlternativas.length + 1), valor: 10, costo: costoBase, descuento: '', producto: '' };
             } else if (decTipo === 'mecanico') {
                 nueva = { nombre: 'Opción ' + (decAlternativas.length + 1), valor: 0, costo: 0, producto: '' };
             } else if (decTipo === 'precio') {
@@ -4543,10 +4549,34 @@
         }
 
         function armarCuerpoProveedor(cuerpo) {
+            const costosAlt = [];
+            for (let k = 0; k < decAlternativas.length; k++) {
+                const costoBase = parseFloat(decAlternativas[k].costo);
+                if (Number.isNaN(costoBase) || costoBase < 0) {
+                    alert('Captura un costo por pieza válido en el proveedor ' + (k + 1) + '.');
+                    return false;
+                }
+                let descuento = parseFloat(decAlternativas[k].descuento);
+                if (Number.isNaN(descuento)) {
+                    descuento = 0;
+                }
+                if (descuento < 0 || descuento > 100) {
+                    alert('El descuento del proveedor ' + (k + 1) + ' debe estar entre 0 y 100.');
+                    return false;
+                }
+                const costoFinal = Math.round(costoBase * (1 - descuento / 100) * 10000) / 10000;
+                let nombre = String(decAlternativas[k].nombre).trim();
+                if (nombre === '') {
+                    nombre = 'Proveedor ' + (k + 1);
+                }
+                costosAlt.push(costoFinal);
+                decCostosPiezas.push({ nombre: nombre, piezas: Number(decAlternativas[k].valor), descuento: descuento, costoBase: costoBase, costo: costoFinal });
+            }
             cuerpo.producto_id = decGlobal.productoId;
             cuerpo.rescate = decGlobal.rescate;
             cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-            cuerpo.costos = listaDe(decAlternativas, 'costo');
+            cuerpo.costos = costosAlt;
+            return true;
         }
 
         function armarCuerpoMecanico(cuerpo) {
@@ -4556,17 +4586,52 @@
         }
 
         function armarCuerpoDescanso(cuerpo) {
-            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
-            cuerpo.total_semana = '';
-            if (decApoyo) {
-                cuerpo.total_semana = decApoyo.totalSemana;
+            let suma = 0;
+            for (let k = 0; k < decAlternativas.length; k++) {
+                const dia = parseFloat(decAlternativas[k].valor);
+                if (Number.isNaN(dia) || dia < 0) {
+                    alert('Captura un número de atenciones válido para ' + decAlternativas[k].nombre + '.');
+                    return false;
+                }
+                suma = suma + dia;
             }
+            if (suma <= 0) {
+                alert('Captura al menos una atención esperada en la semana.');
+                return false;
+            }
+            const factores = [];
+            for (let k = 0; k < decEscenarios.length; k++) {
+                const total = parseFloat(decEscenarios[k].valor);
+                if (Number.isNaN(total) || total <= 0) {
+                    alert('Captura las atenciones totales de la semana en el escenario ' + (k + 1) + '.');
+                    return false;
+                }
+                factores.push(Math.round(total / suma * 10000) / 10000);
+            }
+            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.escenarios = factores;
+            cuerpo.total_semana = suma;
+            return true;
         }
 
         function armarCuerpoPromocion(cuerpo) {
+            const descuentos = [];
+            for (let k = 0; k < decAlternativas.length; k++) {
+                let descuento = parseFloat(decAlternativas[k].descuento);
+                if (Number.isNaN(descuento)) {
+                    descuento = 0;
+                }
+                if (descuento < 0 || descuento > 100) {
+                    alert('El descuento del producto ' + (k + 1) + ' debe estar entre 0 y 100.');
+                    return false;
+                }
+                descuentos.push(descuento);
+            }
             cuerpo.productos = listaDe(decAlternativas, 'producto');
-            cuerpo.descuento = decGlobal.descuento;
+            cuerpo.descuentos = descuentos;
+            cuerpo.descuento = descuentos[0];
             cuerpo.costo_promocion = decGlobal.costoPromo;
+            return true;
         }
 
         function armarCuerpoPrecio(cuerpo) {
@@ -4595,13 +4660,22 @@
                     return;
                 }
             } else if (decTipo === 'proveedor') {
-                armarCuerpoProveedor(cuerpo);
+                const correctoProv = armarCuerpoProveedor(cuerpo);
+                if (!correctoProv) {
+                    return;
+                }
             } else if (decTipo === 'mecanico') {
                 armarCuerpoMecanico(cuerpo);
             } else if (decTipo === 'descanso') {
-                armarCuerpoDescanso(cuerpo);
+                const correctoDescanso = armarCuerpoDescanso(cuerpo);
+                if (!correctoDescanso) {
+                    return;
+                }
             } else if (decTipo === 'promocion') {
-                armarCuerpoPromocion(cuerpo);
+                const correctoPromo = armarCuerpoPromocion(cuerpo);
+                if (!correctoPromo) {
+                    return;
+                }
             } else if (decTipo === 'precio') {
                 armarCuerpoPrecio(cuerpo);
             }
@@ -4701,7 +4775,7 @@
             }
 
             let cajaCostos = '';
-            if (decTipo === 'piezas' && decCostosPiezas.length > 0) {
+            if ((decTipo === 'piezas' || decTipo === 'proveedor') && decCostosPiezas.length > 0) {
                 let filasCosto = '';
                 for (let i = 0; i < decCostosPiezas.length; i++) {
                     const c = decCostosPiezas[i];
@@ -4727,7 +4801,7 @@
             document.getElementById('resultadoDecision').innerHTML = `
                 ${cajaCostos}
                 <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Tabla de pagos (${tituloPagos} de cada alternativa en cada escenario)</h3>
+                    <h3 style="font-size:0.9rem;">Tabla de pagos (${tituloPagos})</h3>
                     ${tablaMatrizDecision(r, r.pagos, true)}
                 </div>
                 <div class="summary-box">
@@ -4735,7 +4809,7 @@
                     ${tablaMatrizDecision(r, r.arrepentimientos, false)}
                 </div>
                 <div class="summary-box">
-                    <h3 style="font-size:0.9rem;">Resultado de cada criterio ((mejor) marca la mejor alternativa)</h3>
+                    <h3 style="font-size:0.9rem;">Resultado de cada criterio</h3>
                     <div class="table-scroll"><table class="data-table">
                         <thead><tr><th>Alternativa</th>${encabezadoCriterios}</tr></thead>
                         <tbody>${filasCriterios}</tbody>
@@ -4881,7 +4955,7 @@
                 cont.innerHTML = `
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
-                        <p style="font-size:0.85rem; margin-bottom:8px;">Producto analizado: <strong>[${esc(p.sku)}] ${esc(p.nombre)}</strong>. Usa el stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días.</p>
+                        <p style="font-size:0.85rem; margin-bottom:8px;">Producto analizado: <strong>[${esc(p.sku)}] ${esc(p.nombre)}</strong>.</p>
                         <div class="table-scroll"><table class="data-table">
                             <thead><tr><th>Dato</th><th>Valor</th><th>Nivel</th></tr></thead>
                             <tbody>
@@ -4920,7 +4994,6 @@
             cont.innerHTML = `
                 <div class="summary-box">
                     <h3 style="font-size:0.9rem;">Sistema experto de reabastecimiento</h3>
-                    <p style="font-size:0.85rem; margin-bottom:8px;">Recomendación para los productos que estás comparando, según su stock actual y las piezas vendidas en los últimos ${decApoyo.dias} días.</p>
                     <div class="table-scroll"><table class="data-table">
                         <thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Vendidas</th><th>Nivel (stock / rotación)</th><th>Regla</th><th>Recomendación</th></tr></thead>
                         <tbody>${filas}</tbody>
@@ -4931,7 +5004,7 @@
 
         function cambiarProductoPromocion() {
             leerFormularioDecision();
-            renderizarSistemaExperto();
+            renderizarFormularioDecision();
         }
 
         function aplicarUmbralesExperto() {
