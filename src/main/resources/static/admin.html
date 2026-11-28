@@ -507,8 +507,8 @@
         }
 
         /* Ampliar gráficas del DSS al hacer clic */
-        #decGraficas .grafica-card { cursor: zoom-in; }
-        #decGraficas .grafica-card:hover { border-color: var(--accent-strong); }
+        #decGraficas .grafica-card, #decGraficasFinal .grafica-card { cursor: zoom-in; }
+        #decGraficas .grafica-card:hover, #decGraficasFinal .grafica-card:hover { border-color: var(--accent-strong); }
         #decZoom { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.75); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
         #decZoomCaja { position: relative; background: #f8fbff; border-radius: 14px; width: min(1100px, 94vw); max-height: 92vh; overflow: auto; padding: 28px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); }
         #decZoomCerrar { position: absolute; top: 10px; right: 14px; border: none; background: transparent; font-size: 1.6rem; cursor: pointer; line-height: 1; }
@@ -4511,6 +4511,7 @@
             if (!cont) {
                 return;
             }
+            cont.style.display = 'none';
             let html = '';
             if (decTipo === 'piezas' || decTipo === 'precio' || decTipo === 'promocion') {
                 html = graficasProducto();
@@ -4538,31 +4539,7 @@
                 return;
             }
             if (decTipo === 'precio') {
-                const prod = productoPorId(decGlobal.productoId);
-                if (!prod) {
-                    cont.innerHTML = '<div class="summary-box no-print"><p style="font-size:0.85rem;">No hay productos en el catálogo.</p></div>';
-                    return;
-                }
-                const costo = Number(decGlobal.costo);
-                const precio = Number(prod.precio);
-                let vendidas = 0;
-                let mensual = 0;
-                let periodoTxt = '';
-                if (decPrecioApoyo) {
-                    vendidas = Number(decPrecioApoyo.vendidas);
-                    mensual = Number(decPrecioApoyo.demandaMensual);
-                    periodoTxt = ' (últimos ' + decPrecioApoyo.dias + ' días)';
-                }
-                cont.innerHTML = `
-                    <div class="summary-box">
-                        <h3 style="font-size:0.9rem;">Datos del producto${periodoTxt}</h3>
-                        <div class="report-summary-grid">
-                            <div class="report-total-card">Costo vigente<strong>${formatearMoneda(costo)}</strong></div>
-                            <div class="report-total-card">Precio actual<strong>${formatearMoneda(precio)}</strong></div>
-                            <div class="report-total-card">Margen actual por pieza<strong>${formatearMoneda(precio - costo)}</strong></div>
-                            <div class="report-total-card">Piezas vendidas en el periodo<strong>${vendidas.toFixed(0)}</strong></div>
-                        </div>
-                    </div>`;
+                cont.innerHTML = '';
                 return;
             }
             if (!decApoyo) {
@@ -5324,6 +5301,14 @@
                 + '<tbody>' + filas + '</tbody></table></div>';
         }
 
+        function tablasFinalDecision() {
+            const g = document.getElementById('decGraficas');
+            if (g && g.firstElementChild) {
+                return '<div id="decGraficasFinal"><div class="grafica-grid">' + g.firstElementChild.innerHTML + '</div></div>';
+            }
+            return '';
+        }
+
         function mostrarResultadoDecision(r) {
             let encabezadoCriterios = '';
             for (let c = 0; c < r.criterios.length; c++) {
@@ -5441,6 +5426,7 @@
                     </div>
                     ${bloqueExperto}
                 </div>
+                ${tablasFinalDecision()}
                 <button type="button" class="btn-action no-print" onclick="imprimirReporte()">Imprimir / Guardar PDF</button>
             `;
         }
@@ -5551,7 +5537,7 @@
             if (t.closest('button, input, select, a, label')) {
                 return;
             }
-            const elemento = t.closest('#decGraficas .grafica-card');
+            const elemento = t.closest('#decGraficas .grafica-card, #decGraficasFinal .grafica-card');
             if (elemento) {
                 abrirZoomDecision(elemento);
             }
