@@ -488,6 +488,24 @@
             color: var(--muted);
         }
 
+        /* Tarjetas de datos más compactas, solo en el módulo de decisiones (DSS) */
+        #decApoyo .report-summary-grid {
+            grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        #decApoyo .report-total-card {
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            line-height: 1.25;
+        }
+
+        #decApoyo .report-total-card strong {
+            margin-top: 3px;
+            font-size: 1rem;
+        }
+
         .fondo-input {
             width: 100%;
             padding: 8px 10px;
@@ -4321,7 +4339,7 @@
                 ['Ingresos', formatearMoneda(sumaLista(s.ingresos))]
             ]);
             html += tarjetaGrafica('Ventas', 'piezas por semana', graficaLinea(s.etiquetas, s.piezas, false));
-            html += tarjetaGrafica('Ingresos', 'por semana', graficaLinea(s.etiquetas, s.ingresos, true));
+            html += tarjetaGrafica('Ventas en dinero', 'importe vendido por semana (MXN)', graficaBarras(s.etiquetas, s.ingresos, true));
             if (decTipo === 'promocion' && decApoyo && decApoyo.rotacion) {
                 const etiquetas = [];
                 const valores = [];
@@ -4356,7 +4374,7 @@
             for (let i = 0; i < decApoyo.atenciones.length; i++) {
                 const d = decApoyo.atenciones[i];
                 etiquetas.push(d.dia);
-                valores.push(Number(d.promedio));
+                valores.push(Number(d.total));
                 total = total + Number(d.total);
                 if (d.ocurrencias > 0 && (menor === null || d.promedio < menor.promedio)) {
                     menor = d;
@@ -4370,7 +4388,7 @@
                 ['Atenciones registradas', String(total)],
                 ['Día con menos movimiento', nombreMenor]
             ]);
-            html += tarjetaGrafica('Atenciones', 'promedio por día de la semana', graficaBarras(etiquetas, valores, false));
+            html += tarjetaGrafica('Atenciones', 'total por día de la semana', graficaBarras(etiquetas, valores, false));
             const sem = serviciosSemanales();
             html += tarjetaGrafica('Ingresos de mantenimiento', 'por semana', graficaLinea(sem.etiquetas, sem.ingresos, true));
             return html;
@@ -4482,14 +4500,13 @@
                         <tr>
                             <td>${marca}<strong>${esc(d.dia)}</strong></td>
                             <td>${d.total}</td>
-                            <td>${Number(d.promedio).toFixed(2)}</td>
                         </tr>`;
                 }
                 cont.innerHTML = `
                     <div class="summary-box">
                         <h3 style="font-size:0.9rem;">Atenciones por día de la semana (${periodo})</h3>
                         <div class="table-scroll"><table class="data-table">
-                            <thead><tr><th>Día</th><th>Atenciones registradas</th><th>Promedio por día</th></tr></thead>
+                            <thead><tr><th>Día</th><th>Atenciones registradas</th></tr></thead>
                             <tbody>${filas}</tbody>
                         </table></div>
                     </div>`;
@@ -5264,7 +5281,7 @@
                     </tr>`;
                 bloqueExperto = `
                     <div class="summary-row total">
-                        <span>Sistema experto (${experto.regla.id}): ${esc(experto.regla.motivo)}</span>
+                        <span>Sistema experto: ${esc(experto.regla.motivo)}</span>
                         <span class="rec-${experto.regla.color}">${experto.regla.texto}</span>
                     </div>`;
             }
@@ -5390,7 +5407,7 @@
                 return null;
             }
             const resumen = 'Stock ' + p.stock + ' (' + inf.nivelStock + ') · Vendidas ' + Number(p.vendidas).toFixed(0)
-                + ' en ' + decApoyo.dias + ' días (' + inf.nivelRot + ') · Regla ' + inf.regla.id + ':';
+                + ' en ' + decApoyo.dias + ' días (' + inf.nivelRot + '):';
             return { regla: inf.regla, resumen: resumen };
         }
 
