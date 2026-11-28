@@ -490,7 +490,7 @@
 
         /* Tarjetas de datos más compactas, solo en el módulo de decisiones (DSS) */
         #decApoyo .report-summary-grid {
-            grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
+            grid-template-columns: repeat(auto-fit, minmax(140px, 190px));
             gap: 10px;
             margin: 10px 0;
         }
@@ -505,6 +505,18 @@
             margin-top: 3px;
             font-size: 1rem;
         }
+
+        /* Ampliar gráficas del DSS al hacer clic */
+        #decGraficas .grafica-card { cursor: zoom-in; }
+        #decGraficas .grafica-card:hover { border-color: var(--accent-strong); }
+        #decZoom { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(15, 23, 42, 0.75); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+        #decZoomCaja { position: relative; background: #f8fbff; border-radius: 14px; width: min(1100px, 94vw); max-height: 92vh; overflow: auto; padding: 28px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); }
+        #decZoomCerrar { position: absolute; top: 10px; right: 14px; border: none; background: transparent; font-size: 1.6rem; cursor: pointer; line-height: 1; }
+        .dec-zoom-contenido { font-size: 1.2rem; cursor: default; }
+        .dec-zoom-contenido .grafica-card { font-size: 1.2rem; cursor: default; }
+        .dec-zoom-contenido .grafica-card h4 { font-size: 1.5rem; }
+        .dec-zoom-contenido .grafica-kpi strong { font-size: 2rem; }
+        @media print { #decZoom { display: none; } }
 
         .fondo-input {
             width: 100%;
@@ -3707,6 +3719,30 @@
             return 0;
         }
 
+        function totalDia(nombre) {
+            if (!decApoyo) {
+                return 0;
+            }
+            for (let i = 0; i < decApoyo.atenciones.length; i++) {
+                if (decApoyo.atenciones[i].dia === nombre) {
+                    return Number(decApoyo.atenciones[i].total);
+                }
+            }
+            return 0;
+        }
+
+        function ocurrenciasDia(nombre) {
+            if (!decApoyo) {
+                return 0;
+            }
+            for (let i = 0; i < decApoyo.atenciones.length; i++) {
+                if (decApoyo.atenciones[i].dia === nombre) {
+                    return Number(decApoyo.atenciones[i].ocurrencias);
+                }
+            }
+            return 0;
+        }
+
         function opcionesProductosDecision(seleccionado) {
             let html = '';
             for (let i = 0; i < catalogoCache.length; i++) {
@@ -4046,16 +4082,16 @@
             } else if (decTipo === 'descanso') {
                 decAlternativas = [];
                 for (let i = 0; i < DIAS_SEMANA.length; i++) {
-                    decAlternativas.push({ nombre: DIAS_SEMANA[i], valor: promedioDia(DIAS_SEMANA[i]), costo: '', producto: '' });
+                    decAlternativas.push({ nombre: DIAS_SEMANA[i], valor: totalDia(DIAS_SEMANA[i]), costo: '', producto: '' });
                 }
                 let sumaDias = 0;
                 for (let i = 0; i < DIAS_SEMANA.length; i++) {
-                    sumaDias = sumaDias + Number(promedioDia(DIAS_SEMANA[i]));
+                    sumaDias = sumaDias + totalDia(DIAS_SEMANA[i]);
                 }
                 decEscenarios = armarEscenarios([
-                    ['Semana baja', redondear(sumaDias * 0.8)],
-                    ['Semana normal', redondear(sumaDias)],
-                    ['Semana alta', redondear(sumaDias * 1.2)]
+                    ['Semana baja', Math.round(sumaDias * 0.8)],
+                    ['Semana normal', Math.round(sumaDias)],
+                    ['Semana alta', Math.round(sumaDias * 1.2)]
                 ]);
             } else if (decTipo === 'promocion') {
                 if (ap) {
@@ -4354,12 +4390,68 @@
 
         function graficasServicios() {
             const s = serviciosSemanales();
+            const r = rangoDecision();
+
+            const nombresMec = [];
+            const cantidadesMec = [];
+            const importesMec = [];
+            const nombresServ = [];
+            const importesServ = [];
+            for (let i = 0; i < decCobros.length; i++) {
+                const c = decCobros[i];
+                const fecha = fechaLocalISO(new Date(Number(c.fechaPago)));
+                if (fecha >= r.inicio && fecha <= r.fin) {
+                    let mecanico = 'Sin asignar';
+                    if (c.mecanico) {
+                        mecanico = c.mecanico;
+                    }
+                    let iMec = nombresMec.indexOf(mecanico);
+                    if (iMec === -1) {
+                        nombresMec.push(mecanico);
+                        cantidadesMec.push(0);
+                        importesMec.push(0);
+                        iMec = nombresMec.length - 1;
+                    }
+                    cantidadesMec[iMec] = cantidadesMec[iMec] + 1;
+                    importesMec[iMec] = importesMec[iMec] + Number(c.total || 0);
+
+                    let servicio = String(c.servicioRealizado || c.servicioSolicitado || 'Sin especificar').trim();
+                    if (servicio === '') {
+                        servicio = 'Sin especificar';
+                    }
+                    let iServ = nombresServ.indexOf(servicio);
+                    if (iServ === -1) {
+                        nombresServ.push(servicio);
+                        importesServ.push(0);
+                        iServ = nombresServ.length - 1;
+                    }
+                    importesServ[iServ] = importesServ[iServ] + Number(c.total || 0);
+                }
+            }
+            for (let a = 0; a < nombresServ.length - 1; a++) {
+                for (let b = a + 1; b < nombresServ.length; b++) {
+                    if (importesServ[b] > importesServ[a]) {
+                        const tn = nombresServ[a];
+                        nombresServ[a] = nombresServ[b];
+                        nombresServ[b] = tn;
+                        const ti = importesServ[a];
+                        importesServ[a] = importesServ[b];
+                        importesServ[b] = ti;
+                    }
+                }
+            }
+            nombresServ.length = Math.min(nombresServ.length, 8);
+            importesServ.length = nombresServ.length;
+
             let html = tarjetaKpi('Taller (periodo de ' + diasDecision() + ' días)', [
                 ['Servicios cobrados', sumaLista(s.servicios).toFixed(0)],
                 ['Ingresos', formatearMoneda(sumaLista(s.ingresos))]
             ]);
             html += tarjetaGrafica('Ingresos de mantenimiento', 'por semana', graficaLinea(s.etiquetas, s.ingresos, true));
+            html += tarjetaGrafica('Ingresos por mecánico', 'importe cobrado en el periodo (MXN)', graficaBarras(nombresMec, importesMec, true));
             html += tarjetaGrafica('Servicios', 'por semana', graficaLinea(s.etiquetas, s.servicios, false));
+            html += tarjetaGrafica('Ingreso por servicio', 'importe cobrado por tipo de servicio (MXN)', graficaBarras(nombresServ, importesServ, true));
+            html += tarjetaGrafica('Servicios por mecánico', 'servicios cobrados en el periodo', graficaBarras(nombresMec, cantidadesMec, false));
             return html;
         }
 
@@ -4469,7 +4561,6 @@
                             <div class="report-total-card">Precio actual<strong>${formatearMoneda(precio)}</strong></div>
                             <div class="report-total-card">Margen actual por pieza<strong>${formatearMoneda(precio - costo)}</strong></div>
                             <div class="report-total-card">Piezas vendidas en el periodo<strong>${vendidas.toFixed(0)}</strong></div>
-                            <div class="report-total-card">Demanda mensual real<strong>${mensual.toFixed(1)}</strong></div>
                         </div>
                     </div>`;
                 return;
@@ -4685,7 +4776,7 @@
             if (decTipo === 'descanso') {
                 return `<tr>
                     <td><strong>${esc(a.nombre)}</strong><input type="hidden" id="decAltNombre${k}" value="${esc(a.nombre)}"></td>
-                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"')}</td></tr>`;
+                    <td>${entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="1"')}</td></tr>`;
             }
             if (decTipo === 'precio') {
                 return '<tr><td>Precio ' + (k + 1) + '</td><td>' + entradaDecision('decAltValor' + k, a.valor, 'number', 'min="0" step="0.01"') + '</td><td>' + quitar + '</td></tr>';
@@ -4739,7 +4830,7 @@
             }
             let paso = 'min="0" step="1"';
             if (decTipo === 'descanso') {
-                paso = 'min="0" step="0.1"';
+                paso = 'min="0" step="1"';
             }
             if (decTipo === 'precio') {
                 paso = 'min="0.1" step="0.05"';
@@ -4945,7 +5036,7 @@
                     alert('Ya están los siete días de la semana.');
                     return;
                 }
-                nueva = { nombre: libre, valor: promedioDia(libre), costo: '', producto: '' };
+                nueva = { nombre: libre, valor: totalDia(libre), costo: '', producto: '' };
             } else if (decTipo === 'promocion') {
                 let ultimoDesc = 0;
                 if (decAlternativas.length > 0) {
@@ -5083,31 +5174,40 @@
         }
 
         function armarCuerpoDescanso(cuerpo) {
-            let suma = 0;
+            let sumaEnteros = 0;
+            let sumaPromedios = 0;
+            const promedios = [];
             for (let k = 0; k < decAlternativas.length; k++) {
                 const dia = parseFloat(decAlternativas[k].valor);
                 if (Number.isNaN(dia) || dia < 0) {
                     alert('Captura un número de atenciones válido para ' + decAlternativas[k].nombre + '.');
                     return false;
                 }
-                suma = suma + dia;
+                sumaEnteros = sumaEnteros + dia;
+                const ocurrencias = ocurrenciasDia(decAlternativas[k].nombre);
+                let promedio = dia;
+                if (ocurrencias > 0) {
+                    promedio = dia / ocurrencias;
+                }
+                promedios.push(Math.round(promedio * 10000) / 10000);
+                sumaPromedios = sumaPromedios + promedio;
             }
-            if (suma <= 0) {
-                alert('Captura al menos una atención esperada en la semana.');
+            if (sumaEnteros <= 0) {
+                alert('Captura al menos una atención registrada en el periodo.');
                 return false;
             }
             const factores = [];
             for (let k = 0; k < decEscenarios.length; k++) {
                 const total = parseFloat(decEscenarios[k].valor);
                 if (Number.isNaN(total) || total <= 0) {
-                    alert('Captura las atenciones totales de la semana en el escenario ' + (k + 1) + '.');
+                    alert('Captura las atenciones totales en el escenario ' + (k + 1) + '.');
                     return false;
                 }
-                factores.push(Math.round(total / suma * 10000) / 10000);
+                factores.push(Math.round(total / sumaEnteros * 10000) / 10000);
             }
-            cuerpo.alternativas = listaDe(decAlternativas, 'valor');
+            cuerpo.alternativas = promedios;
             cuerpo.escenarios = factores;
-            cuerpo.total_semana = suma;
+            cuerpo.total_semana = sumaPromedios;
             return true;
         }
 
@@ -5410,6 +5510,58 @@
                 + ' en ' + decApoyo.dias + ' días (' + inf.nivelRot + '):';
             return { regla: inf.regla, resumen: resumen };
         }
+
+        function cerrarZoomDecision() {
+            const previo = document.getElementById('decZoom');
+            if (previo) {
+                previo.remove();
+            }
+        }
+
+        function abrirZoomDecision(elemento) {
+            cerrarZoomDecision();
+            const fondo = document.createElement('div');
+            fondo.id = 'decZoom';
+            const caja = document.createElement('div');
+            caja.id = 'decZoomCaja';
+            const cerrar = document.createElement('button');
+            cerrar.id = 'decZoomCerrar';
+            cerrar.type = 'button';
+            cerrar.innerHTML = '&times;';
+            cerrar.onclick = cerrarZoomDecision;
+            const contenido = document.createElement('div');
+            contenido.className = 'dec-zoom-contenido';
+            contenido.appendChild(elemento.cloneNode(true));
+            caja.appendChild(cerrar);
+            caja.appendChild(contenido);
+            fondo.appendChild(caja);
+            fondo.onclick = function (e) {
+                if (e.target === fondo) {
+                    cerrarZoomDecision();
+                }
+            };
+            document.body.appendChild(fondo);
+        }
+
+        document.addEventListener('click', function (e) {
+            const t = e.target;
+            if (!t || !t.closest || t.closest('#decZoom')) {
+                return;
+            }
+            if (t.closest('button, input, select, a, label')) {
+                return;
+            }
+            const elemento = t.closest('#decGraficas .grafica-card');
+            if (elemento) {
+                abrirZoomDecision(elemento);
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                cerrarZoomDecision();
+            }
+        });
 
         window.onload = function () {
             cambiarVistaAdmin('compras', document.querySelector('.nav-btn'));
